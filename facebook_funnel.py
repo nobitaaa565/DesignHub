@@ -76,12 +76,25 @@ def save_replied_ids(ids: set):
         pass
 
 
+RESTART_BUTTON = {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+
+
 def send_fb_message(recipient_id: str, text: str, page_token: str, quick_replies=None) -> bool:
-    """Send message to customer with optional quick reply buttons."""
+    """Send message to customer with quick reply buttons, ALWAYS guaranteeing the Restart button is present."""
     url = f"https://graph.facebook.com/v20.0/me/messages?access_token={page_token}"
-    msg_payload = {"text": text}
-    if quick_replies:
-        msg_payload["quick_replies"] = quick_replies
+    
+    if quick_replies is None:
+        buttons = [RESTART_BUTTON]
+    else:
+        buttons = list(quick_replies)
+        has_restart = any(b.get("payload") == "ACTION_RESTART" for b in buttons)
+        if not has_restart:
+            buttons.append(RESTART_BUTTON)
+
+    msg_payload = {
+        "text": text,
+        "quick_replies": buttons
+    }
 
     payload = {
         "recipient": {"id": recipient_id},
