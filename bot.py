@@ -35,7 +35,7 @@ from subscription_manager import (
     format_subscriber_card
 )
 from dotenv import load_dotenv
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -401,15 +401,23 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ai_status = "🟢 Gemini 3.5 Flash (Active)" if GEMINI_API_KEY else "🔴 Inactive"
     replied_ids = load_replied_ids()
 
+    stats = get_db_stats()
     status_msg = (
-        f"📊 *System Status*\n"
-        f"• Your Telegram ID: `{user.id}`\n"
-        f"• FB Page: {fb_status}\n"
-        f"• Page ID: `{FB_PAGE_ID}`\n"
-        f"• AI Engine: {ai_status}\n"
-        f"• Auto-Comment Responder: 🟢 Active (Checks every 60s)\n"
-        f"• Total Comments Handled: `{len(replied_ids)}`\n"
-        f"• Active Paid Subs: `{get_db_stats()['active_paid']}` | Pending: `{get_db_stats()['pending']}`\n"
+        f"📊 *Design Hub — System Status*\n"
+        f"────────────────────────\n"
+        f"🌐 *Facebook Page:* {fb_status}\n"
+        f"🆔 *Page ID:* `{FB_PAGE_ID}`\n"
+        f"💬 *Comment Auto-Responder:* 🟢 Active (Every 60s)\n"
+        f"📬 *Comments Handled:* `{len(replied_ids)}`\n"
+        f"🤖 *AI Vision & Engine:* 🟢 Gemini 3.8 Flash\n"
+        f"────────────────────────\n"
+        f"👥 *Customer & Subscription Overview:*\n"
+        f"• 👥 *Total Customers:* `{stats['total']}`\n"
+        f"• 🟢 *Active Paid Members:* `{stats['active_paid']}`\n"
+        f"• 🟡 *Pending Payments:* `{stats['pending']}`\n"
+        f"• 🔴 *Kicked / Revoked:* `{stats['kicked']}`\n"
+        f"────────────────────────\n"
+        f"💡 *Commands:* `/subs` to list members | `/add` to enroll"
     )
     await update.message.reply_text(status_msg, parse_mode="Markdown")
 
