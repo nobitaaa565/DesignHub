@@ -20,7 +20,7 @@ import asyncio
 from pathlib import Path
 import requests
 
-from subscription_manager import add_subscriber, mark_paid, get_subscriber, create_expiring_invite
+from subscription_manager import add_subscriber, mark_paid, get_subscriber, create_expiring_invite, get_customer_id_by_sender
 from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 
 logger = logging.getLogger("FacebookFunnel")
@@ -308,10 +308,11 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             ]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
 
+            cid = get_customer_id_by_sender(sender_id, sender_name, email_info)
             caption = (
                 f"📸 *NEW PAYMENT SCREENSHOT VERIFIED VIA GEMINI! (Messenger)*\n"
                 f"────────────────────────\n"
-                f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
+                f"👤 Customer: {sender_name} (ID: `#{cid}`)\n"
                 f"📧 Email: `{email_info}`\n"
                 f"📦 Package: {pkg_info}\n"
                 f"📱 Provider: {provider}\n"
@@ -341,10 +342,11 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             ]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
 
+            cid = get_customer_id_by_sender(sender_id, sender_name, email_info)
             caption = (
                 f"⚠️ *MANUAL PAYMENT SCREENSHOT RECEIVED (Messenger)*\n"
                 f"────────────────────────\n"
-                f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
+                f"👤 Customer: {sender_name} (ID: `#{cid}`)\n"
                 f"📧 Email: `{email_info}`\n"
                 f"📦 Package: {pkg_info}\n"
                 f"⚠️ OCR Status: TrxID not automatically detected. Please check image manually.\n"
@@ -379,10 +381,11 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         # Notify Telegram Owner with 1-Tap Action
         email_info = state.get("email") or state.get("saved_email") or "Unknown"
         pkg_info = state.get("package_name", "Canva Pro")
+        cid = get_customer_id_by_sender(sender_id, sender_name, email_info)
         alert = (
             f"💳 *NEW PAYMENT PROOF RECEIVED! (Messenger)*\n"
             f"────────────────────────\n"
-            f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
+            f"👤 Customer: {sender_name} (ID: `#{cid}`)\n"
             f"📧 Email: `{email_info}`\n"
             f"📦 Package: {pkg_info}\n"
             f"🔢 TrxID: `{trx_id}`\n"
@@ -482,7 +485,8 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             pkg_price = state.get("package_price", 25)
 
             # 1. Enroll in database as PENDING payment
-            add_subscriber(confirmed_email, pkg_key, sender_name)
+            sub = add_subscriber(confirmed_email, pkg_key, sender_name, fb_sender_id=sender_id)
+            cid = sub.get("customer_id") or get_customer_id_by_sender(sender_id, sender_name, confirmed_email)
 
             # 2. Generate 30-minute expiring invite link (each time brand-new token)
             link_data = create_expiring_invite(confirmed_email, minutes=30)
@@ -490,6 +494,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 
             state["stage"] = "awaiting_payment"
             state["join_link"] = join_url
+            state["customer_id"] = cid
             states[sender_id] = state
             save_states(states)
 
@@ -515,7 +520,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             alert = (
                 f"⚡ *NEW CANVA PRO ACCESS DELIVERED! (Messenger)*\n"
                 f"────────────────────────\n"
-                f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
+                f"👤 Customer: {sender_name} (ID: `#{cid}`)\n"
                 f"📧 Email: `{confirmed_email}`\n"
                 f"📦 Package: {pkg_name}\n"
                 f"⏳ Status: 🟡 PENDING PAYMENT\n"

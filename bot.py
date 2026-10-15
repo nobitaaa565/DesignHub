@@ -936,7 +936,8 @@ async def list_subs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for s in subs[:15]:
         p_icon = "🟢" if s["payment_status"] == "PAID" else ("🔴" if s["status"] == "kicked" else "🟡")
         name_str = f" ({s['name']})" if s.get("name") else ""
-        lines.append(f"{p_icon} `{s['email']}`{name_str} — *{s['package']}* (Exp: {s['expires_at'][:10]})")
+        cid_str = f"`#{s.get('customer_id', 800)}` "
+        lines.append(f"{p_icon} {cid_str}`{s['email']}`{name_str} — *{s['package']}* (Exp: {s['expires_at'][:10]})")
 
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
@@ -946,17 +947,17 @@ async def check_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_auth(user.id):
         return
     if not context.args:
-        await update.message.reply_text("💡 *Usage:* `/check <email>`\n*Example:* `/check rahim@gmail.com`", parse_mode="Markdown")
+        await update.message.reply_text("💡 *Usage:* `/check <email or customer_id>`\n*Examples:* `/check 800` or `/check rahim@gmail.com`", parse_mode="Markdown")
         return
 
-    email = context.args[0]
-    sub = get_subscriber(email)
+    identifier = context.args[0]
+    sub = get_subscriber(identifier)
     if not sub:
-        await update.message.reply_text(f"❌ No subscriber found for `{email}`.", parse_mode="Markdown")
+        await update.message.reply_text(f"❌ No subscriber found for `{identifier}`.", parse_mode="Markdown")
         return
 
     card_text = format_subscriber_card(sub)
-    keyboard = make_subscriber_keyboard(email, is_paid=(sub.get("payment_status") == "PAID"))
+    keyboard = make_subscriber_keyboard(sub["email"], is_paid=(sub.get("payment_status") == "PAID"))
     await update.message.reply_text(card_text, reply_markup=keyboard, parse_mode="Markdown")
 
 
@@ -1152,9 +1153,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if token:
             send_payment_confirmed_to_customer(sender_id, sub.get("name", "Customer"), pkg_name, token)
 
+        cid = sub.get("customer_id", 800) if sub else 800
         card_text = (
             f"🎉 *PAYMENT VERIFIED & CONFIRMED TO CUSTOMER!*\n"
             f"────────────────────────\n"
+            f"🆔 *Customer ID:* `#{cid}`\n"
             f"👤 *Email:* `{email}`\n"
             f"📦 *Package:* {pkg_name}\n"
             f"💰 *Status:* 🟢 PAID (Active)\n"

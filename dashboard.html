@@ -593,6 +593,7 @@
                 <table>
                     <thead>
                         <tr>
+                            <th style="width: 80px;">ID</th>
                             <th>Customer</th>
                             <th>Package</th>
                             <th>Expiry Date</th>
@@ -603,7 +604,7 @@
                     </thead>
                     <tbody id="subscribersTbody">
                         <tr>
-                            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem;">Loading subscriber data...</td>
+                            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">Loading subscriber data...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -722,7 +723,7 @@
         function renderTable(list) {
             const tbody = document.getElementById("subscribersTbody");
             if (!list || list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem;">No subscribers found. Click <b>Add Subscriber</b> to create one.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">No subscribers found. Click <b>Add Subscriber</b> to create one.</td></tr>`;
                 return;
             }
 
@@ -738,8 +739,11 @@
 
                 const trx = sub.trx_id ? `<span style="font-family: monospace; font-size: 0.8rem; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${sub.trx_id}</span>` : `<span style="color: var(--text-muted); font-size: 0.8rem;">—</span>`;
 
+                const cidBadge = `<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #A78BFA; background: rgba(125, 42, 232, 0.15); padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; border: 1px solid rgba(167, 139, 250, 0.25);">#${sub.customer_id || 800}</span>`;
+
                 return `
                     <tr>
+                        <td>${cidBadge}</td>
                         <td>
                             <div class="customer-info">
                                 <span class="customer-email">${sub.email}</span>
@@ -769,11 +773,14 @@
         }
 
         function filterSubscribers() {
-            const query = document.getElementById("searchInput").value.toLowerCase();
+            const query = document.getElementById("searchInput").value.toLowerCase().trim();
+            const cleanQuery = query.replace('#', '');
             const filtered = allSubscribers.filter(s => 
+                (s.customer_id && s.customer_id.toString().includes(cleanQuery)) ||
                 (s.email && s.email.toLowerCase().includes(query)) ||
                 (s.name && s.name.toLowerCase().includes(query)) ||
-                (s.trx_id && s.trx_id.toLowerCase().includes(query))
+                (s.trx_id && s.trx_id.toLowerCase().includes(query)) ||
+                (s.package && s.package.toLowerCase().includes(query))
             );
             renderTable(filtered);
         }

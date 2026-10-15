@@ -46,7 +46,76 @@ def init_db():
             c.execute("ALTER TABLE subscriptions ADD COLUMN days INTEGER DEFAULT 30")
         if "trx_id" not in cols:
             c.execute("ALTER TABLE subscriptions ADD COLUMN trx_id TEXT DEFAULT ''")
+        if "customer_id" not in cols:
+            c.execute("ALTER TABLE subscriptions ADD COLUMN customer_id INTEGER")
+        if "fb_sender_id" not in cols:
+            c.execute("ALTER TABLE subscriptions ADD COLUMN fb_sender_id TEXT DEFAULT ''")
+
+        # Backfill any subscriber with missing or low customer_id (< 800)
+        c.execute("SELECT id FROM subscriptions WHERE customer_id IS NULL OR customer_id < 800 ORDER BY id ASC")
+        unassigned = c.fetchall()
+        if unassigned:
+            c.execute("SELECT MAX(customer_id) FROM subscriptions WHERE customer_id >= 800")
+            max_row = c.fetchone()
+            curr = 800 if (not max_row or max_row[0] is None) else (max_row[0] + 1)
+            for (row_id,) in unassigned:
+                c.execute("UPDATE subscriptions SET customer_id = ? WHERE id = ?", (curr, row_id))
+                curr += 1
         conn.commit()
+
+
+def resolve_email(identifier: str) -> str:
+    """Helper that returns the subscriber email given an email or customer_id (e.g. 800, #800)."""
+    raw = str(identifier).strip()
+    clean = raw.lstrip("#").strip()
+    if clean.isdigit():
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("SELECT email FROM subscriptions WHERE customer_id = ?", (int(clean),))
+            row = c.fetchone()
+            if row:
+                return row[0]
+    return raw.lower()
+
+
+def get_customer_id_by_sender(sender_id: str = "", sender_name: str = "", email: str = "") -> int:
+    """
+    Returns the clean short customer_id (e.g. 800, 801, 802...) for a given sender or email.
+    If not already in DB, assigns the next sequential customer_id starting from 800.
+    """
+    init_db()
+    clean_email = email.lower().strip() if email else ""
+    clean_sender = str(sender_id).strip() if sender_id else ""
+
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        # 1. By email
+        if clean_email:
+            c.execute("SELECT customer_id FROM subscriptions WHERE email = ? AND customer_id >= 800", (clean_email,))
+            row = c.fetchone()
+            if row and row[0]:
+                if clean_sender:
+                    c.execute("UPDATE subscriptions SET fb_sender_id = ? WHERE email = ? AND (fb_sender_id IS NULL OR fb_sender_id = '')", (clean_sender, clean_email))
+                    conn.commit()
+                return row[0]
+
+        # 2. By fb_sender_id
+        if clean_sender:
+            c.execute("SELECT customer_id FROM subscriptions WHERE fb_sender_id = ? AND customer_id >= 800", (clean_sender,))
+            row = c.fetchone()
+            if row and row[0]:
+                return row[0]
+
+        # 3. Next sequential ID starting at 800
+        c.execute("SELECT MAX(customer_id) FROM subscriptions WHERE customer_id >= 800")
+        max_row = c.fetchone()
+        next_id = 800 if (not max_row or max_row[0] is None) else (max_row[0] + 1)
+
+        if clean_email:
+            c.execute("UPDATE subscriptions SET customer_id = ?, fb_sender_id = ? WHERE email = ?", (next_id, clean_sender, clean_email))
+            conn.commit()
+
+        return next_id
 
 
 def parse_package(pkg: str):
@@ -58,7 +127,7 @@ def parse_package(pkg: str):
     return "1 Month", 30, 25
 
 
-def add_subscriber(email: str, package: str = "1m", name: str = "") -> dict:
+def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id: str = "") -> dict:
     init_db()
     pkg_name, days, price = parse_package(package)
     now = datetime.now()
@@ -66,23 +135,39 @@ def add_subscriber(email: str, package: str = "1m", name: str = "") -> dict:
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
     exp_str = exp.strftime("%Y-%m-%d %H:%M:%S")
     clean_email = email.lower().strip()
+    clean_sender = str(fb_sender_id).strip() if fb_sender_id else ""
 
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
+        c.execute("SELECT customer_id, fb_sender_id FROM subscriptions WHERE email = ?", (clean_email,))
+        existing = c.fetchone()
+        if existing and existing[0]:
+            assigned_id = existing[0]
+            existing_sender = existing[1] or ""
+            sender_to_save = clean_sender or existing_sender
+        else:
+            c.execute("SELECT MAX(customer_id) FROM subscriptions WHERE customer_id >= 800")
+            max_row = c.fetchone()
+            assigned_id = 800 if (not max_row or max_row[0] is None) else (max_row[0] + 1)
+            sender_to_save = clean_sender
+
         c.execute("""
-            INSERT INTO subscriptions (email, name, package, days, added_at, expires_at, payment_status, status)
-            VALUES (?, ?, ?, ?, ?, ?, 'PENDING', 'active')
+            INSERT INTO subscriptions (email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id)
+            VALUES (?, ?, ?, ?, ?, ?, 'PENDING', 'active', ?, ?)
             ON CONFLICT(email) DO UPDATE SET
                 package=excluded.package,
                 days=excluded.days,
                 added_at=excluded.added_at,
                 expires_at=excluded.expires_at,
                 payment_status='PENDING',
-                status='active'
-        """, (clean_email, name.strip(), pkg_name, days, now_str, exp_str))
+                status='active',
+                customer_id=COALESCE(subscriptions.customer_id, excluded.customer_id),
+                fb_sender_id=CASE WHEN excluded.fb_sender_id != '' THEN excluded.fb_sender_id ELSE subscriptions.fb_sender_id END
+        """, (clean_email, name.strip(), pkg_name, days, now_str, exp_str, assigned_id, sender_to_save))
         conn.commit()
 
     return {
+        "customer_id": assigned_id,
         "email": clean_email,
         "name": name.strip(),
         "package": pkg_name,
@@ -90,13 +175,14 @@ def add_subscriber(email: str, package: str = "1m", name: str = "") -> dict:
         "price": price,
         "expires_at": exp_str,
         "payment_status": "PENDING",
-        "status": "active"
+        "status": "active",
+        "fb_sender_id": sender_to_save
     }
 
 
-def mark_paid(email: str, trx_id: str = "") -> bool:
+def mark_paid(identifier: str, trx_id: str = "") -> bool:
     init_db()
-    clean_email = email.lower().strip()
+    clean_email = resolve_email(identifier)
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         if trx_id:
@@ -115,9 +201,9 @@ def mark_paid(email: str, trx_id: str = "") -> bool:
         return c.rowcount > 0
 
 
-def kick_subscriber(email: str) -> bool:
+def kick_subscriber(identifier: str) -> bool:
     init_db()
-    clean_email = email.lower().strip()
+    clean_email = resolve_email(identifier)
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute("""
@@ -129,20 +215,21 @@ def kick_subscriber(email: str) -> bool:
         return c.rowcount > 0
 
 
-def extend_subscriber(email: str, package: str = "1m") -> dict:
+def extend_subscriber(identifier: str, package: str = "1m") -> dict:
     init_db()
     pkg_name, days, price = parse_package(package)
-    clean_email = email.lower().strip()
+    clean_email = resolve_email(identifier)
     now = datetime.now()
 
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("SELECT expires_at, package FROM subscriptions WHERE email = ?", (clean_email,))
+        c.execute("SELECT expires_at, package, customer_id FROM subscriptions WHERE email = ?", (clean_email,))
         row = c.fetchone()
         if not row:
             return None
 
         current_exp_str = row[0]
+        cid = row[2] or 800
         try:
             current_exp = datetime.strptime(current_exp_str, "%Y-%m-%d %H:%M:%S")
         except Exception:
@@ -160,6 +247,7 @@ def extend_subscriber(email: str, package: str = "1m") -> dict:
         conn.commit()
 
     return {
+        "customer_id": cid,
         "email": clean_email,
         "added_package": pkg_name,
         "added_days": days,
@@ -167,15 +255,24 @@ def extend_subscriber(email: str, package: str = "1m") -> dict:
     }
 
 
-def get_subscriber(email: str) -> dict:
+def get_subscriber(identifier: str) -> dict:
     init_db()
-    clean_email = email.lower().strip()
+    if not identifier:
+        return None
+    raw = str(identifier).strip()
+    clean = raw.lstrip("#").strip()
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("""
-            SELECT email, name, package, days, added_at, expires_at, payment_status, status 
-            FROM subscriptions WHERE email = ?
-        """, (clean_email,))
+        if clean.isdigit():
+            c.execute("""
+                SELECT email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id 
+                FROM subscriptions WHERE customer_id = ?
+            """, (int(clean),))
+        else:
+            c.execute("""
+                SELECT email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id 
+                FROM subscriptions WHERE email = ?
+            """, (raw.lower(),))
         row = c.fetchone()
         if not row:
             return None
@@ -187,7 +284,10 @@ def get_subscriber(email: str) -> dict:
             "added_at": row[4],
             "expires_at": row[5],
             "payment_status": row[6],
-            "status": row[7]
+            "status": row[7],
+            "customer_id": row[8] or 800,
+            "fb_sender_id": row[9] or "",
+            "trx_id": row[10] or ""
         }
 
 
@@ -195,16 +295,16 @@ def list_subscribers(status_filter: str = None) -> list:
     init_db()
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
+        query = """
+            SELECT email, name, package, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id 
+            FROM subscriptions
+        """
         if status_filter:
-            c.execute("""
-                SELECT email, name, package, expires_at, payment_status, status 
-                FROM subscriptions WHERE status = ? ORDER BY id DESC LIMIT 50
-            """, (status_filter,))
+            query += " WHERE status = ? ORDER BY customer_id DESC, id DESC LIMIT 50"
+            c.execute(query, (status_filter,))
         else:
-            c.execute("""
-                SELECT email, name, package, expires_at, payment_status, status 
-                FROM subscriptions ORDER BY id DESC LIMIT 50
-            """)
+            query += " ORDER BY customer_id DESC, id DESC LIMIT 50"
+            c.execute(query)
         rows = c.fetchall()
         return [
             {
@@ -213,7 +313,10 @@ def list_subscribers(status_filter: str = None) -> list:
                 "package": r[2],
                 "expires_at": r[3],
                 "payment_status": r[4],
-                "status": r[5]
+                "status": r[5],
+                "customer_id": r[6] or 800,
+                "fb_sender_id": r[7] or "",
+                "trx_id": r[8] or ""
             }
             for r in rows
         ]
@@ -275,10 +378,12 @@ def format_subscriber_card(sub: dict) -> str:
     if sub.get("status") == "kicked":
         status_icon = "🔴 KICKED / REVOKED"
 
+    cid = sub.get("customer_id", 800)
     name_str = f" ({sub['name']})" if sub.get("name") else ""
     return (
-        f"👤 *Subscriber Profile:*\n"
+        f"👤 *Subscriber Profile:* `#{cid}`\n"
         f"────────────────────────\n"
+        f"🆔 *Customer ID:* `#{cid}`\n"
         f"📧 *Email:* `{sub['email']}`{name_str}\n"
         f"📦 *Package:* {sub['package']}\n"
         f"📅 *Expires:* `{sub['expires_at']}`\n"
