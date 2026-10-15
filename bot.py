@@ -345,6 +345,121 @@ def check_and_reply_comments() -> dict:
     return stats
 
 
+REPLIED_MSGS_FILE = Path(__file__).resolve().parent / "replied_messages.json"
+
+
+def load_replied_msgs():
+    if REPLIED_MSGS_FILE.exists():
+        try:
+            with open(REPLIED_MSGS_FILE, "r") as f:
+                return set(json.load(f))
+        except Exception:
+            return set()
+    return set()
+
+
+def save_replied_msgs(ids):
+    try:
+        with open(REPLIED_MSGS_FILE, "w") as f:
+            json.dump(list(ids)[-1000:], f)
+    except Exception:
+        pass
+
+
+def send_fb_message(recipient_id: str, message_text: str, token: str) -> bool:
+    """Send text message directly to a customer in Facebook Messenger inbox."""
+    url = f"https://graph.facebook.com/v20.0/me/messages?access_token={token}"
+    payload = {
+        "recipient": {"id": recipient_id},
+        "message": {"text": message_text}
+    }
+    try:
+        res = requests.post(url, json=payload, timeout=15)
+        return res.status_code == 200
+    except Exception as e:
+        logger.error(f"Error sending Messenger reply: {e}")
+        return False
+
+
+def check_and_reply_inbox(bot=None):
+    """Scans Facebook Messenger inbox for incoming customer leads and auto-replies."""
+    token = os.getenv("FB_PAGE_ACCESS_TOKEN", "")
+    page_id = os.getenv("FB_PAGE_ID", "1312971105242105")
+    if not token or not page_id:
+        return
+
+    replied = load_replied_msgs()
+    url = f"https://graph.facebook.com/v20.0/{page_id}/conversations?fields=messages{{message,from,created_time}}&access_token={token}"
+    try:
+        r = requests.get(url, timeout=15)
+        if r.status_code != 200:
+            return
+        data = r.json().get("data", [])
+        for conv in data:
+            messages = conv.get("messages", {}).get("data", [])
+            if not messages:
+                continue
+            latest_msg = messages[0]
+            msg_id = latest_msg.get("id")
+            sender = latest_msg.get("from", {})
+            sender_id = sender.get("id")
+            sender_name = sender.get("name", "Customer")
+            msg_text = latest_msg.get("message", "").strip()
+
+            if not sender_id or sender_id == page_id or msg_id in replied or not msg_text:
+                continue
+
+            email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
+            trx_info = extract_trx_from_text(msg_text)
+
+            # Case A: TrxID
+            if trx_info.get("found"):
+                trx_id = trx_info["trx_id"]
+                link_data = create_expiring_invite(sender_name, minutes=10)
+                reply = (
+                    f"ধন্যবাদ {sender_name}! আপনার পেমেন্ট TrxID ({trx_id}) পেয়েছি।\n\n"
+                    f"🎉 আপনার ১০ মিনিটের Canva Pro জয়েন লিংক:\n"
+                    f"🔗 https://designhub-1any.onrender.com/join/{link_data['token']}\n\n"
+                    f"⚠️ এই লিংকটি আগামী ১০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে টিমে জয়েন করে নিন।"
+                )
+                if send_fb_message(sender_id, reply, token):
+                    replied.add(msg_id)
+                    logger.info(f"Sent 10-min invite link to {sender_name} via Messenger.")
+
+            # Case B: Email inquiry
+            elif email_match:
+                found_email = email_match.group(0).lower()
+                reply = (
+                    f"ধন্যবাদ {sender_name}! আপনার ইমেইল ({found_email}) পেয়েছি।\n\n"
+                    f"Canva Pro এক্টিভ করতে প্যাকেজ অনুযায়ী পেমেন্ট সম্পন্ন করুন:\n"
+                    f"• ১ মাস: ২৫ টাকা\n"
+                    f"• ৩ মাস: ৫০ টাকা\n"
+                    f"• ১ বছর: ১৫০ টাকা\n\n"
+                    f"📱 বিকাশ/নগদ (Personal): 01711-223344\n"
+                    f"পেমেন্ট সফল হলে স্ক্রিনশট বা TrxID এই চ্যাটে দিন। আপনার ১০ মিনিটের এক্টিভেশন লিংক সাথে সাথে পাঠানো হবে!"
+                )
+                if send_fb_message(sender_id, reply, token):
+                    replied.add(msg_id)
+                    logger.info(f"Auto-replied to email inquiry from {sender_name} ({found_email}) in Messenger.")
+
+            # Case C: General greeting / price
+            elif any(k in msg_text.lower() for k in ["hi", "hello", "price", "dam", "দাম", "canva", "ক্যানভা", "package", "প্যাকেজ", "how"]):
+                reply = (
+                    f"আসসালামু আলাইকুম {sender_name}! Design Hub-এ আপনাকে স্বাগতম। 🎨\n\n"
+                    f"✨ আমাদের Canva Pro অফার প্যাকেজ:\n"
+                    f"• ১ মাস: ২৫ টাকা\n"
+                    f"• ৩ মাস: ৫০ টাকা\n"
+                    f"• ১ বছর: ১৫০ টাকা\n\n"
+                    f"অ্যাক্টিভ করতে আপনার জিমেইল (Gmail) অ্যাড্রেসটি লিখে পাঠিয়ে দিন!"
+                )
+                if send_fb_message(sender_id, reply, token):
+                    replied.add(msg_id)
+                    logger.info(f"Auto-replied to greeting from {sender_name} in Messenger.")
+
+        save_replied_msgs(replied)
+    except Exception as e:
+        logger.error(f"Error checking Messenger inbox: {e}")
+
 async def comment_monitor_loop():
     """Background async worker that runs every 60 seconds."""
     logger.info("🚀 Background Comment Auto-Responder loop initialized (60s interval).")
