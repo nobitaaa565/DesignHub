@@ -366,12 +366,37 @@ def save_replied_msgs(ids):
         pass
 
 
-def send_fb_message(recipient_id: str, message_text: str, token: str) -> bool:
-    """Send text message directly to a customer in Facebook Messenger inbox."""
+CONV_STATES_FILE = Path(__file__).resolve().parent / "conversation_states.json"
+
+
+def load_conv_states() -> dict:
+    if CONV_STATES_FILE.exists():
+        try:
+            with open(CONV_STATES_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def save_conv_states(states: dict):
+    try:
+        with open(CONV_STATES_FILE, "w") as f:
+            json.dump(states, f)
+    except Exception:
+        pass
+
+
+def send_fb_message(recipient_id: str, message_text: str, token: str, quick_replies=None) -> bool:
+    """Send text message directly to a customer in Facebook Messenger inbox with optional quick reply buttons."""
     url = f"https://graph.facebook.com/v20.0/me/messages?access_token={token}"
+    msg_payload = {"text": message_text}
+    if quick_replies:
+        msg_payload["quick_replies"] = quick_replies
+
     payload = {
         "recipient": {"id": recipient_id},
-        "message": {"text": message_text}
+        "message": msg_payload
     }
     try:
         res = requests.post(url, json=payload, timeout=15)
@@ -382,13 +407,15 @@ def send_fb_message(recipient_id: str, message_text: str, token: str) -> bool:
 
 
 def check_and_reply_inbox(bot=None):
-    """Scans Facebook Messenger inbox for incoming customer leads and auto-replies."""
+    """Scans Facebook Messenger inbox for customer leads with confirmation flow."""
     token = os.getenv("FB_PAGE_ACCESS_TOKEN", "")
     page_id = os.getenv("FB_PAGE_ID", "1312971105242105")
     if not token or not page_id:
         return
 
     replied = load_replied_msgs()
+    states = load_conv_states()
+
     url = f"https://graph.facebook.com/v20.0/{page_id}/conversations?fields=messages{{message,from,created_time}}&access_token={token}"
     try:
         r = requests.get(url, timeout=15)
@@ -411,39 +438,122 @@ def check_and_reply_inbox(bot=None):
 
             email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
             trx_info = extract_trx_from_text(msg_text)
+            user_state = states.get(sender_id, {})
 
-            # Case A: TrxID
+            # 1. Step A: Customer sent a new Gmail address -> Ask for Confirmation!
+            if email_match:
+                candidate_email = email_match.group(0).lower()
+                states[sender_id] = {
+                    "email": candidate_email,
+                    "stage": "awaiting_confirm",
+                    "sender_name": sender_name
+                }
+                save_conv_states(states)
+
+                confirm_text = (
+                    f"আপনি কি Canva Pro এর জন্য এই জিমেইল ({candidate_email}) অ্যাকাউন্টটি যুক্ত করতে চান?\n\n"
+                    f"তথ্য সঠিক থাকলে নিচে '✅ Yes, Confirm' বাটনে ট্যাপ করুন অথবা চ্যাটে 'YES' বা 'হ্যাঁ' লিখে পাঠিয়ে দিন।"
+                )
+                quick_btns = [
+                    {"content_type": "text", "title": "✅ Yes, Confirm", "payload": f"CONFIRM_YES:{candidate_email}"},
+                    {"content_type": "text", "title": "❌ Change Email", "payload": "CONFIRM_NO"}
+                ]
+                if send_fb_message(sender_id, confirm_text, token, quick_replies=quick_btns):
+                    replied.add(msg_id)
+                    logger.info(f"Asked confirmation for email {candidate_email} to {sender_name}")
+                continue
+
+            # 2. Step B: Customer confirms with YES / হ্যাঁ / বাটনে চাপ
+            if user_state.get("stage") == "awaiting_confirm":
+                positive_keywords = ["yes", "হ্যাঁ", "ha", "y", "confirm", "হাঁ", "thik ache", "ঠিক আছে", "হ্যা"]
+                if any(k in msg_text.lower() for k in positive_keywords) or "CONFIRM_YES" in msg_text:
+                    confirmed_email = user_state["email"]
+                    
+                    # Enroll in database as PENDING payment
+                    add_subscriber(confirmed_email, "1m", sender_name)
+                    
+                    # Generate 10-minute expiring invite link
+                    link_data = create_expiring_invite(confirmed_email, minutes=10)
+                    join_url = f"https://designhub-1any.onrender.com/join/{link_data['token']}"
+                    
+                    reply = (
+                        f"🎉 অভিনন্দন {sender_name}!\n\n"
+                        f"আপনার Canva Pro টিম অ্যাক্টিভেশন লিংক নিচে দেওয়া হলো:\n"
+                        f"🔗 {join_url}\n\n"
+                        f"⚠️ গুরুত্বপূর্ণ: এই লিংকটি আগামী ১০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
+                        f"💳 পেমেন্ট তথ্য (প্যাকেজ অনুযায়ী):\n"
+                        f"• ১ মাস: ২৫ টাকা\n"
+                        f"• ৩ মাস: ৫০ টাকা\n"
+                        f"• ১ বছর: ১৫০ টাকা\n\n"
+                        f"📱 বিকাশ/নগদ (Personal): 01711-223344\n"
+                        f"টিমে জয়েন করার পর পেমেন্ট সম্পন্ন করে স্ক্রিনশট বা TrxID এই চ্যাটে পাঠিয়ে দিন। ধন্যবাদ! 🎨"
+                    )
+                    if send_fb_message(sender_id, reply, token):
+                        replied.add(msg_id)
+                        states.pop(sender_id, None)
+                        save_conv_states(states)
+                        logger.info(f"Dispatched 10-min link to {sender_name} ({confirmed_email})")
+
+                        # Send 1-Tap Control Alert to Telegram Owner
+                        if bot and TELEGRAM_ALLOWED_USER_ID:
+                            alert = (
+                                f"⚡ *NEW CANVA PRO ACCESS DELIVERED!*\n"
+                                f"────────────────────────\n"
+                                f"👤 *Customer:* {sender_name}\n"
+                                f"📧 *Email:* `{confirmed_email}`\n"
+                                f"🔗 *10-Min Link:* `{join_url}`\n"
+                                f"⏳ *Payment Status:* 🟡 PENDING\n"
+                                f"────────────────────────\n"
+                                f"Customer was given the join link. If they do not pay, tap Kick to revoke immediately."
+                            )
+                            keyboard = [
+                                [
+                                    InlineKeyboardButton("✅ Mark Paid", callback_data=f"sub_paid:{confirmed_email}"),
+                                    InlineKeyboardButton("🚨 Kick User", callback_data=f"sub_kick:{confirmed_email}")
+                                ]
+                            ]
+                            try:
+                                asyncio.run_coroutine_threadsafe(
+                                    bot.send_message(
+                                        chat_id=TELEGRAM_ALLOWED_USER_ID,
+                                        text=alert,
+                                        reply_markup=InlineKeyboardMarkup(keyboard),
+                                        parse_mode="Markdown"
+                                    ),
+                                    asyncio.get_event_loop()
+                                )
+                            except Exception as e:
+                                logger.error(f"Error alerting Telegram owner: {e}")
+                    continue
+
+            # 3. Step C: Customer sent Payment TrxID
             if trx_info.get("found"):
                 trx_id = trx_info["trx_id"]
-                link_data = create_expiring_invite(sender_name, minutes=10)
                 reply = (
                     f"ধন্যবাদ {sender_name}! আপনার পেমেন্ট TrxID ({trx_id}) পেয়েছি।\n\n"
-                    f"🎉 আপনার ১০ মিনিটের Canva Pro জয়েন লিংক:\n"
-                    f"🔗 https://designhub-1any.onrender.com/join/{link_data['token']}\n\n"
-                    f"⚠️ এই লিংকটি আগামী ১০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে টিমে জয়েন করে নিন।"
+                    f"আমাদের টিম আপনার পেমেন্ট ভেরিফাই করছে। ভেরিফিকেশন সম্পন্ন হলে আপনার অ্যাকাউন্টটি কনফার্ম লক করা হবে।"
                 )
                 if send_fb_message(sender_id, reply, token):
                     replied.add(msg_id)
-                    logger.info(f"Sent 10-min invite link to {sender_name} via Messenger.")
+                    if bot and TELEGRAM_ALLOWED_USER_ID:
+                        alert = (
+                            f"💳 *PAYMENT TrxID RECEIVED IN INBOX!*\n"
+                            f"────────────────────────\n"
+                            f"👤 Customer: {sender_name}\n"
+                            f"🔢 TrxID: `{trx_id}`\n"
+                            f"────────────────────────"
+                        )
+                        try:
+                            asyncio.run_coroutine_threadsafe(
+                                bot.send_message(chat_id=TELEGRAM_ALLOWED_USER_ID, text=alert, parse_mode="Markdown"),
+                                asyncio.get_event_loop()
+                            )
+                        except Exception:
+                            pass
+                continue
 
-            # Case B: Email inquiry
-            elif email_match:
-                found_email = email_match.group(0).lower()
-                reply = (
-                    f"ধন্যবাদ {sender_name}! আপনার ইমেইল ({found_email}) পেয়েছি।\n\n"
-                    f"Canva Pro এক্টিভ করতে প্যাকেজ অনুযায়ী পেমেন্ট সম্পন্ন করুন:\n"
-                    f"• ১ মাস: ২৫ টাকা\n"
-                    f"• ৩ মাস: ৫০ টাকা\n"
-                    f"• ১ বছর: ১৫০ টাকা\n\n"
-                    f"📱 বিকাশ/নগদ (Personal): 01711-223344\n"
-                    f"পেমেন্ট সফল হলে স্ক্রিনশট বা TrxID এই চ্যাটে দিন। আপনার ১০ মিনিটের এক্টিভেশন লিংক সাথে সাথে পাঠানো হবে!"
-                )
-                if send_fb_message(sender_id, reply, token):
-                    replied.add(msg_id)
-                    logger.info(f"Auto-replied to email inquiry from {sender_name} ({found_email}) in Messenger.")
-
-            # Case C: General greeting / price
-            elif any(k in msg_text.lower() for k in ["hi", "hello", "price", "dam", "দাম", "canva", "ক্যানভা", "package", "প্যাকেজ", "how"]):
+            # 4. Step D: General greetings or inquiries
+            if any(k in msg_text.lower() for k in ["hi", "hello", "price", "dam", "দাম", "canva", "ক্যানভা", "package", "প্যাকেজ", "how"]):
                 reply = (
                     f"আসসালামু আলাইকুম {sender_name}! Design Hub-এ আপনাকে স্বাগতম। 🎨\n\n"
                     f"✨ আমাদের Canva Pro অফার প্যাকেজ:\n"
@@ -454,11 +564,11 @@ def check_and_reply_inbox(bot=None):
                 )
                 if send_fb_message(sender_id, reply, token):
                     replied.add(msg_id)
-                    logger.info(f"Auto-replied to greeting from {sender_name} in Messenger.")
 
         save_replied_msgs(replied)
     except Exception as e:
-        logger.error(f"Error checking Messenger inbox: {e}")
+        logger.error(f"Error in check_and_reply_inbox: {e}")
+
 
 async def comment_monitor_loop():
     """Background async worker that runs every 60 seconds."""
