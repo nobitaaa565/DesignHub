@@ -20,7 +20,7 @@ import asyncio
 from pathlib import Path
 import requests
 
-from subscription_manager import add_subscriber, mark_paid, get_subscriber, create_expiring_invite, get_customer_id_by_sender
+from subscription_manager import add_subscriber, mark_paid, get_subscriber, create_expiring_invite, get_customer_id_by_sender, mark_reminder_sent
 from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 
 logger = logging.getLogger("FacebookFunnel")
@@ -586,3 +586,36 @@ def send_payment_confirmed_to_customer(sender_id: str, sender_name: str, package
         {"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}
     ]
     send_fb_message(sender_id, text, page_token, quick_replies=quick_btns)
+
+
+
+def send_expiry_reminder_to_customer(fb_sender_id: str, sender_name: str, customer_id: int, email: str, expires_at: str, page_token: str) -> bool:
+    """Sends a 1-week renewal reminder to customer on Facebook Messenger with 1-tap Extend button."""
+    if not fb_sender_id or not page_token:
+        return False
+
+    exp_date_str = expires_at[:10] if expires_at else "শীঘ্রই"
+    text = (
+        f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub থেকে একটি গুরুত্বপূর্ণ রিমাইন্ডার:\n\n"
+        f"আপনার Canva Pro সাবস্ক্রিপশনের মেয়াদ শেষ হতে আর মাত্র ৭ দিন বাকি আছে!\n"
+        f"📅 মেয়াদের শেষ তারিখ: {exp_date_str}\n\n"
+        f"আপনার ক্যানভা ডিজাইন যাতে কোনো বিরতি ছাড়া সচল থাকে, সেজন্য এখনই খুব সহজে মেয়াদ বাড়িয়ে (Extend) নিতে পারেন।\n\n"
+        f"মেয়াদ বাড়াতে নিচের বাটনে ট্যাপ করুন:"
+    )
+    quick_btns = [
+        {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
+        {"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}
+    ]
+    ok = send_fb_message(fb_sender_id, text, page_token, quick_replies=quick_btns)
+    if ok:
+        mark_reminder_sent(email)
+        alert = (
+            f"⏰ *EXPIRY REMINDER SENT TO CUSTOMER (Messenger)*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {sender_name} (ID: `#{customer_id}`)\n"
+            f"📧 Email: `{email}`\n"
+            f"📅 Expiry Date: `{exp_date_str}`\n"
+            f"────────────────────────"
+        )
+        send_telegram_alert(alert)
+    return ok

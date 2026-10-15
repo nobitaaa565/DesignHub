@@ -50,6 +50,8 @@ def init_db():
             c.execute("ALTER TABLE subscriptions ADD COLUMN customer_id INTEGER")
         if "fb_sender_id" not in cols:
             c.execute("ALTER TABLE subscriptions ADD COLUMN fb_sender_id TEXT DEFAULT ''")
+        if "last_reminder_at" not in cols:
+            c.execute("ALTER TABLE subscriptions ADD COLUMN last_reminder_at TIMESTAMP")
 
         # Backfill any subscriber with missing or low customer_id (< 800)
         c.execute("SELECT id FROM subscriptions WHERE customer_id IS NULL OR customer_id < 800 ORDER BY id ASC")
@@ -403,6 +405,59 @@ def delete_subscriber(email: str) -> bool:
         c.execute("DELETE FROM subscriptions WHERE email = ?", (clean_email,))
         conn.commit()
         return c.rowcount > 0
+
+def get_subscribers_expiring_soon(days: int = 7) -> list:
+    """
+    Finds active, paid subscribers expiring within `days` days 
+    who haven't received a reminder in the last 7 days.
+    """
+    init_db()
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT id, customer_id, fb_sender_id, name, email, package, expires_at, last_reminder_at
+            FROM subscriptions
+            WHERE status = 'active'
+              AND payment_status = 'PAID'
+              AND expires_at IS NOT NULL
+              AND datetime(expires_at) >= datetime('now')
+              AND datetime(expires_at) <= datetime('now', '+' || ? || ' days')
+              AND (
+                  last_reminder_at IS NULL 
+                  OR datetime(last_reminder_at) < datetime('now', '-7 days')
+              )
+        """, (days,))
+        rows = c.fetchall()
+        result = []
+        for r in rows:
+            result.append({
+                "id": r[0],
+                "customer_id": r[1] or 800,
+                "fb_sender_id": r[2] or "",
+                "name": r[3] or "Customer",
+                "email": r[4],
+                "package": r[5],
+                "expires_at": r[6],
+                "last_reminder_at": r[7]
+            })
+        return result
+
+
+def mark_reminder_sent(email_or_id) -> bool:
+    """Marks that an expiry reminder was sent to this customer."""
+    init_db()
+    clean_email = resolve_email(email_or_id)
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("""
+            UPDATE subscriptions 
+            SET last_reminder_at = ?
+            WHERE email = ?
+        """, (now_str, clean_email))
+        conn.commit()
+        return c.rowcount > 0
+
 
 import secrets
 

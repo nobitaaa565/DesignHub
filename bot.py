@@ -23,7 +23,7 @@ import requests
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from canva_worker import invite_canva_member, kick_canva_member, is_canva_authenticated
-from facebook_funnel import handle_incoming_customer_message, send_payment_confirmed_to_customer, load_replied_ids, save_replied_ids
+from facebook_funnel import handle_incoming_customer_message, send_payment_confirmed_to_customer, send_expiry_reminder_to_customer, load_replied_ids, save_replied_ids
 from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 from subscription_manager import (
     delete_subscriber,
@@ -38,7 +38,8 @@ from subscription_manager import (
     list_subscribers,
     get_db_stats,
     make_subscriber_keyboard,
-    format_subscriber_card
+    format_subscriber_card,
+    get_subscribers_expiring_soon
 )
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
@@ -503,6 +504,34 @@ async def comment_monitor_loop(bot=None):
         await asyncio.sleep(15)
 
 
+async def expiry_reminder_loop(bot=None):
+    """Background async worker that checks every 2 hours for subscribers expiring within 7 days and sends renewal reminders."""
+    logger.info("⏰ Background Expiry Reminder Worker active (2-hour check cycle).")
+    while True:
+        try:
+            token = os.getenv("FB_PAGE_ACCESS_TOKEN", "")
+            if token:
+                expiring = await asyncio.to_thread(get_subscribers_expiring_soon, 7)
+                for sub in expiring:
+                    fb_id = sub.get("fb_sender_id")
+                    if fb_id:
+                        await asyncio.to_thread(
+                            send_expiry_reminder_to_customer,
+                            fb_sender_id=fb_id,
+                            sender_name=sub.get("name", "Customer"),
+                            customer_id=sub.get("customer_id", 800),
+                            email=sub.get("email"),
+                            expires_at=sub.get("expires_at"),
+                            page_token=token
+                        )
+                        await asyncio.sleep(2)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Error in expiry_reminder_loop: {e}")
+        await asyncio.sleep(2 * 3600)
+
+
 # ==================== TELEGRAM COMMANDS ====================
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -959,6 +988,36 @@ async def check_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     card_text = format_subscriber_card(sub)
     keyboard = make_subscriber_keyboard(sub["email"], is_paid=(sub.get("payment_status") == "PAID"))
     await update.message.reply_text(card_text, reply_markup=keyboard, parse_mode="Markdown")
+
+
+async def remind_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+
+    token = os.getenv("FB_PAGE_ACCESS_TOKEN", "")
+    expiring = get_subscribers_expiring_soon(days=7)
+    if not expiring:
+        await update.message.reply_text("✅ *All active subscribers are up to date!* No subscriptions expiring in the next 7 days.", parse_mode="Markdown")
+        return
+
+    status_msg = await update.message.reply_text(f"⏳ Checking {len(expiring)} subscriber(s) expiring within 7 days...", parse_mode="Markdown")
+    sent_count = 0
+    for sub in expiring:
+        fb_id = sub.get("fb_sender_id")
+        if fb_id and token:
+            ok = send_expiry_reminder_to_customer(
+                fb_sender_id=fb_id,
+                sender_name=sub.get("name", "Customer"),
+                customer_id=sub.get("customer_id", 800),
+                email=sub.get("email"),
+                expires_at=sub.get("expires_at"),
+                page_token=token
+            )
+            if ok:
+                sent_count += 1
+
+    await status_msg.edit_text(f"🚀 *Sent 7-day expiry reminders to {sent_count} customer(s) in Messenger!*", parse_mode="Markdown")
 
 
 # ==================== MESSAGE HANDLERS ====================
@@ -1606,6 +1665,7 @@ async def post_init(application):
         BotCommand("extend", "⌛ Extend plan: /extend <email> [pkg]"),
         BotCommand("kick", "🚨 Revoke access: /kick <email>"),
         BotCommand("check", "🔍 Inspect user: /check <email>"),
+        BotCommand("remind", "⏰ Scan & send 7-day expiry reminders"),
         BotCommand("comments", "💬 Scan Facebook comments now"),
         BotCommand("ai", "✍️ Draft viral post: /ai <topic>"),
         BotCommand("start", "🏠 Main control menu"),
@@ -1617,6 +1677,7 @@ async def post_init(application):
         logger.error(f"Error setting bot commands: {e}")
 
     asyncio.create_task(comment_monitor_loop(application.bot))
+    asyncio.create_task(expiry_reminder_loop(application.bot))
 
 
 def main():
@@ -1645,6 +1706,7 @@ def main():
     app.add_handler(CommandHandler("subs", list_subs_command))
     app.add_handler(CommandHandler("subscribers", list_subs_command))
     app.add_handler(CommandHandler("check", check_sub_command))
+    app.add_handler(CommandHandler("remind", remind_command))
 
     # Messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
