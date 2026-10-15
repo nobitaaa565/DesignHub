@@ -132,12 +132,12 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
         save_states(states)
         text = (
-            f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub-এ আপনাকে স্বাগতম।\\n\\n"
-            f"আমরা দিচ্ছি অফিসিয়াল Canva Pro এডুকেশন টিম অ্যাক্সেস (নিজের জিমেইলে এক্টিভ হবে)।\\n\\n"
-            f"📦 আপনি কোন প্যাকেজটি নিতে চান?\\n"
-            f"১. ১ মাস — ২৫ টাকা\\n"
-            f"২. ৩ মাস — ৫০ টাকা\\n"
-            f"৩. ১ বছর — ১৫০ টাকা\\n\\n"
+            f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub-এ আপনাকে স্বাগতম।\n\n"
+            f"আমরা দিচ্ছি অফিসিয়াল Canva Pro এডুকেশন টিম অ্যাক্সেস (নিজের জিমেইলে এক্টিভ হবে)।\n\n"
+            f"📦 আপনি কোন প্যাকেজটি নিতে চান?\n"
+            f"১. ১ মাস — ২৫ টাকা\n"
+            f"২. ৩ মাস — ৫০ টাকা\n"
+            f"৩. ১ বছর — ১৫০ টাকা\n\n"
             f"নিচের বাটনে ট্যাপ করুন অথবা ১, ২ বা ৩ লিখে পাঠিয়ে দিন:"
         )
         send_fb_message(sender_id, text, page_token, quick_replies=get_package_buttons())
@@ -148,10 +148,10 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name, "is_extend": True}
         save_states(states)
         text = (
-            f"⌛ {sender_name}, আপনার Canva Pro মেয়াদ বাড়াতে (Extend) কোন প্যাকেজটি নিতে চান?\\n\\n"
-            f"১. ১ মাস (+৩০ দিন) — ২৫ টাকা\\n"
-            f"২. ৩ মাস (+৯০ দিন) — ৫০ টাকা\\n"
-            f"৩. ১ বছর (+৩৬৫ দিন) — ১৫০ টাকা\\n\\n"
+            f"⌛ {sender_name}, আপনার Canva Pro মেয়াদ বাড়াতে (Extend) কোন প্যাকেজটি নিতে চান?\n\n"
+            f"১. ১ মাস (+৩০ দিন) — ২৫ টাকা\n"
+            f"২. ৩ মাস (+৯০ দিন) — ৫০ টাকা\n"
+            f"৩. ১ বছর (+৩৬৫ দিন) — ১৫০ টাকা\n\n"
             f"নিচের বাটনে ট্যাপ করুন অথবা ১, ২ বা ৩ লিখে দিন:"
         )
         send_fb_message(sender_id, text, page_token, quick_replies=get_package_buttons())
@@ -163,7 +163,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         trx_id = trx_info["trx_id"]
         amt = trx_info.get("amount") or "N/A"
         reply = (
-            f"ধন্যবাদ {sender_name}! আপনার পেমেন্ট TrxID ({trx_id}) পেয়েছি।\\n\\n"
+            f"ধন্যবাদ {sender_name}! আপনার পেমেন্ট TrxID ({trx_id}) পেয়েছি।\n\n"
             f"আমাদের টিম আপনার পেমেন্ট ভেরিফাই করছে। ভেরিফিকেশন সফল হলে কনফার্মেশন মেসেজ পাবেন।"
         )
         quick_btns = [
@@ -177,13 +177,13 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             email_info = state.get("email", "Unknown")
             pkg_info = state.get("package_name", "Canva Pro")
             alert = (
-                f"💳 *NEW PAYMENT PROOF RECEIVED! (Messenger)*\\n"
-                f"────────────────────────\\n"
-                f"👤 Customer: {sender_name} (ID: `{sender_id}`)\\n"
-                f"📧 Email: `{email_info}`\\n"
-                f"📦 Package: {pkg_info}\\n"
-                f"🔢 TrxID: `{trx_id}`\\n"
-                f"💵 Amount: {amt}\\n"
+                f"💳 *NEW PAYMENT PROOF RECEIVED! (Messenger)*\n"
+                f"────────────────────────\n"
+                f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
+                f"📧 Email: `{email_info}`\n"
+                f"📦 Package: {pkg_info}\n"
+                f"🔢 TrxID: `{trx_id}`\n"
+                f"💵 Amount: {amt}\n"
                 f"────────────────────────"
             )
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -219,7 +219,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             save_states(states)
 
             reply = (
-                f"✅ আপনি নির্বাচন করেছেন: **{pkg['name']}**\\n\\n"
+                f"✅ আপনি নির্বাচন করেছেন: **{pkg['name']}**\n\n"
                 f"এখন আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, "
                 f"অনুগ্রহ করে সেই জিমেইল অ্যাড্রেসটি লিখে পাঠিয়ে দিন:"
             )
@@ -233,12 +233,12 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
             save_states(states)
             reply = (
-                f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub-এ আপনাকে স্বাগতম।\\n\\n"
-                f"আমরা দিচ্ছি অফিসিয়াল Canva Pro এডুকেশন টিম অ্যাক্সেস (নিজের পার্সোনাল জিমেইলে এক্টিভ হবে)।\\n\\n"
-                f"📦 আপনি কোন প্যাকেজটি নিতে চান?\\n"
-                f"১. ১ মাস — ২৫ টাকা\\n"
-                f"২. ৩ মাস — ৫০ টাকা\\n"
-                f"৩. ১ বছর — ১৫০ টাকা\\n\\n"
+                f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub-এ আপনাকে স্বাগতম।\n\n"
+                f"আমরা দিচ্ছি অফিসিয়াল Canva Pro এডুকেশন টিম অ্যাক্সেস (নিজের পার্সোনাল জিমেইলে এক্টিভ হবে)।\n\n"
+                f"📦 আপনি কোন প্যাকেজটি নিতে চান?\n"
+                f"১. ১ মাস — ২৫ টাকা\n"
+                f"২. ৩ মাস — ৫০ টাকা\n"
+                f"৩. ১ বছর — ১৫০ টাকা\n\n"
                 f"নিচের বাটনে চাপ দিন অথবা ১, ২ বা ৩ লিখে জানিয়ে দিন:"
             )
             send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
@@ -257,9 +257,9 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             pkg_name = state.get("package_name", "Canva Pro")
 
             reply = (
-                f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\\n\\n"
-                f"📦 প্যাকেজ: **{pkg_name}**\\n"
-                f"📧 জিমেইল: **{email}**\\n\\n"
+                f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
+                f"📦 প্যাকেজ: **{pkg_name}**\n"
+                f"📧 জিমেইল: **{email}**\n\n"
                 f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন অথবা 'YES' / 'হ্যাঁ' লিখে কনফার্ম করুন:"
             )
             quick_btns = [
@@ -297,13 +297,13 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 
             # 3. Deliver Link + Request Payment
             reply = (
-                f"🎉 অভিনন্দন {sender_name}!\\n\\n"
-                f"আপনার Canva Pro টিম জয়েন লিংক নিচে দেওয়া হলো:\\n"
-                f"🔗 {join_url}\\n\\n"
-                f"⚠️ গুরুত্বপূর্ণ: এই লিংকটি আগামী ১০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\\n\\n"
-                f"💳 পেমেন্ট তথ্য:\\n"
-                f"• প্যাকেজ: {pkg_name}\\n"
-                f"• বিকাশ / নগদ (Personal): 01711-223344\\n\\n"
+                f"🎉 অভিনন্দন {sender_name}!\n\n"
+                f"আপনার Canva Pro টিম জয়েন লিংক নিচে দেওয়া হলো:\n"
+                f"🔗 {join_url}\n\n"
+                f"⚠️ গুরুত্বপূর্ণ: এই লিংকটি আগামী ১০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
+                f"💳 পেমেন্ট তথ্য:\n"
+                f"• প্যাকেজ: {pkg_name}\n"
+                f"• বিকাশ / নগদ (Personal): 01711-223344\n\n"
                 f"টিমে জয়েন করার পর পেমেন্ট সম্পন্ন করে ট্রানজেকশন আইডি (TrxID) বা স্ক্রিনশট পাঠিয়ে দিন। ধন্যবাদ! 🎨"
             )
             quick_btns = [
@@ -315,14 +315,14 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             # 4. Notify Telegram Owner with 1-Tap Control
             if bot_instance and TELEGRAM_ALLOWED_USER_ID:
                 alert = (
-                    f"⚡ *NEW CANVA PRO ACCESS DELIVERED!*\\n"
-                    f"────────────────────────\\n"
-                    f"👤 Customer: {sender_name}\\n"
-                    f"📧 Email: `{confirmed_email}`\\n"
-                    f"📦 Package: {pkg_name}\\n"
-                    f"🔗 10-Min Link: `{join_url}`\\n"
-                    f"⏳ Status: 🟡 PENDING PAYMENT\\n"
-                    f"────────────────────────\\n"
+                    f"⚡ *NEW CANVA PRO ACCESS DELIVERED!*\n"
+                    f"────────────────────────\n"
+                    f"👤 Customer: {sender_name}\n"
+                    f"📧 Email: `{confirmed_email}`\n"
+                    f"📦 Package: {pkg_name}\n"
+                    f"🔗 10-Min Link: `{join_url}`\n"
+                    f"⏳ Status: 🟡 PENDING PAYMENT\n"
+                    f"────────────────────────\n"
                     f"⚠️ Customer has been given access. If they do not pay, tap Kick to revoke."
                 )
                 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -350,9 +350,9 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 def send_payment_confirmed_to_customer(sender_id: str, sender_name: str, package_name: str, page_token: str):
     """Sends Step 6 & 7 confirmation + extend option to customer on Facebook Messenger."""
     text = (
-        f"🎉 পেমেন্ট সফল হয়েছে!\\n\\n"
-        f"ধন্যবাদ {sender_name}, আপনার {package_name} Canva Pro সাবস্ক্রিপশন নিশ্চিত করা হয়েছে।\\n"
-        f"আপনার অ্যাকাউন্টটি এখন সম্পূর্ণ ভেরিফায়েড ও অ্যাক্টিভ! 🎨\\n\\n"
+        f"🎉 পেমেন্ট সফল হয়েছে!\n\n"
+        f"ধন্যবাদ {sender_name}, আপনার {package_name} Canva Pro সাবস্ক্রিপশন নিশ্চিত করা হয়েছে।\n"
+        f"আপনার অ্যাকাউন্টটি এখন সম্পূর্ণ ভেরিফায়েড ও অ্যাক্টিভ! 🎨\n\n"
         f"💡 বিশেষ সুবিধা: আপনার মেয়াদ শেষ হওয়ার আগে আপনি যেকোনো সময় মেয়াদ বাড়াতে (Extend) পারবেন।"
     )
     quick_btns = [
