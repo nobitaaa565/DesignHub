@@ -136,6 +136,50 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 
     clean_text = msg_text.strip().lower()
 
+    # Global Command: Request a Fresh New Link
+    new_link_triggers = (
+        "newlink", "new link", "new_link", "action_new_link", "নতুন লিংক", 
+        "link expired", "expired link", "লিংক কাজ করছে না", "expire", "expired"
+    )
+    if clean_text in new_link_triggers or "action_new_link" in clean_text:
+        customer_email = state.get("email") or state.get("saved_email")
+        if not customer_email:
+            # Check subscriptions.db
+            from subscription_manager import list_subscribers
+            sender_words = set(sender_name.lower().split())
+            for s in list_subscribers():
+                sub_name = (s.get("name") or "").lower()
+                sub_words = set(sub_name.split())
+                if sender_words.intersection(sub_words):
+                    customer_email = s.get("email")
+                    break
+
+        if customer_email:
+            # Generate brand-new link each time!
+            link_data = create_expiring_invite(customer_email, minutes=15)
+            join_url = f"https://designhub-1any.onrender.com/join/{link_data['token']}"
+            state["join_link"] = join_url
+            states[sender_id] = state
+            save_states(states)
+
+            reply = (
+                f"✨ {sender_name}, আপনার জন্য একটি একদম নতুন জয়েন লিংক তৈরি করা হয়েছে:\n\n"
+                f"🔗 {join_url}\n\n"
+                f"⚠️ গুরুত্বপূর্ণ: এই নতুন লিংকটি আগামী ১৫ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
+                f"পেমেন্ট সম্পন্ন করে TrxID বা স্ক্রিনশট পাঠিয়ে দিন। ধন্যবাদ! 🎨"
+            )
+            quick_btns = [
+                {"content_type": "text", "title": "🔗 Generate New Link", "payload": "ACTION_NEW_LINK"},
+                {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+            ]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+            logger.info(f"Generated fresh new link for {sender_name} ({customer_email})")
+            return
+        else:
+            reply = "আপনার কোনো জিমেইল পাওয়া যায়নি। দয়া করে আপনার জিমেইলটি (Gmail) লিখে পাঠান:"
+            send_fb_message(sender_id, reply, page_token)
+            return
+
     # Global Triggers: Native 'Get Started' button, 'Restart', or Greetings ('Hi', 'Hello')
     start_keywords = (
         "get_started", "start", "restart", "রিস্টার্ট", "reset", "শুরু", "মেনু", "menu", "action_restart",
@@ -263,6 +307,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         if email_match:
             email = email_match.group(0).lower()
             state["email"] = email
+            state["saved_email"] = email
             state["stage"] = "awaiting_confirm"
             states[sender_id] = state
             save_states(states)
@@ -320,6 +365,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 f"টিমে জয়েন করার পর পেমেন্ট সম্পন্ন করে ট্রানজেকশন আইডি (TrxID) বা স্ক্রিনশট পাঠিয়ে দিন। ধন্যবাদ! 🎨"
             )
             quick_btns = [
+                {"content_type": "text", "title": "🔗 New Link", "payload": "ACTION_NEW_LINK"},
                 {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
                 {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
             ]

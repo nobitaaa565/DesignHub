@@ -1298,15 +1298,17 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        # 10-Minute Expiring Single-Use Canva Invite Redirect
+        # Self-Expiring Single-Use Canva Invite Redirect (Crawler-Safe & Epoch-Timed)
         if self.path.startswith("/join/"):
             token = self.path.split("/join/")[1].split("?")[0].strip()
-            res = consume_expiring_invite(token)
+            user_agent = self.headers.get("User-Agent", "").lower()
+            is_bot = any(b in user_agent for b in ["facebookexternalhit", "facebot", "meta-externalagent", "whatsapp", "slackbot", "twitterbot"])
+            res = consume_expiring_invite(token, is_bot_prefetch=is_bot)
             if res.get("valid") and res.get("target_url"):
                 self.send_response(302)
                 self.send_header("Location", res["target_url"])
                 self.end_headers()
-                logger.info(f"✅ Expiring invite {token} consumed successfully for {res.get('email')}. Redirected to Canva.")
+                logger.info(f"✅ Expiring invite {token} consumed successfully (Bot: {is_bot}). Redirected to Canva.")
                 return
             else:
                 self.send_response(410)

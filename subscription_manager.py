@@ -1,3 +1,4 @@
+import time
 #!/usr/bin/env python3
 """
 Subscription Manager Module for Design Hub Bot
@@ -311,37 +312,57 @@ def init_expiring_links_table():
                 created_at TEXT,
                 expires_at TEXT,
                 is_used INTEGER DEFAULT 0,
-                used_at TEXT
+                used_at TEXT,
+                created_ts INTEGER DEFAULT 0,
+                expires_ts INTEGER DEFAULT 0
             )
         """)
+        # Ensure epoch columns exist
+        try:
+            c.execute("ALTER TABLE expiring_links ADD COLUMN created_ts INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            c.execute("ALTER TABLE expiring_links ADD COLUMN expires_ts INTEGER DEFAULT 0")
+        except Exception:
+            pass
         conn.commit()
 
 init_expiring_links_table()
 
-def create_expiring_invite(email: str, minutes: int = 10) -> dict:
+def create_expiring_invite(email: str, minutes: int = 15) -> dict:
+    """Generates a fresh, unique self-expiring link with epoch-based countdown."""
     init_expiring_links_table()
     token = "dh_" + secrets.token_urlsafe(12)
-    created_at = datetime.now()
-    expires_at = created_at + timedelta(minutes=minutes)
+    now_ts = int(time.time())
+    expires_ts = now_ts + (minutes * 60)
     
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute("""
-            INSERT INTO expiring_links (token, email, created_at, expires_at, is_used)
-            VALUES (?, ?, ?, ?, 0)
-        """, (token, email.lower().strip(), created_at.strftime("%Y-%m-%d %H:%M:%S"), expires_at.strftime("%Y-%m-%d %H:%M:%S")))
+            INSERT INTO expiring_links (token, email, created_at, expires_at, is_used, created_ts, expires_ts)
+            VALUES (?, ?, ?, ?, 0, ?, ?)
+        """, (
+            token,
+            email.lower().strip(),
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            (datetime.now() + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M:%S"),
+            now_ts,
+            expires_ts
+        ))
         conn.commit()
     
     return {
         "token": token,
         "email": email,
-        "expires_at": expires_at.strftime("%Y-%m-%d %H:%M:%S"),
+        "expires_ts": expires_ts,
         "minutes": minutes
     }
 
-def consume_expiring_invite(token: str) -> dict:
+def consume_expiring_invite(token: str, is_bot_prefetch: bool = False) -> dict:
+    """Consumes an expiring invite. If requested by Facebook/crawler preview, does NOT burn the token."""
     init_expiring_links_table()
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_ts = int(time.time())
     with sqlite3.connect(DB_FILE) as conn:
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
@@ -351,15 +372,27 @@ def consume_expiring_invite(token: str) -> dict:
             return {"valid": False, "reason": "not_found", "message": "Invalid invitation link."}
         
         row_dict = dict(row)
+        
+        # Check expiry via epoch timestamp
+        exp_ts = row_dict.get("expires_ts") or 0
+        if exp_ts > 0:
+            if now_ts > exp_ts:
+                return {"valid": False, "reason": "expired", "message": "This invitation link has expired."}
+        else:
+            # Fallback to string check
+            if datetime.now().strftime("%Y-%m-%d %H:%M:%S") > row_dict["expires_at"]:
+                return {"valid": False, "reason": "expired", "message": "This invitation link has expired."}
+        
+        # Check single-use
         if row_dict["is_used"]:
             return {"valid": False, "reason": "already_used", "message": "This invitation link has already been claimed."}
         
-        if now_str > row_dict["expires_at"]:
-            return {"valid": False, "reason": "expired", "message": "This invitation link has expired."}
-        
-        # Mark as used (Single-use lock!)
-        c.execute("UPDATE expiring_links SET is_used = 1, used_at = ? WHERE token = ?", (now_str, token))
-        conn.commit()
+        # If this is NOT a bot preview crawler, burn the token!
+        if not is_bot_prefetch:
+            c.execute("UPDATE expiring_links SET is_used = 1, used_at = ? WHERE token = ?", (
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), token
+            ))
+            conn.commit()
         
         return {
             "valid": True,
