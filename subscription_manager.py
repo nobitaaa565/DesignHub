@@ -1,3 +1,4 @@
+import os
 import time
 #!/usr/bin/env python3
 """
@@ -300,57 +301,41 @@ def delete_subscriber(email: str) -> bool:
 
 import secrets
 
-CANVA_TEAM_INVITE_URL = "https://www.canva.com/brand/join?token=7VoLaeSmblzCAyFQZJ_nhg&brandingVariant=edu&referrer=team-invite"
+import hmac
+import hashlib
+import base64
+import secrets
 
-def init_expiring_links_table():
+CANVA_TEAM_INVITE_URL = "https://www.canva.com/brand/join?token=7VoLaeSmblzCAyFQZJ_nhg&brandingVariant=edu&referrer=team-invite"
+INVITE_HMAC_SECRET = os.getenv("TELEGRAM_BOT_TOKEN", "designhub_secret_fallback_key").encode("utf-8")
+
+
+def init_consumed_tokens_table():
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute("""
-            CREATE TABLE IF NOT EXISTS expiring_links (
+            CREATE TABLE IF NOT EXISTS consumed_tokens (
                 token TEXT PRIMARY KEY,
                 email TEXT,
-                created_at TEXT,
-                expires_at TEXT,
-                is_used INTEGER DEFAULT 0,
-                used_at TEXT,
-                created_ts INTEGER DEFAULT 0,
-                expires_ts INTEGER DEFAULT 0
+                consumed_at TEXT
             )
         """)
-        # Ensure epoch columns exist
-        try:
-            c.execute("ALTER TABLE expiring_links ADD COLUMN created_ts INTEGER DEFAULT 0")
-        except Exception:
-            pass
-        try:
-            c.execute("ALTER TABLE expiring_links ADD COLUMN expires_ts INTEGER DEFAULT 0")
-        except Exception:
-            pass
         conn.commit()
 
-init_expiring_links_table()
+init_consumed_tokens_table()
+
 
 def create_expiring_invite(email: str, minutes: int = 15) -> dict:
-    """Generates a fresh, unique self-expiring link with epoch-based countdown."""
-    init_expiring_links_table()
-    token = "dh_" + secrets.token_urlsafe(12)
-    now_ts = int(time.time())
-    expires_ts = now_ts + (minutes * 60)
-    
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute("""
-            INSERT INTO expiring_links (token, email, created_at, expires_at, is_used, created_ts, expires_ts)
-            VALUES (?, ?, ?, ?, 0, ?, ?)
-        """, (
-            token,
-            email.lower().strip(),
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            (datetime.now() + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M:%S"),
-            now_ts,
-            expires_ts
-        ))
-        conn.commit()
+    """
+    Generates a cryptographically signed, stateless, self-expiring link.
+    Valid on ANY server instance (Render, local, backup) without database desync issues.
+    """
+    expires_ts = int(time.time()) + (minutes * 60)
+    nonce = secrets.token_hex(4)
+    data = f"{email.lower().strip()}|{expires_ts}|{nonce}".encode("utf-8")
+    sig = hmac.new(INVITE_HMAC_SECRET, data, hashlib.sha256).hexdigest()[:16]
+    raw_payload = f"{email.lower().strip()}|{expires_ts}|{nonce}|{sig}"
+    token = "dh_" + base64.urlsafe_b64encode(raw_payload.encode("utf-8")).decode("utf-8").rstrip("=")
     
     return {
         "token": token,
@@ -359,43 +344,55 @@ def create_expiring_invite(email: str, minutes: int = 15) -> dict:
         "minutes": minutes
     }
 
+
 def consume_expiring_invite(token: str, is_bot_prefetch: bool = False) -> dict:
-    """Consumes an expiring invite. If requested by Facebook/crawler preview, does NOT burn the token."""
-    init_expiring_links_table()
+    """
+    Validates the cryptographic HMAC signature and epoch expiry of the token.
+    Enforces single-use consumption while ignoring Facebook preview crawlers.
+    """
+    init_consumed_tokens_table()
     now_ts = int(time.time())
-    with sqlite3.connect(DB_FILE) as conn:
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        c.execute("SELECT * FROM expiring_links WHERE token = ?", (token,))
-        row = c.fetchone()
-        if not row:
-            return {"valid": False, "reason": "not_found", "message": "Invalid invitation link."}
-        
-        row_dict = dict(row)
-        
-        # Check expiry via epoch timestamp
-        exp_ts = row_dict.get("expires_ts") or 0
-        if exp_ts > 0:
+    
+    try:
+        raw_b64 = token.replace("dh_", "", 1)
+        pad = 4 - (len(raw_b64) % 4)
+        if pad != 4:
+            raw_b64 += "=" * pad
+        decoded = base64.urlsafe_b64decode(raw_b64).decode("utf-8")
+        parts = decoded.split("|")
+        if len(parts) == 4:
+            email, exp_str, nonce, sig = parts
+            exp_ts = int(exp_str)
+            
+            # Verify HMAC signature
+            expected_data = f"{email}|{exp_ts}|{nonce}".encode("utf-8")
+            expected_sig = hmac.new(INVITE_HMAC_SECRET, expected_data, hashlib.sha256).hexdigest()[:16]
+            if not hmac.compare_digest(sig, expected_sig):
+                return {"valid": False, "reason": "invalid_signature", "message": "Invalid link signature."}
+            
+            # Verify expiry
             if now_ts > exp_ts:
                 return {"valid": False, "reason": "expired", "message": "This invitation link has expired."}
-        else:
-            # Fallback to string check
-            if datetime.now().strftime("%Y-%m-%d %H:%M:%S") > row_dict["expires_at"]:
-                return {"valid": False, "reason": "expired", "message": "This invitation link has expired."}
-        
-        # Check single-use
-        if row_dict["is_used"]:
-            return {"valid": False, "reason": "already_used", "message": "This invitation link has already been claimed."}
-        
-        # If this is NOT a bot preview crawler, burn the token!
-        if not is_bot_prefetch:
-            c.execute("UPDATE expiring_links SET is_used = 1, used_at = ? WHERE token = ?", (
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), token
-            ))
-            conn.commit()
-        
-        return {
-            "valid": True,
-            "target_url": CANVA_TEAM_INVITE_URL,
-            "email": row_dict["email"]
-        }
+            
+            # Check single-use consumption
+            with sqlite3.connect(DB_FILE) as conn:
+                c = conn.cursor()
+                c.execute("SELECT 1 FROM consumed_tokens WHERE token = ?", (token,))
+                if c.fetchone():
+                    return {"valid": False, "reason": "already_used", "message": "This invitation link has already been claimed."}
+                
+                if not is_bot_prefetch:
+                    c.execute("INSERT OR IGNORE INTO consumed_tokens (token, email, consumed_at) VALUES (?, ?, ?)", (
+                        token, email, datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    ))
+                    conn.commit()
+            
+            return {
+                "valid": True,
+                "target_url": CANVA_TEAM_INVITE_URL,
+                "email": email
+            }
+    except Exception as e:
+        logger.error(f"Error parsing signed token: {e}")
+
+    return {"valid": False, "reason": "invalid", "message": "Invalid invitation link."}
