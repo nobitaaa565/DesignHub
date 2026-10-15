@@ -417,7 +417,7 @@ def check_and_reply_inbox(bot=None):
         return
 
     replied = load_replied_ids()
-    url = f"https://graph.facebook.com/v20.0/{page_id}/conversations?fields=messages{{message,from,created_time}}&access_token={token}"
+    url = f"https://graph.facebook.com/v20.0/{page_id}/conversations?fields=messages{{message,from,created_time,attachments{{mime_type,image_data,file_url}}}}&access_token={token}"
     try:
         r = requests.get(url, timeout=15)
         if r.status_code != 200:
@@ -442,8 +442,31 @@ def check_and_reply_inbox(bot=None):
             if pb_payload:
                 msg_text = f"{msg_text} {pb_payload}".strip() if msg_text else pb_payload
 
-            if not sender_id or sender_id == page_id or msg_id in replied or not msg_text:
+            attachments = latest_msg.get("attachments", {}).get("data", [])
+            image_url = None
+            for att in attachments:
+                if att.get("image_data", {}).get("url"):
+                    image_url = att["image_data"]["url"]
+                    break
+                elif "image" in att.get("mime_type", ""):
+                    image_url = att.get("file_url") or att.get("image_data", {}).get("url")
+                    break
+                elif att.get("file_url") and any(ext in att.get("file_url", "").lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+                    image_url = att["file_url"]
+                    break
+
+            if not sender_id or sender_id == page_id or msg_id in replied or (not msg_text and not image_url):
                 continue
+
+            image_bytes = None
+            if image_url:
+                try:
+                    img_resp = requests.get(image_url, timeout=15)
+                    if img_resp.status_code == 200:
+                        image_bytes = img_resp.content
+                        logger.info(f"📸 Downloaded screenshot from Messenger ({len(image_bytes)} bytes)")
+                except Exception as e:
+                    logger.error(f"Error downloading attachment image: {e}")
 
             # Process through the 8-step conversational funnel
             handle_incoming_customer_message(
@@ -452,7 +475,8 @@ def check_and_reply_inbox(bot=None):
                 msg_text=msg_text,
                 msg_id=msg_id,
                 page_token=token,
-                bot_instance=bot
+                bot_instance=bot,
+                image_bytes=image_bytes
             )
             replied.add(msg_id)
 

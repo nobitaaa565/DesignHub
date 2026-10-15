@@ -62,7 +62,7 @@ def analyze_payment_screenshot(image_bytes: bytes) -> dict:
         }
     }
 
-    models_to_try = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"]
+    models_to_try = ["gemini-3.5-flash", "gemini-3-flash-preview", "gemini-flash-latest"]
     for m in models_to_try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={GEMINI_API_KEY}"
         try:

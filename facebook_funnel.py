@@ -128,7 +128,7 @@ def parse_package_choice(text: str):
     return None
 
 
-def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text: str, msg_id: str, page_token: str, bot_instance=None):
+def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text: str, msg_id: str, page_token: str, bot_instance=None, image_bytes: bytes = None):
     """Processes customer messages through the 8-step funnel."""
     states = load_states()
     state = states.get(sender_id, {})
@@ -228,7 +228,115 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         send_fb_message(sender_id, text, page_token, quick_replies=get_package_buttons())
         return
 
-    # Step 6 Check: Customer sent TrxID
+    # Step 6 Check: Customer sent Screenshot / Photo Attachment
+    if image_bytes:
+        logger.info(f"📸 Analyzing payment screenshot from {sender_name} ({len(image_bytes)} bytes)...")
+        proof = analyze_payment_screenshot(image_bytes)
+        email_info = state.get("email") or state.get("saved_email") or "Unknown"
+        pkg_info = state.get("package_name", "Canva Pro")
+
+        if proof.get("is_payment_proof"):
+            provider = proof.get("provider", "Mobile Banking")
+            trx_id = proof.get("trx_id") or "Found in Screenshot"
+            amt = proof.get("amount") or "N/A"
+
+            state["trx_id"] = trx_id
+            state["provider"] = provider
+            state["amount"] = amt
+            state["proof_received"] = True
+            states[sender_id] = state
+            save_states(states)
+
+            reply = (
+                f"ধন্যবাদ {sender_name}! আপনার {provider} পেমেন্ট স্ক্রিনশট পেয়েছি।\n\n"
+                f"• TrxID: {trx_id}\n"
+                f"• পরিমাণ: {amt}\n\n"
+                f"আমাদের টিম এটি ভেরিফাই করছে। ভেরিফিকেশন সফল হলেই কনফার্মেশন মেসেজ পাবেন। 🎨"
+            )
+            quick_btns = [
+                {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
+                {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+            ]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+
+            if bot_instance and TELEGRAM_ALLOWED_USER_ID:
+                caption = (
+                    f"📸 *NEW PAYMENT SCREENSHOT VERIFIED VIA GEMINI! (Messenger)*\n"
+                    f"────────────────────────\n"
+                    f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
+                    f"📧 Email: `{email_info}`\n"
+                    f"📦 Package: {pkg_info}\n"
+                    f"📱 Provider: {provider}\n"
+                    f"🔢 TrxID: `{trx_id}`\n"
+                    f"💵 Amount: {amt}\n"
+                    f"────────────────────────\n"
+                    f"Tap Approve to confirm and send confirmation to customer."
+                )
+                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+                keyboard = [
+                    [
+                        InlineKeyboardButton("✅ Approve & Confirm to Customer", callback_data=f"fb_pay_ok:{sender_id}:{email_info}"),
+                        InlineKeyboardButton("🚨 Kick User", callback_data=f"sub_kick:{email_info}")
+                    ]
+                ]
+                try:
+                    asyncio.run_coroutine_threadsafe(
+                        bot_instance.send_photo(
+                            chat_id=TELEGRAM_ALLOWED_USER_ID,
+                            photo=image_bytes,
+                            caption=caption,
+                            reply_markup=InlineKeyboardMarkup(keyboard),
+                            parse_mode="Markdown"
+                        ),
+                        asyncio.get_event_loop()
+                    )
+                except Exception as e:
+                    logger.error(f"Error sending photo alert to Telegram: {e}")
+            return
+        else:
+            reply = (
+                f"ধন্যবাদ {sender_name}! আপনার পাঠানো স্ক্রিনশট পেয়েছি।\n\n"
+                f"আমাদের অ্যাডমিন প্যানেলে এটি ম্যানুয়ালি ভেরিফিকেশনের জন্য পাঠানো হয়েছে। ভেরিফাই হলেই কনফার্মেশন পাবেন। 🎨"
+            )
+            quick_btns = [
+                {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
+                {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+            ]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+
+            if bot_instance and TELEGRAM_ALLOWED_USER_ID:
+                caption = (
+                    f"⚠️ *MANUAL PAYMENT SCREENSHOT RECEIVED (Messenger)*\n"
+                    f"────────────────────────\n"
+                    f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
+                    f"📧 Email: `{email_info}`\n"
+                    f"📦 Package: {pkg_info}\n"
+                    f"⚠️ OCR Status: TrxID not automatically detected. Please check image.\n"
+                    f"────────────────────────"
+                )
+                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+                keyboard = [
+                    [
+                        InlineKeyboardButton("✅ Approve & Confirm to Customer", callback_data=f"fb_pay_ok:{sender_id}:{email_info}"),
+                        InlineKeyboardButton("🚨 Kick User", callback_data=f"sub_kick:{email_info}")
+                    ]
+                ]
+                try:
+                    asyncio.run_coroutine_threadsafe(
+                        bot_instance.send_photo(
+                            chat_id=TELEGRAM_ALLOWED_USER_ID,
+                            photo=image_bytes,
+                            caption=caption,
+                            reply_markup=InlineKeyboardMarkup(keyboard),
+                            parse_mode="Markdown"
+                        ),
+                        asyncio.get_event_loop()
+                    )
+                except Exception as e:
+                    logger.error(f"Error sending manual photo alert to Telegram: {e}")
+            return
+
+    # Step 6 Check: Customer sent TrxID (Text)
     trx_info = extract_trx_from_text(msg_text)
     if trx_info.get("found"):
         trx_id = trx_info["trx_id"]
