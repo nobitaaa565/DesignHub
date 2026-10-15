@@ -307,7 +307,7 @@ import base64
 import secrets
 
 CANVA_TEAM_INVITE_URL = "https://www.canva.com/brand/join?token=7VoLaeSmblzCAyFQZJ_nhg&brandingVariant=edu&referrer=team-invite"
-INVITE_HMAC_SECRET = os.getenv("TELEGRAM_BOT_TOKEN", "designhub_secret_fallback_key").encode("utf-8")
+INVITE_HMAC_SECRET = b"designhub_permanent_hmac_secret_key_v1_2026"
 
 
 def init_consumed_tokens_table():
