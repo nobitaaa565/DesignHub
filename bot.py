@@ -22,6 +22,7 @@ import requests
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from canva_worker import invite_canva_member, kick_canva_member, is_canva_authenticated
+from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 from subscription_manager import (
     add_subscriber,
     mark_paid,
@@ -96,7 +97,7 @@ def call_gemini(prompt: str, system_prompt: str = "") -> str:
     if not GEMINI_API_KEY:
         return ""
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={GEMINI_API_KEY}"
     full_prompt = f"{system_prompt}\n\nTask: {prompt}" if system_prompt else prompt
     payload = {
         "contents": [{"parts": [{"text": full_prompt}]}],
@@ -783,6 +784,36 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     text = update.message.text
+
+    # Check for TrxID in text
+    trx_info = extract_trx_from_text(text)
+    if trx_info.get("found"):
+        trx_id = trx_info["trx_id"]
+        prov = trx_info.get("provider", "bKash/Nagad")
+        amt = trx_info.get("amount", "")
+        amt_str = f"\n💵 *Amount:* {amt}" if amt else ""
+
+        card = (
+            f"🔢 *TRANSACTION ID DETECTED!*\n"
+            f"────────────────────────\n"
+            f"🏦 *Provider:* {prov}\n"
+            f"🔢 *TrxID:* `{trx_id}`{amt_str}\n"
+            f"────────────────────────\n"
+            f"Select pending subscriber to confirm payment:"
+        )
+        pending_subs = [s for s in list_subscribers() if s.get("payment_status") == "PENDING" and s.get("status") == "active"]
+        keyboard = []
+        if pending_subs:
+            for s in pending_subs[:3]:
+                keyboard.append([
+                    InlineKeyboardButton(
+                        f"✅ Confirm for {s['email']}",
+                        callback_data=f"trx_app:{trx_id}:{s['email']}"
+                    )
+                ])
+        keyboard.append([InlineKeyboardButton("❌ Dismiss", callback_data="trx_reject")])
+        await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        return
     PENDING_POSTS[user.id] = {"type": "text", "content": text}
 
     reply_markup = get_post_keyboard("text")
@@ -805,9 +836,60 @@ async def handle_photo_message(update: Update, context: ContextTypes.DEFAULT_TYP
     photo = update.message.photo[-1]
     caption = update.message.caption or ""
 
+    status_msg = await update.message.reply_text("🔍 *Analyzing photo...*", parse_mode="Markdown")
+
     file = await context.bot.get_file(photo.file_id)
     image_bytes = await file.download_as_bytearray()
 
+    # 1. Vision Check: Is this a bKash/Nagad payment proof?
+    proof = await asyncio.to_thread(analyze_payment_screenshot, bytes(image_bytes))
+    if proof and proof.get("is_payment_proof"):
+        trx_id = proof.get("trx_id") or "Not detected"
+        amount = proof.get("amount") or "N/A"
+        provider = proof.get("provider") or "bKash/Nagad"
+        sender = proof.get("sender") or "N/A"
+        time_str = proof.get("timestamp") or "N/A"
+
+        card = (
+            f"💳 *PAYMENT PROOF DETECTED! (AI Vision)*\n"
+            f"────────────────────────\n"
+            f"🏦 *Provider:* {provider}\n"
+            f"🔢 *TrxID:* `{trx_id}`\n"
+            f"💵 *Amount:* {amount}\n"
+            f"📱 *Sender:* `{sender}`\n"
+            f"📅 *Timestamp:* {time_str}\n"
+            f"────────────────────────\n"
+            f"Tap an action below to link & approve:"
+        )
+
+        pending_subs = [s for s in list_subscribers() if s.get("payment_status") == "PENDING" and s.get("status") == "active"]
+        keyboard = []
+        if pending_subs:
+            for s in pending_subs[:3]:
+                keyboard.append([
+                    InlineKeyboardButton(
+                        f"✅ Approve: {s['email']}",
+                        callback_data=f"trx_app:{trx_id}:{s['email']}"
+                    )
+                ])
+        
+        keyboard.append([
+            InlineKeyboardButton("❌ Reject / Fake", callback_data="trx_reject"),
+            InlineKeyboardButton("📸 Publish to FB", callback_data="photo_publish_flow")
+        ])
+
+        PENDING_POSTS[user.id] = {
+            "type": "photo",
+            "image_bytes": bytes(image_bytes),
+            "caption": caption,
+            "detected_trx": trx_id
+        }
+
+        await status_msg.edit_text(card, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        return
+
+    # Normal photo publishing flow
+    await status_msg.delete()
     PENDING_POSTS[user.id] = {
         "type": "photo",
         "image_bytes": bytes(image_bytes),
@@ -815,7 +897,6 @@ async def handle_photo_message(update: Update, context: ContextTypes.DEFAULT_TYP
     }
 
     reply_markup = get_post_keyboard("photo")
-
     await update.message.reply_text(
         f"📷 *Photo received!*\n"
         f"• Caption: {caption if caption else '_(No caption)_'}\n\n"
@@ -837,6 +918,42 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     data = query.data
+
+    if data.startswith("trx_app:"):
+        parts = data.split(":")
+        trx_id = parts[1]
+        email = parts[2]
+        mark_paid(email, trx_id=trx_id)
+        sub = get_subscriber(email)
+        card_text = (
+            f"🎉 *PAYMENT APPROVED & SUBSCRIBER ACTIVATED!*\n"
+            f"────────────────────────\n"
+            f"👤 *Email:* `{email}`\n"
+            f"🔢 *TrxID:* `{trx_id}`\n"
+            f"📦 *Package:* {sub.get('package', '1 Month')}\n"
+            f"📅 *Valid Until:* `{sub.get('expires_at')}`\n"
+            f"💰 *Status:* 🟢 PAID (Active)\n"
+            f"────────────────────────"
+        )
+        await query.edit_message_text(card_text, reply_markup=make_subscriber_keyboard(email, is_paid=True), parse_mode="Markdown")
+        return
+
+    if data == "trx_reject":
+        await query.edit_message_text("❌ Payment proof rejected / marked as unverified.", parse_mode="Markdown")
+        return
+
+    if data == "photo_publish_flow":
+        draft = PENDING_POSTS.get(user_id)
+        if draft and draft.get("type") == "photo":
+            caption = draft.get("caption", "")
+            await query.edit_message_text(
+                f"📷 *Photo ready for publishing!*\n"
+                f"• Caption: {caption if caption else '_(No caption)_'}\n\n"
+                f"Publish to *Design Hub*?",
+                reply_markup=get_post_keyboard("photo"),
+                parse_mode="Markdown"
+            )
+        return
 
     if data.startswith("sub_paid:"):
         email = data.split(":", 1)[1]

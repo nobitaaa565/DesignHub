@@ -42,6 +42,8 @@ def init_db():
             c.execute("ALTER TABLE subscriptions ADD COLUMN name TEXT DEFAULT ''")
         if "days" not in cols:
             c.execute("ALTER TABLE subscriptions ADD COLUMN days INTEGER DEFAULT 30")
+        if "trx_id" not in cols:
+            c.execute("ALTER TABLE subscriptions ADD COLUMN trx_id TEXT DEFAULT ''")
         conn.commit()
 
 
@@ -90,16 +92,23 @@ def add_subscriber(email: str, package: str = "1m", name: str = "") -> dict:
     }
 
 
-def mark_paid(email: str) -> bool:
+def mark_paid(email: str, trx_id: str = "") -> bool:
     init_db()
     clean_email = email.lower().strip()
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("""
-            UPDATE subscriptions 
-            SET payment_status = 'PAID', status = 'active' 
-            WHERE email = ?
-        """, (clean_email,))
+        if trx_id:
+            c.execute("""
+                UPDATE subscriptions 
+                SET payment_status = 'PAID', status = 'active', trx_id = ?
+                WHERE email = ?
+            """, (trx_id.strip(), clean_email))
+        else:
+            c.execute("""
+                UPDATE subscriptions 
+                SET payment_status = 'PAID', status = 'active' 
+                WHERE email = ?
+            """, (clean_email,))
         conn.commit()
         return c.rowcount > 0
 
