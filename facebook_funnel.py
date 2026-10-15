@@ -20,7 +20,17 @@ import asyncio
 from pathlib import Path
 import requests
 
-from subscription_manager import add_subscriber, mark_paid, get_subscriber, create_expiring_invite, get_customer_id_by_sender, mark_reminder_sent
+from subscription_manager import (
+    add_subscriber,
+    mark_paid,
+    get_subscriber,
+    create_expiring_invite,
+    get_customer_id_by_sender,
+    mark_reminder_sent,
+    set_pending_telegram_msg,
+    get_pending_telegram_msg,
+    clear_pending_telegram_msg
+)
 from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 
 logger = logging.getLogger("FacebookFunnel")
@@ -109,16 +119,34 @@ def send_fb_message(recipient_id: str, text: str, page_token: str, quick_replies
 
 
 
-def send_telegram_alert(text: str, reply_markup: dict = None, photo_bytes: bytes = None) -> bool:
+def delete_telegram_message(message_id: int) -> bool:
+    """Deletes a Telegram message by message_id."""
+    if not message_id:
+        return False
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    owner_id = os.getenv("TELEGRAM_ALLOWED_USER_ID")
+    if not token or not owner_id:
+        return False
+    try:
+        url = f"https://api.telegram.org/bot{token}/deleteMessage"
+        r = requests.post(url, json={"chat_id": owner_id, "message_id": int(message_id)}, timeout=10)
+        logger.info(f"Deleted Telegram message {message_id}: {r.status_code}")
+        return r.status_code == 200 and r.json().get("ok", False)
+    except Exception as e:
+        logger.error(f"Error deleting Telegram message {message_id}: {e}")
+        return False
+
+
+def send_telegram_alert(text: str, reply_markup: dict = None, photo_bytes: bytes = None) -> int:
     """
     Direct, 100% thread-safe Telegram alert dispatcher using HTTP Bot API.
-    Works synchronously from any worker thread or background process without event loop issues.
+    Returns the created message_id (int) on success, or 0 on failure.
     """
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     owner_id = os.getenv("TELEGRAM_ALLOWED_USER_ID")
     if not token or not owner_id:
         logger.warning("Telegram token or owner ID missing, cannot send alert.")
-        return False
+        return 0
 
     try:
         if photo_bytes:
@@ -129,7 +157,10 @@ def send_telegram_alert(text: str, reply_markup: dict = None, photo_bytes: bytes
             files = {"photo": ("screenshot.jpg", photo_bytes, "image/jpeg")}
             r = requests.post(url, data=data, files=files, timeout=15)
             logger.info(f"Telegram photo alert response: {r.status_code}")
-            return r.status_code == 200
+            if r.status_code == 200:
+                res_data = r.json()
+                return res_data.get("result", {}).get("message_id") or 1
+            return 0
         else:
             url = f"https://api.telegram.org/bot{token}/sendMessage"
             payload = {"chat_id": owner_id, "text": text, "parse_mode": "Markdown"}
@@ -137,10 +168,13 @@ def send_telegram_alert(text: str, reply_markup: dict = None, photo_bytes: bytes
                 payload["reply_markup"] = reply_markup
             r = requests.post(url, json=payload, timeout=15)
             logger.info(f"Telegram message alert response: {r.status_code}")
-            return r.status_code == 200
+            if r.status_code == 200:
+                res_data = r.json()
+                return res_data.get("result", {}).get("message_id") or 1
+            return 0
     except Exception as e:
         logger.error(f"Error sending Telegram alert: {e}")
-        return False
+        return 0
 
 
 def get_package_buttons():
@@ -331,7 +365,15 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                     ]
                 ]
             }
-            send_telegram_alert(caption, reply_markup=keyboard, photo_bytes=image_bytes)
+            # Delete previous pending message (e.g. from joining Canva or delivery alert)
+            prev_msg_id = get_pending_telegram_msg(email_info)
+            if prev_msg_id:
+                delete_telegram_message(prev_msg_id)
+                clear_pending_telegram_msg(email_info)
+
+            new_msg_id = send_telegram_alert(caption, reply_markup=keyboard, photo_bytes=image_bytes)
+            if new_msg_id:
+                set_pending_telegram_msg(email_info, new_msg_id)
             return
         else:
             reply = (
@@ -365,7 +407,15 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                     ]
                 ]
             }
-            send_telegram_alert(caption, reply_markup=keyboard, photo_bytes=image_bytes)
+            # Delete previous pending message
+            prev_msg_id = get_pending_telegram_msg(email_info)
+            if prev_msg_id:
+                delete_telegram_message(prev_msg_id)
+                clear_pending_telegram_msg(email_info)
+
+            new_msg_id = send_telegram_alert(caption, reply_markup=keyboard, photo_bytes=image_bytes)
+            if new_msg_id:
+                set_pending_telegram_msg(email_info, new_msg_id)
             return
 
     # Step 6 Check: Customer sent TrxID (Text)
@@ -408,7 +458,15 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 ]
             ]
         }
-        send_telegram_alert(alert, reply_markup=keyboard)
+        # Delete previous pending message
+        prev_msg_id = get_pending_telegram_msg(email_info)
+        if prev_msg_id:
+            delete_telegram_message(prev_msg_id)
+            clear_pending_telegram_msg(email_info)
+
+        new_msg_id = send_telegram_alert(alert, reply_markup=keyboard)
+        if new_msg_id:
+            set_pending_telegram_msg(email_info, new_msg_id)
         return
 
     # STEP 1 & 2: Greeting & Package Selection
@@ -542,7 +600,9 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                     ]
                 ]
             }
-            send_telegram_alert(alert, reply_markup=keyboard)
+            new_msg_id = send_telegram_alert(alert, reply_markup=keyboard)
+            if new_msg_id:
+                set_pending_telegram_msg(confirmed_email, new_msg_id)
             return
 
     # Fallback for awaiting_payment stage: Don't stay silent on customer queries
@@ -619,3 +679,56 @@ def send_expiry_reminder_to_customer(fb_sender_id: str, sender_name: str, custom
         )
         send_telegram_alert(alert)
     return ok
+
+
+
+def notify_owner_user_joined_canva(email: str) -> bool:
+    """
+    Called when a customer accesses their /join/<token> link and enters Canva.
+    Notifies the owner on Telegram and asks if they want to keep or kick this user.
+    """
+    if not email:
+        return False
+    sub = get_subscriber(email)
+    if not sub:
+        return False
+
+    # If the user has already paid, no need to alert
+    if sub.get("payment_status") == "PAID":
+        return False
+
+    # Check if a pending join alert has already been sent to avoid duplicate alerts on link reloads
+    existing_msg = get_pending_telegram_msg(email)
+    if existing_msg:
+        return False
+
+    cid = sub.get("customer_id", 800)
+    name = sub.get("name") or "Customer"
+    pkg = sub.get("package") or "Canva Pro"
+
+    text = (
+        f"🎨 *CUSTOMER JOINED CANVA TEAM!*\n"
+        f"────────────────────────\n"
+        f"👤 Customer: {name} (ID: `#{cid}`)\n"
+        f"📧 Email: `{email}`\n"
+        f"📦 Package: {pkg}\n"
+        f"⏳ Status: 🟡 PENDING PAYMENT\n"
+        f"────────────────────────\n"
+        f"User has joined your Canva Team. Do you want to keep this user?"
+    )
+    keyboard = {
+        "inline_keyboard": [
+            [
+                {"text": "✅ Keep User (Confirm Paid)", "callback_data": f"sub_paid:{email}"},
+                {"text": "🚨 Kick User", "callback_data": f"sub_kick:{email}"}
+            ],
+            [
+                {"text": "🔗 Open Canva Team to Remove Seat", "url": "https://www.canva.com/settings/team-members"}
+            ]
+        ]
+    }
+    msg_id = send_telegram_alert(text, reply_markup=keyboard)
+    if msg_id:
+        set_pending_telegram_msg(email, msg_id)
+        return True
+    return False

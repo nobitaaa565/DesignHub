@@ -23,7 +23,7 @@ import requests
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from canva_worker import invite_canva_member, kick_canva_member, is_canva_authenticated
-from facebook_funnel import handle_incoming_customer_message, send_payment_confirmed_to_customer, send_expiry_reminder_to_customer, load_replied_ids, save_replied_ids
+from facebook_funnel import handle_incoming_customer_message, send_payment_confirmed_to_customer, send_expiry_reminder_to_customer, notify_owner_user_joined_canva, load_replied_ids, save_replied_ids
 from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 from subscription_manager import (
     delete_subscriber,
@@ -39,7 +39,8 @@ from subscription_manager import (
     get_db_stats,
     make_subscriber_keyboard,
     format_subscriber_card,
-    get_subscribers_expiring_soon
+    get_subscribers_expiring_soon,
+    clear_pending_telegram_msg
 )
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
@@ -1204,6 +1205,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sender_id = parts[1]
         email = parts[2]
         mark_paid(email)
+        clear_pending_telegram_msg(email)
         sub = get_subscriber(email)
         pkg_name = sub.get("package", "Canva Pro") if sub else "Canva Pro"
         
@@ -1229,6 +1231,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("sub_paid:"):
         email = data.split(":", 1)[1]
         mark_paid(email)
+        clear_pending_telegram_msg(email)
         sub = get_subscriber(email)
         if sub:
             card_text = format_subscriber_card(sub) + "\n\n🎉 *Payment Confirmed!* Subscription locked & active."
@@ -1238,6 +1241,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("sub_kick:"):
         email = data.split(":", 1)[1]
         kick_subscriber(email)
+        clear_pending_telegram_msg(email)
         sub = get_subscriber(email)
         card_text = (
             format_subscriber_card(sub) +
@@ -1432,10 +1436,14 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             is_bot = any(b in user_agent for b in ["facebookexternalhit", "facebot", "meta-externalagent", "whatsapp", "slackbot", "twitterbot"])
             res = consume_expiring_invite(token, is_bot_prefetch=is_bot)
             if res.get("valid") and res.get("target_url"):
+                email = res.get("email")
+                if not is_bot and email:
+                    notify_owner_user_joined_canva(email)
+
                 self.send_response(302)
                 self.send_header("Location", res["target_url"])
                 self.end_headers()
-                logger.info(f"✅ Expiring invite {token} accessed successfully (Bot: {is_bot}). Redirected to Canva.")
+                logger.info(f"✅ Expiring invite {token} accessed successfully for {email} (Bot: {is_bot}). Redirected to Canva.")
                 return
             else:
                 self.send_response(410)

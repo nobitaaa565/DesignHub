@@ -52,6 +52,8 @@ def init_db():
             c.execute("ALTER TABLE subscriptions ADD COLUMN fb_sender_id TEXT DEFAULT ''")
         if "last_reminder_at" not in cols:
             c.execute("ALTER TABLE subscriptions ADD COLUMN last_reminder_at TIMESTAMP")
+        if "pending_telegram_msg_id" not in cols:
+            c.execute("ALTER TABLE subscriptions ADD COLUMN pending_telegram_msg_id INTEGER")
 
         # Backfill any subscriber with missing or low customer_id (< 800)
         c.execute("SELECT id FROM subscriptions WHERE customer_id IS NULL OR customer_id < 800 ORDER BY id ASC")
@@ -457,6 +459,33 @@ def mark_reminder_sent(email_or_id) -> bool:
         """, (now_str, clean_email))
         conn.commit()
         return c.rowcount > 0
+
+
+def set_pending_telegram_msg(email_or_id, msg_id: int):
+    """Stores the Telegram message ID of a pending notification for this subscriber."""
+    init_db()
+    clean_email = resolve_email(email_or_id)
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("UPDATE subscriptions SET pending_telegram_msg_id = ? WHERE email = ?", (int(msg_id) if msg_id else None, clean_email))
+        conn.commit()
+
+
+def get_pending_telegram_msg(email_or_id) -> int:
+    """Retrieves the Telegram message ID of a pending notification for this subscriber."""
+    init_db()
+    clean_email = resolve_email(email_or_id)
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT pending_telegram_msg_id FROM subscriptions WHERE email = ?", (clean_email,))
+        row = c.fetchone()
+        return row[0] if (row and row[0]) else 0
+
+
+def clear_pending_telegram_msg(email_or_id):
+    """Clears the stored Telegram message ID for this subscriber."""
+    set_pending_telegram_msg(email_or_id, 0)
+
 
 
 import secrets
