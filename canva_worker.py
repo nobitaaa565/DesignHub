@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """
 Canva Headless Automation Worker for Design Hub
@@ -14,6 +15,16 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 SESSION_FILE = Path(__file__).resolve().parent / "canva_session.json"
+
+# Restore session from environment variable if on cloud host (Render)
+CANVA_SESSION_B64 = os.getenv("CANVA_SESSION_B64", "")
+if CANVA_SESSION_B64 and not SESSION_FILE.exists():
+    try:
+        import base64
+        SESSION_FILE.write_bytes(base64.b64decode(CANVA_SESSION_B64))
+        logger.info("Restored canva_session.json from CANVA_SESSION_B64 environment variable.")
+    except Exception as e:
+        logger.error(f"Error restoring canva session: {e}")
 logger = logging.getLogger("CanvaWorker")
 
 

@@ -5,3 +5,4 @@ __pycache__/
 canva_session.json
 .DS_Store
 *.log
+canva_session_b64.txt
