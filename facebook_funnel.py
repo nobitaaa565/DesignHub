@@ -123,8 +123,12 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 
     clean_text = msg_text.strip().lower()
 
-    # Global Command: Restart
-    if clean_text in ("restart", "রিস্টার্ট", "reset", "শুরু", "মেনু", "menu", "action_restart"):
+    # Global Triggers: Native 'Get Started' button, 'Restart', or Greetings ('Hi', 'Hello')
+    start_keywords = (
+        "get_started", "start", "restart", "রিস্টার্ট", "reset", "শুরু", "মেনু", "menu", "action_restart",
+        "hi", "hello", "hey", "hlo", "hy", "hola", "সালাম", "assalamu alaikum", "slam", "kemon achen"
+    )
+    if clean_text in start_keywords or any(clean_text.startswith(k + " ") for k in ("hi", "hello", "hey")):
         states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
         save_states(states)
         text = (
