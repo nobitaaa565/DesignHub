@@ -572,17 +572,18 @@ def check_and_reply_inbox(bot=None):
 
 
 async def comment_monitor_loop():
-    """Background async worker that runs every 60 seconds."""
-    logger.info("🚀 Background Comment Auto-Responder loop initialized (60s interval).")
+    """Background async worker that runs every 15 seconds for rapid inbox & comment replies."""
+    logger.info("🚀 Background Inbox & Comment Auto-Responder active (15s rapid interval).")
     while True:
         try:
-            await asyncio.sleep(60)
-            await asyncio.to_thread(check_and_reply_comments)
+            await asyncio.to_thread(check_and_reply_inbox, _bot_instance)
+            await asyncio.to_thread(check_and_reply_comments, _bot_instance)
         except asyncio.CancelledError:
-            logger.info("Comment monitor loop cancelled.")
+            logger.info("Monitor loop cancelled.")
             break
         except Exception as e:
-            logger.error(f"Error in background comment monitor loop: {e}")
+            logger.error(f"Error in background loop: {e}")
+        await asyncio.sleep(15)
 
 
 # ==================== TELEGRAM COMMANDS ====================
