@@ -108,6 +108,41 @@ def send_fb_message(recipient_id: str, text: str, page_token: str, quick_replies
         return False
 
 
+
+def send_telegram_alert(text: str, reply_markup: dict = None, photo_bytes: bytes = None) -> bool:
+    """
+    Direct, 100% thread-safe Telegram alert dispatcher using HTTP Bot API.
+    Works synchronously from any worker thread or background process without event loop issues.
+    """
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    owner_id = os.getenv("TELEGRAM_ALLOWED_USER_ID")
+    if not token or not owner_id:
+        logger.warning("Telegram token or owner ID missing, cannot send alert.")
+        return False
+
+    try:
+        if photo_bytes:
+            url = f"https://api.telegram.org/bot{token}/sendPhoto"
+            data = {"chat_id": owner_id, "caption": text, "parse_mode": "Markdown"}
+            if reply_markup:
+                data["reply_markup"] = json.dumps(reply_markup)
+            files = {"photo": ("screenshot.jpg", photo_bytes, "image/jpeg")}
+            r = requests.post(url, data=data, files=files, timeout=15)
+            logger.info(f"Telegram photo alert response: {r.status_code}")
+            return r.status_code == 200
+        else:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            payload = {"chat_id": owner_id, "text": text, "parse_mode": "Markdown"}
+            if reply_markup:
+                payload["reply_markup"] = reply_markup
+            r = requests.post(url, json=payload, timeout=15)
+            logger.info(f"Telegram message alert response: {r.status_code}")
+            return r.status_code == 200
+    except Exception as e:
+        logger.error(f"Error sending Telegram alert: {e}")
+        return False
+
+
 def get_package_buttons():
     return [
         {"content_type": "text", "title": "1️⃣ ১ মাস (২৫৳)", "payload": "PKG_1M"},
@@ -259,39 +294,27 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             ]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
 
-            if bot_instance and TELEGRAM_ALLOWED_USER_ID:
-                caption = (
-                    f"📸 *NEW PAYMENT SCREENSHOT VERIFIED VIA GEMINI! (Messenger)*\n"
-                    f"────────────────────────\n"
-                    f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
-                    f"📧 Email: `{email_info}`\n"
-                    f"📦 Package: {pkg_info}\n"
-                    f"📱 Provider: {provider}\n"
-                    f"🔢 TrxID: `{trx_id}`\n"
-                    f"💵 Amount: {amt}\n"
-                    f"────────────────────────\n"
-                    f"Tap Approve to confirm and send confirmation to customer."
-                )
-                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-                keyboard = [
+            caption = (
+                f"📸 *NEW PAYMENT SCREENSHOT VERIFIED VIA GEMINI! (Messenger)*\n"
+                f"────────────────────────\n"
+                f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
+                f"📧 Email: `{email_info}`\n"
+                f"📦 Package: {pkg_info}\n"
+                f"📱 Provider: {provider}\n"
+                f"🔢 TrxID: `{trx_id}`\n"
+                f"💵 Amount: {amt}\n"
+                f"────────────────────────\n"
+                f"Tap Approve to confirm and send confirmation to customer."
+            )
+            keyboard = {
+                "inline_keyboard": [
                     [
-                        InlineKeyboardButton("✅ Approve & Confirm to Customer", callback_data=f"fb_pay_ok:{sender_id}:{email_info}"),
-                        InlineKeyboardButton("🚨 Kick User", callback_data=f"sub_kick:{email_info}")
+                        {"text": "✅ Approve & Confirm to Customer", "callback_data": f"fb_pay_ok:{sender_id}:{email_info}"},
+                        {"text": "🚨 Kick User", "callback_data": f"sub_kick:{email_info}"}
                     ]
                 ]
-                try:
-                    asyncio.run_coroutine_threadsafe(
-                        bot_instance.send_photo(
-                            chat_id=TELEGRAM_ALLOWED_USER_ID,
-                            photo=image_bytes,
-                            caption=caption,
-                            reply_markup=InlineKeyboardMarkup(keyboard),
-                            parse_mode="Markdown"
-                        ),
-                        asyncio.get_event_loop()
-                    )
-                except Exception as e:
-                    logger.error(f"Error sending photo alert to Telegram: {e}")
+            }
+            send_telegram_alert(caption, reply_markup=keyboard, photo_bytes=image_bytes)
             return
         else:
             reply = (
@@ -304,36 +327,24 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             ]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
 
-            if bot_instance and TELEGRAM_ALLOWED_USER_ID:
-                caption = (
-                    f"⚠️ *MANUAL PAYMENT SCREENSHOT RECEIVED (Messenger)*\n"
-                    f"────────────────────────\n"
-                    f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
-                    f"📧 Email: `{email_info}`\n"
-                    f"📦 Package: {pkg_info}\n"
-                    f"⚠️ OCR Status: TrxID not automatically detected. Please check image.\n"
-                    f"────────────────────────"
-                )
-                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-                keyboard = [
+            caption = (
+                f"⚠️ *MANUAL PAYMENT SCREENSHOT RECEIVED (Messenger)*\n"
+                f"────────────────────────\n"
+                f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
+                f"📧 Email: `{email_info}`\n"
+                f"📦 Package: {pkg_info}\n"
+                f"⚠️ OCR Status: TrxID not automatically detected. Please check image manually.\n"
+                f"────────────────────────"
+            )
+            keyboard = {
+                "inline_keyboard": [
                     [
-                        InlineKeyboardButton("✅ Approve & Confirm to Customer", callback_data=f"fb_pay_ok:{sender_id}:{email_info}"),
-                        InlineKeyboardButton("🚨 Kick User", callback_data=f"sub_kick:{email_info}")
+                        {"text": "✅ Approve & Confirm to Customer", "callback_data": f"fb_pay_ok:{sender_id}:{email_info}"},
+                        {"text": "🚨 Kick User", "callback_data": f"sub_kick:{email_info}"}
                     ]
                 ]
-                try:
-                    asyncio.run_coroutine_threadsafe(
-                        bot_instance.send_photo(
-                            chat_id=TELEGRAM_ALLOWED_USER_ID,
-                            photo=image_bytes,
-                            caption=caption,
-                            reply_markup=InlineKeyboardMarkup(keyboard),
-                            parse_mode="Markdown"
-                        ),
-                        asyncio.get_event_loop()
-                    )
-                except Exception as e:
-                    logger.error(f"Error sending manual photo alert to Telegram: {e}")
+            }
+            send_telegram_alert(caption, reply_markup=keyboard, photo_bytes=image_bytes)
             return
 
     # Step 6 Check: Customer sent TrxID (Text)
@@ -352,35 +363,28 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
 
         # Notify Telegram Owner with 1-Tap Action
-        if bot_instance and TELEGRAM_ALLOWED_USER_ID:
-            email_info = state.get("email", "Unknown")
-            pkg_info = state.get("package_name", "Canva Pro")
-            alert = (
-                f"💳 *NEW PAYMENT PROOF RECEIVED! (Messenger)*\n"
-                f"────────────────────────\n"
-                f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
-                f"📧 Email: `{email_info}`\n"
-                f"📦 Package: {pkg_info}\n"
-                f"🔢 TrxID: `{trx_id}`\n"
-                f"💵 Amount: {amt}\n"
-                f"────────────────────────"
-            )
-            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-            keyboard = [
+        email_info = state.get("email") or state.get("saved_email") or "Unknown"
+        pkg_info = state.get("package_name", "Canva Pro")
+        alert = (
+            f"💳 *NEW PAYMENT PROOF RECEIVED! (Messenger)*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
+            f"📧 Email: `{email_info}`\n"
+            f"📦 Package: {pkg_info}\n"
+            f"🔢 TrxID: `{trx_id}`\n"
+            f"💵 Amount: {amt}\n"
+            f"────────────────────────\n"
+            f"Tap Approve below to verify or Kick to revoke."
+        )
+        keyboard = {
+            "inline_keyboard": [
                 [
-                    InlineKeyboardButton("✅ Approve & Confirm to Customer", callback_data=f"fb_pay_ok:{sender_id}:{email_info}"),
-                    InlineKeyboardButton("🚨 Kick User", callback_data=f"sub_kick:{email_info}")
+                    {"text": "✅ Approve & Confirm to Customer", "callback_data": f"fb_pay_ok:{sender_id}:{email_info}"},
+                    {"text": "🚨 Kick User", "callback_data": f"sub_kick:{email_info}"}
                 ]
             ]
-            asyncio.run_coroutine_threadsafe(
-                bot_instance.send_message(
-                    chat_id=TELEGRAM_ALLOWED_USER_ID,
-                    text=alert,
-                    reply_markup=InlineKeyboardMarkup(keyboard),
-                    parse_mode="Markdown"
-                ),
-                asyncio.get_event_loop()
-            )
+        }
+        send_telegram_alert(alert, reply_markup=keyboard)
         return
 
     # STEP 1 & 2: Greeting & Package Selection
@@ -494,37 +498,27 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
 
             # 4. Notify Telegram Owner with 1-Tap Control
-            if bot_instance and TELEGRAM_ALLOWED_USER_ID:
-                alert = (
-                    f"⚡ *NEW CANVA PRO ACCESS DELIVERED!*\n"
-                    f"────────────────────────\n"
-                    f"👤 Customer: {sender_name}\n"
-                    f"📧 Email: `{confirmed_email}`\n"
-                    f"📦 Package: {pkg_name}\n"
-                    f"🔗 10-Min Link: `{join_url}`\n"
-                    f"⏳ Status: 🟡 PENDING PAYMENT\n"
-                    f"────────────────────────\n"
-                    f"⚠️ Customer has been given access. If they do not pay, tap Kick to revoke."
-                )
-                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-                keyboard = [
+            alert = (
+                f"⚡ *NEW CANVA PRO ACCESS DELIVERED! (Messenger)*\n"
+                f"────────────────────────\n"
+                f"👤 Customer: {sender_name} (ID: `{sender_id}`)\n"
+                f"📧 Email: `{confirmed_email}`\n"
+                f"📦 Package: {pkg_name}\n"
+                f"⏳ Status: 🟡 PENDING PAYMENT\n"
+                f"🔗 30-Min Link: `{join_url}`\n"
+                f"────────────────────────\n"
+                f"⚠️ Customer has been given 30-minute access. Waiting for payment proof.\n"
+                f"Tap Mark Paid to confirm, or Kick User to revoke access."
+            )
+            keyboard = {
+                "inline_keyboard": [
                     [
-                        InlineKeyboardButton("✅ Mark Paid", callback_data=f"sub_paid:{confirmed_email}"),
-                        InlineKeyboardButton("🚨 Kick User", callback_data=f"sub_kick:{confirmed_email}")
+                        {"text": "✅ Mark Paid", "callback_data": f"sub_paid:{confirmed_email}"},
+                        {"text": "🚨 Kick User", "callback_data": f"sub_kick:{confirmed_email}"}
                     ]
                 ]
-                try:
-                    asyncio.run_coroutine_threadsafe(
-                        bot_instance.send_message(
-                            chat_id=TELEGRAM_ALLOWED_USER_ID,
-                            text=alert,
-                            reply_markup=InlineKeyboardMarkup(keyboard),
-                            parse_mode="Markdown"
-                        ),
-                        asyncio.get_event_loop()
-                    )
-                except Exception as e:
-                    logger.error(f"Error alerting Telegram: {e}")
+            }
+            send_telegram_alert(alert, reply_markup=keyboard)
             return
 
     # Fallback for awaiting_payment stage: Don't stay silent on customer queries
