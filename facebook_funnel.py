@@ -318,14 +318,16 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 f"📱 Provider: {provider}\n"
                 f"🔢 TrxID: `{trx_id}`\n"
                 f"💵 Amount: {amt}\n"
-                f"────────────────────────\n"
-                f"Tap Approve to confirm and send confirmation to customer."
+                f"────────────────────────"
             )
             keyboard = {
                 "inline_keyboard": [
                     [
                         {"text": "✅ Approve & Confirm to Customer", "callback_data": f"fb_pay_ok:{sender_id}:{email_info}"},
                         {"text": "🚨 Kick User", "callback_data": f"sub_kick:{email_info}"}
+                    ],
+                    [
+                        {"text": "🔗 Open Canva Team to Remove Seat", "url": "https://www.canva.com/settings/team-members"}
                     ]
                 ]
             }
@@ -357,6 +359,9 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                     [
                         {"text": "✅ Approve & Confirm to Customer", "callback_data": f"fb_pay_ok:{sender_id}:{email_info}"},
                         {"text": "🚨 Kick User", "callback_data": f"sub_kick:{email_info}"}
+                    ],
+                    [
+                        {"text": "🔗 Open Canva Team to Remove Seat", "url": "https://www.canva.com/settings/team-members"}
                     ]
                 ]
             }
@@ -390,14 +395,16 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             f"📦 Package: {pkg_info}\n"
             f"🔢 TrxID: `{trx_id}`\n"
             f"💵 Amount: {amt}\n"
-            f"────────────────────────\n"
-            f"Tap Approve below to verify or Kick to revoke."
+            f"────────────────────────"
         )
         keyboard = {
             "inline_keyboard": [
                 [
                     {"text": "✅ Approve & Confirm to Customer", "callback_data": f"fb_pay_ok:{sender_id}:{email_info}"},
                     {"text": "🚨 Kick User", "callback_data": f"sub_kick:{email_info}"}
+                ],
+                [
+                    {"text": "🔗 Open Canva Team to Remove Seat", "url": "https://www.canva.com/settings/team-members"}
                 ]
             ]
         }
@@ -525,9 +532,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 f"📦 Package: {pkg_name}\n"
                 f"⏳ Status: 🟡 PENDING PAYMENT\n"
                 f"🔗 30-Min Link: `{join_url}`\n"
-                f"────────────────────────\n"
-                f"⚠️ Customer has been given 30-minute access. Waiting for payment proof.\n"
-                f"Tap Mark Paid to confirm, or Kick User to revoke access."
+                f"────────────────────────"
             )
             keyboard = {
                 "inline_keyboard": [
