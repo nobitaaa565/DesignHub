@@ -875,11 +875,16 @@ async def kick_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         canva_note = f"\n• Canva: {canva_res.get('message', 'Removed from team')}"
 
     if ok:
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        kick_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔗 Open Canva Team to Remove Seat", url="https://www.canva.com/settings/team-members")]
+        ])
         await update.message.reply_text(
             f"🚨 *User Kicked & Access Revoked!*\n\n"
             f"• Email: `{email}`\n"
-            f"• Status: Kicked / Revoked"
-            f"{canva_note}",
+            f"• Status: Kicked / Revoked in Database\n\n"
+            f"👉 Canva টিম থেকে সিটটি রিমুভ করতে নিচের বাটনে চাপ দিন:",
+            reply_markup=kick_kb,
             parse_mode="Markdown"
         )
     else:
@@ -1172,8 +1177,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         email = data.split(":", 1)[1]
         kick_subscriber(email)
         sub = get_subscriber(email)
-        card_text = format_subscriber_card(sub) + "\n\n🚨 *USER KICKED!* Access has been revoked."
-        await query.edit_message_text(card_text, parse_mode="Markdown")
+        card_text = (
+            format_subscriber_card(sub) +
+            f"\n\n🚨 *USER KICKED!* Database access has been revoked.\n"
+            f"• Target Email: `{email}`\n\n"
+            f"👉 Canva টিম থেকে ব্যবহারকারীর সিট রিমুভ করতে নিচের বাটনে ট্যাপ করুন:"
+        )
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        kick_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔗 Open Canva Team to Remove Seat", url="https://www.canva.com/settings/team-members")]
+        ])
+        await query.edit_message_text(card_text, reply_markup=kick_kb, parse_mode="Markdown")
         return
 
     if data.startswith("sub_ext:"):
