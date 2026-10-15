@@ -287,3 +287,12 @@ def format_subscriber_card(sub: dict) -> str:
 if __name__ == "__main__":
     init_db()
     print("Subscription Manager initialized. Stats:", get_db_stats())
+
+def delete_subscriber(email: str) -> bool:
+    init_db()
+    clean_email = email.lower().strip()
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("DELETE FROM subscriptions WHERE email = ?", (clean_email,))
+        conn.commit()
+        return c.rowcount > 0

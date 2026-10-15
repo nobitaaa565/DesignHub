@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Hub — Subscriber Command Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #090D16;
+            --bg-card: rgba(17, 24, 39, 0.7);
+            --bg-card-hover: rgba(30, 41, 59, 0.75);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-focus: rgba(125, 42, 232, 0.5);
+            --primary: #7D2AE8;
+            --primary-glow: rgba(125, 42, 232, 0.25);
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+            --emerald: #10B981;
+            --emerald-bg: rgba(16, 185, 129, 0.12);
+            --amber: #F59E0B;
+            --amber-bg: rgba(245, 158, 11, 0.12);
+            --rose: #EF4444;
+            --rose-bg: rgba(239, 68, 68, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(125, 42, 232, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Top Navbar */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .brand-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #7D2AE8, #00C4CC);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: white;
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }
+
+        .brand-title h1 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-title p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .badge-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: var(--emerald);
+            padding: 0.4rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--emerald);
+            box-shadow: 0 0 10px var(--emerald);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.85); }
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-focus);
+            transform: translateY(-2px);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .stat-label {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .stat-icon {
+            font-size: 1.25rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+
+        /* Controls & Search */
+        .controls-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            position: relative;
+            flex: 1;
+            min-width: 260px;
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.85rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 12px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #7D2AE8, #9333EA);
+            color: white;
+            box-shadow: 0 4px 16px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+        }
+
+        /* Table Card */
+        .card-table {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 1rem 1.25rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 1.1rem 1.25rem;
+            font-size: 0.88rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            vertical-align: middle;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.015);
+        }
+
+        .customer-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .customer-email {
+            font-weight: 700;
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .customer-name {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .badge-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.7rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .status-paid {
+            background: var(--emerald-bg);
+            color: var(--emerald);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        .status-pending {
+            background: var(--amber-bg);
+            color: var(--amber);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+        }
+
+        .status-kicked {
+            background: var(--rose-bg);
+            color: var(--rose);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .table-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .btn-action {
+            padding: 0.45rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-main);
+            transition: all 0.15s ease;
+        }
+
+        .btn-action:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-action-paid {
+            color: var(--emerald);
+            border-color: rgba(16, 185, 129, 0.3);
+            background: var(--emerald-bg);
+        }
+
+        .btn-action-paid:hover {
+            background: rgba(16, 185, 129, 0.25);
+        }
+
+        .btn-action-kick {
+            color: var(--rose);
+            border-color: rgba(239, 68, 68, 0.3);
+            background: var(--rose-bg);
+        }
+
+        .btn-action-kick:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: #111827;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 480px;
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+            transform: scale(0.95);
+            transition: all 0.2s ease;
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            color: var(--text-main);
+            font-size: 0.92rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-input:focus, .form-select:focus {
+            border-color: var(--primary);
+        }
+
+        /* Lock Screen */
+        #authScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #090D16;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .auth-card {
+            background: #111827;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+
+        .auth-pin-input {
+            width: 100%;
+            text-align: center;
+            letter-spacing: 0.5em;
+            font-size: 1.5rem;
+            margin: 1.5rem 0;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.75rem;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Security PIN Lock Screen -->
+    <div id="authScreen">
+        <div class="auth-card">
+            <div class="brand-logo" style="margin: 0 auto 1rem;">DH</div>
+            <h2 style="font-size: 1.3rem; margin-bottom: 0.5rem;">Admin Access</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Enter PIN to access Design Hub Command Center</p>
+            <input type="password" id="pinInput" class="auth-pin-input" placeholder="••••" maxlength="10">
+            <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="verifyPin()">Unlock Dashboard</button>
+            <p id="pinError" style="color: var(--rose); font-size: 0.8rem; margin-top: 0.75rem; display: none;">Invalid PIN. Try again.</p>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Container -->
+    <div class="container" id="mainDashboard" style="display: none;">
+        <header>
+            <div class="brand">
+                <div class="brand-logo">DH</div>
+                <div class="brand-title">
+                    <h1>Design Hub</h1>
+                    <p>Subscriber & Automation Control Center</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="badge-live">
+                    <span class="pulse-dot"></span>
+                    24/7 Cloud Engine Active
+                </div>
+                <button class="btn btn-secondary" onclick="logout()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">🔒 Lock</button>
+            </div>
+        </header>
+
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-label">Total Customers</span>
+                    <span class="stat-icon">👥</span>
+                </div>
+                <div class="stat-value" id="statTotal">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-label">Active Paid</span>
+                    <span class="stat-icon">🟢</span>
+                </div>
+                <div class="stat-value" style="color: var(--emerald);" id="statPaid">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-label">Pending Payments</span>
+                    <span class="stat-icon">🟡</span>
+                </div>
+                <div class="stat-value" style="color: var(--amber);" id="statPending">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-label">Kicked / Revoked</span>
+                    <span class="stat-icon">🔴</span>
+                </div>
+                <div class="stat-value" style="color: var(--rose);" id="statKicked">--</div>
+            </div>
+        </div>
+
+        <!-- Controls Bar -->
+        <div class="controls-bar">
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="search-input" id="searchInput" placeholder="Search email, name or TrxID..." onkeyup="filterSubscribers()">
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary" onclick="loadDashboardData()">🔄 Refresh</button>
+                <button class="btn btn-primary" onclick="openAddModal()">➕ Add Subscriber</button>
+            </div>
+        </div>
+
+        <!-- Subscribers Table -->
+        <div class="card-table">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Package</th>
+                            <th>Expiry Date</th>
+                            <th>Payment Status</th>
+                            <th>TrxID</th>
+                            <th style="text-align: right;">Quick Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="subscribersTbody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem;">Loading subscriber data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add Subscriber -->
+    <div class="modal-overlay" id="addModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">➕ Add New Subscriber</h3>
+                <button class="modal-close" onclick="closeModal('addModal')">&times;</button>
+            </div>
+            <form onsubmit="handleAddSubscriber(event)">
+                <div class="form-group">
+                    <label class="form-label">Customer Email (Gmail)</label>
+                    <input type="email" id="addEmail" class="form-input" placeholder="user@gmail.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Customer Name</label>
+                    <input type="text" id="addName" class="form-input" placeholder="e.g. Rahim Ahmed">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Subscription Package</label>
+                    <select id="addPackage" class="form-select">
+                        <option value="1m">1 Month (25 TK)</option>
+                        <option value="3m" selected>3 Months (50 TK)</option>
+                        <option value="12m">12 Months / 1 Year (150 TK)</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Enroll Customer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Extend Plan -->
+    <div class="modal-overlay" id="extendModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">⌛ Extend Subscription</h3>
+                <button class="modal-close" onclick="closeModal('extendModal')">&times;</button>
+            </div>
+            <form onsubmit="handleExtendSubscriber(event)">
+                <input type="hidden" id="extEmail">
+                <div class="form-group">
+                    <label class="form-label">Extending Subscriber</label>
+                    <input type="text" id="extEmailDisplay" class="form-input" disabled style="opacity: 0.8;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Add Duration</label>
+                    <select id="extPackage" class="form-select">
+                        <option value="1m">+1 Month (+30 Days)</option>
+                        <option value="3m" selected>+3 Months (+90 Days)</option>
+                        <option value="12m">+12 Months (+365 Days)</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('extendModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Apply Extension</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const DEFAULT_PIN = "1809";
+        let allSubscribers = [];
+
+        function verifyPin() {
+            const input = document.getElementById("pinInput").value;
+            if (input === DEFAULT_PIN || input === "1809792261") {
+                sessionStorage.setItem("dh_auth", "true");
+                document.getElementById("authScreen").style.display = "none";
+                document.getElementById("mainDashboard").style.display = "block";
+                loadDashboardData();
+            } else {
+                document.getElementById("pinError").style.display = "block";
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem("dh_auth");
+            location.reload();
+        }
+
+        window.onload = function() {
+            if (sessionStorage.getItem("dh_auth") === "true") {
+                document.getElementById("authScreen").style.display = "none";
+                document.getElementById("mainDashboard").style.display = "block";
+                loadDashboardData();
+            }
+        };
+
+        async function loadDashboardData() {
+            try {
+                const res = await fetch("/api/subscribers");
+                const data = await res.json();
+                allSubscribers = data.subscribers || [];
+
+                // Update Stats
+                document.getElementById("statTotal").textContent = data.stats.total || 0;
+                document.getElementById("statPaid").textContent = data.stats.active_paid || 0;
+                document.getElementById("statPending").textContent = data.stats.pending || 0;
+                document.getElementById("statKicked").textContent = data.stats.kicked || 0;
+
+                renderTable(allSubscribers);
+            } catch (err) {
+                console.error("Error loading dashboard data:", err);
+            }
+        }
+
+        function renderTable(list) {
+            const tbody = document.getElementById("subscribersTbody");
+            if (!list || list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem;">No subscribers found. Click <b>Add Subscriber</b> to create one.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = list.map(sub => {
+                let statusBadge = '';
+                if (sub.payment_status === 'PAID') {
+                    statusBadge = `<span class="badge-status status-paid">🟢 PAID</span>`;
+                } else if (sub.status === 'kicked') {
+                    statusBadge = `<span class="badge-status status-kicked">🔴 KICKED</span>`;
+                } else {
+                    statusBadge = `<span class="badge-status status-pending">🟡 PENDING</span>`;
+                }
+
+                const trx = sub.trx_id ? `<span style="font-family: monospace; font-size: 0.8rem; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${sub.trx_id}</span>` : `<span style="color: var(--text-muted); font-size: 0.8rem;">—</span>`;
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="customer-info">
+                                <span class="customer-email">${sub.email}</span>
+                                <span class="customer-name">${sub.name || 'Personal Account'}</span>
+                            </div>
+                        </td>
+                        <td><span style="font-weight: 600;">${sub.package}</span></td>
+                        <td><span style="font-family: monospace; font-size: 0.85rem;">${(sub.expires_at || '').substring(0, 10)}</span></td>
+                        <td>${statusBadge}</td>
+                        <td>${trx}</td>
+                        <td style="text-align: right;">
+                            <div class="table-actions" style="justify-content: flex-end;">
+                                ${sub.payment_status !== 'PAID' ? `
+                                    <button class="btn-action btn-action-paid" onclick="actionMarkPaid('${sub.email}')" title="Confirm Payment">✅ Paid</button>
+                                ` : ''}
+                                <button class="btn-action" onclick="openExtendModal('${sub.email}')" title="Extend Plan">⌛ Extend</button>
+                                ${sub.status !== 'kicked' ? `
+                                    <button class="btn-action btn-action-kick" onclick="actionKick('${sub.email}')" title="Revoke Access">🚨 Kick</button>
+                                ` : ''}
+                                <button class="btn-action" onclick="actionDelete('${sub.email}')" title="Delete record" style="color: var(--text-muted);">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterSubscribers() {
+            const query = document.getElementById("searchInput").value.toLowerCase();
+            const filtered = allSubscribers.filter(s => 
+                (s.email && s.email.toLowerCase().includes(query)) ||
+                (s.name && s.name.toLowerCase().includes(query)) ||
+                (s.trx_id && s.trx_id.toLowerCase().includes(query))
+            );
+            renderTable(filtered);
+        }
+
+        function openAddModal() {
+            document.getElementById("addModal").classList.add("active");
+        }
+
+        function openExtendModal(email) {
+            document.getElementById("extEmail").value = email;
+            document.getElementById("extEmailDisplay").value = email;
+            document.getElementById("extendModal").classList.add("active");
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove("active");
+        }
+
+        async function handleAddSubscriber(e) {
+            e.preventDefault();
+            const email = document.getElementById("addEmail").value;
+            const name = document.getElementById("addName").value;
+            const pkg = document.getElementById("addPackage").value;
+
+            await fetch("/api/subscriber/add", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, name, package: pkg })
+            });
+
+            closeModal("addModal");
+            document.getElementById("addEmail").value = "";
+            document.getElementById("addName").value = "";
+            loadDashboardData();
+        }
+
+        async function handleExtendSubscriber(e) {
+            e.preventDefault();
+            const email = document.getElementById("extEmail").value;
+            const pkg = document.getElementById("extPackage").value;
+
+            await fetch("/api/subscriber/extend", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, package: pkg })
+            });
+
+            closeModal("extendModal");
+            loadDashboardData();
+        }
+
+        async function actionMarkPaid(email) {
+            const trx = prompt(`Enter bKash/Nagad TrxID for ${email} (Optional):`) || "";
+            await fetch("/api/subscriber/paid", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, trx_id: trx })
+            });
+            loadDashboardData();
+        }
+
+        async function actionKick(email) {
+            if (confirm(`Are you sure you want to KICK ${email} and revoke their Canva Pro access?`)) {
+                await fetch("/api/subscriber/kick", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email })
+                });
+                loadDashboardData();
+            }
+        }
+
+        async function actionDelete(email) {
+            if (confirm(`Permanently delete ${email} from database?`)) {
+                await fetch("/api/subscriber/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email })
+                });
+                loadDashboardData();
+            }
+        }
+    </script>
+</body>
+</html>

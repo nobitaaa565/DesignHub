@@ -24,6 +24,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from canva_worker import invite_canva_member, kick_canva_member, is_canva_authenticated
 from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 from subscription_manager import (
+    delete_subscriber,
     add_subscriber,
     mark_paid,
     kick_subscriber,
@@ -1129,16 +1130,88 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==================== RENDER / UPTIMEROBOT HEALTH SERVER ====================
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/plain; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(b"Design Hub Bot is Active & Running 24/7!\n")
-
     def do_HEAD(self):
         self.send_response(200)
         self.send_header("Content-type", "text/plain; charset=utf-8")
         self.end_headers()
+
+    def do_GET(self):
+        if self.path == "/health":
+            self.send_response(200)
+            self.send_header("Content-type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"Design Hub Bot is Active & Running 24/7!\n")
+            return
+
+        if self.path == "/api/subscribers":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            data = {
+                "stats": get_db_stats(),
+                "subscribers": list_subscribers()
+            }
+            self.wfile.write(json.dumps(data).encode("utf-8"))
+            return
+
+        # Serve Dashboard HTML for / and all other routes
+        html_file = Path(__file__).resolve().parent / "dashboard.html"
+        if html_file.exists():
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            with open(html_file, "rb") as f:
+                self.wfile.write(f.read())
+        else:
+            self.send_response(200)
+            self.send_header("Content-type", "text/plain; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"Design Hub Bot is Active & Running 24/7!\n")
+
+    def do_POST(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        post_data = self.rfile.read(content_length)
+        payload = {}
+        if post_data:
+            try:
+                payload = json.loads(post_data.decode("utf-8"))
+            except Exception:
+                pass
+
+        res = {"status": "ok"}
+        if self.path == "/api/subscriber/add":
+            email = payload.get("email", "")
+            pkg = payload.get("package", "3m")
+            name = payload.get("name", "")
+            if email:
+                add_subscriber(email, pkg, name)
+
+        elif self.path == "/api/subscriber/paid":
+            email = payload.get("email", "")
+            trx_id = payload.get("trx_id", "")
+            if email:
+                mark_paid(email, trx_id=trx_id)
+
+        elif self.path == "/api/subscriber/extend":
+            email = payload.get("email", "")
+            pkg = payload.get("package", "3m")
+            if email:
+                extend_subscriber(email, pkg)
+
+        elif self.path == "/api/subscriber/kick":
+            email = payload.get("email", "")
+            if email:
+                kick_subscriber(email)
+
+        elif self.path == "/api/subscriber/delete":
+            email = payload.get("email", "")
+            if email:
+                delete_subscriber(email)
+
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(res).encode("utf-8"))
 
     def log_message(self, format, *args):
         pass  # Keep logs clean
