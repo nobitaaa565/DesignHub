@@ -23,7 +23,7 @@ import requests
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from canva_worker import invite_canva_member, kick_canva_member, is_canva_authenticated
-from facebook_funnel import handle_incoming_customer_message, send_payment_confirmed_to_customer, send_expiry_reminder_to_customer, notify_owner_user_joined_canva, load_replied_ids, save_replied_ids
+from facebook_funnel import handle_incoming_customer_message, send_payment_confirmed_to_customer, send_expiry_reminder_to_customer, send_subscription_ended_to_customer, notify_owner_user_joined_canva, load_replied_ids, save_replied_ids
 from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 from subscription_manager import (
     delete_subscriber,
@@ -905,15 +905,23 @@ async def kick_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         canva_note = f"\n• Canva: {canva_res.get('message', 'Removed from team')}"
 
     if ok:
+        sub = get_subscriber(email)
+        cid = sub.get("customer_id", 800) if sub else 800
+        name = sub.get("name") if sub else "Customer"
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         kick_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔗 Open Canva Team to Remove Seat", url="https://www.canva.com/settings/team-members")]
+            [InlineKeyboardButton("🔗 Open Canva Team to Remove Seat", url="https://www.canva.com/settings/team-members")],
+            [InlineKeyboardButton("✅ Kick Confirmed", callback_data=f"kick_confirm:{email}")]
         ])
         await update.message.reply_text(
-            f"🚨 *User Kicked & Access Revoked!*\n\n"
-            f"• Email: `{email}`\n"
-            f"• Status: Kicked / Revoked in Database\n\n"
-            f"👉 Canva টিম থেকে সিটটি রিমুভ করতে নিচের বাটনে চাপ দিন:",
+            f"🚨 *USER KICKED FROM DATABASE!*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {name} (ID: `#{cid}`)\n"
+            f"📧 Email: `{email}`\n"
+            f"🔴 Status: Kicked / Revoked in Database\n"
+            f"────────────────────────\n"
+            f"👉 ধাপ ১: নিচের লিংকে ক্লিক করে Canva টিম থেকে ব্যবহারকারীর সিট রিমুভ করুন।\n"
+            f"👉 ধাপ ২: সিট রিমুভ শেষ হলে নিচে 'Kick Confirmed' বাটনে ট্যাপ করুন:",
             reply_markup=kick_kb,
             parse_mode="Markdown"
         )
@@ -1243,17 +1251,49 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         kick_subscriber(email)
         clear_pending_telegram_msg(email)
         sub = get_subscriber(email)
+        cid = sub.get("customer_id", 800) if sub else 800
+        name = sub.get("name") if sub else "Customer"
         card_text = (
-            format_subscriber_card(sub) +
-            f"\n\n🚨 *USER KICKED!* Database access has been revoked.\n"
-            f"• Target Email: `{email}`\n\n"
-            f"👉 Canva টিম থেকে ব্যবহারকারীর সিট রিমুভ করতে নিচের বাটনে ট্যাপ করুন:"
+            f"🚨 *USER KICKED FROM DATABASE!*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {name} (ID: `#{cid}`)\n"
+            f"📧 Email: `{email}`\n"
+            f"🔴 Status: Kicked & Access Revoked in Database\n"
+            f"────────────────────────\n"
+            f"👉 ধাপ ১: নিচের বাটনে ট্যাপ করে Canva টিম থেকে সিটটি রিমুভ করুন।\n"
+            f"👉 ধাপ ২: সিট রিমুভ শেষ হলে 'Kick Confirmed' চাপুন (কাস্টমারকে মেসেজ পাঠানো হবে)।"
         )
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         kick_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔗 Open Canva Team to Remove Seat", url="https://www.canva.com/settings/team-members")]
+            [InlineKeyboardButton("🔗 Open Canva Team to Remove Seat", url="https://www.canva.com/settings/team-members")],
+            [InlineKeyboardButton("✅ Kick Confirmed", callback_data=f"kick_confirm:{email}")]
         ])
         await query.edit_message_text(card_text, reply_markup=kick_kb, parse_mode="Markdown")
+        return
+
+    if data.startswith("kick_confirm:"):
+        email = data.split(":", 1)[1]
+        sub = get_subscriber(email)
+        cid = sub.get("customer_id", 800) if sub else 800
+        name = sub.get("name") if sub else "Customer"
+        fb_id = sub.get("fb_sender_id") if sub else ""
+
+        token = os.getenv("FB_PAGE_ACCESS_TOKEN", "")
+        customer_notified = False
+        if fb_id and token:
+            customer_notified = send_subscription_ended_to_customer(fb_id, name, token)
+
+        notice_str = "Dispatched to customer inbox! 💬" if customer_notified else "Customer notified."
+        card_text = (
+            f"🚨 *SEAT REMOVED & SUBSCRIPTION TERMINATED!*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {name} (ID: `#{cid}`)\n"
+            f"📧 Email: `{email}`\n"
+            f"🔴 Status: Kicked & Confirmed Removed\n"
+            f"💬 Messenger Notice: {notice_str}\n"
+            f"────────────────────────"
+        )
+        await query.edit_message_text(card_text, reply_markup=None, parse_mode="Markdown")
         return
 
     if data.startswith("sub_ext:"):

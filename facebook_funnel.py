@@ -732,3 +732,21 @@ def notify_owner_user_joined_canva(email: str) -> bool:
         set_pending_telegram_msg(email, msg_id)
         return True
     return False
+
+
+
+def send_subscription_ended_to_customer(sender_id: str, sender_name: str, page_token: str) -> bool:
+    """Sends subscription ended / access revoked notice to customer on Facebook Messenger."""
+    if not sender_id or not page_token:
+        return False
+    text = (
+        f"⚠️ আপনার সাবস্ক্রিপশন সমাপ্ত হয়েছে।\n\n"
+        f"আসসালামু আলাইকুম {sender_name}!\n"
+        f"আপনার Design Hub Canva Pro সাবস্ক্রিপশনটির মেয়াদ শেষ / বাতিল করা হয়েছে এবং টিম থেকে আপনার অ্যাক্সেস রিমুভ করা হয়েছে।\n\n"
+        f"আপনি যদি পুনরায় সাবস্ক্রিপশন চালু করতে চান অথবা নতুন কোনো প্যাকেজ নিতে চান, তবে নিচের বাটনে চাপ দিন। ধন্যবাদ! 🎨"
+    )
+    quick_btns = [
+        {"content_type": "text", "title": "🔄 Restart / New Plan", "payload": "ACTION_RESTART"},
+        {"content_type": "text", "title": "💬 Support", "payload": "ACTION_RESTART"}
+    ]
+    return send_fb_message(sender_id, text, page_token, quick_replies=quick_btns)
