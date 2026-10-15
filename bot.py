@@ -25,6 +25,8 @@ from canva_worker import invite_canva_member, kick_canva_member, is_canva_authen
 from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 from subscription_manager import (
     delete_subscriber,
+    create_expiring_invite,
+    consume_expiring_invite,
     add_subscriber,
     mark_paid,
     kick_subscriber,
@@ -629,6 +631,30 @@ def get_post_keyboard(post_type: str = "text") -> InlineKeyboardMarkup:
 
 # ==================== SUBSCRIBER MANAGEMENT COMMANDS ====================
 
+
+async def link_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+
+    email = context.args[0] if context.args else "customer"
+    minutes = int(context.args[1]) if len(context.args) > 1 and context.args[1].isdigit() else 10
+
+    link_data = create_expiring_invite(email, minutes=minutes)
+    join_url = f"https://designhub-1any.onrender.com/join/{link_data['token']}"
+
+    msg = (
+        f"⏳ *10-MINUTE CANVA PRO INVITE LINK*\n"
+        f"────────────────────────\n"
+        f"👤 *Customer:* `{email}`\n"
+        f"⏱️ *Expires In:* `{minutes} Minutes` (Single-Use Only)\n"
+        f"🔗 *Invite Link:*\n`{join_url}`\n"
+        f"────────────────────────\n"
+        f"💡 *Security Rule:* Once the customer clicks this link or {minutes} minutes pass, "
+        f"it self-destructs and cannot be shared or reused!"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
 async def add_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not check_auth(user.id):
@@ -1136,6 +1162,46 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        # 10-Minute Expiring Single-Use Canva Invite Redirect
+        if self.path.startswith("/join/"):
+            token = self.path.split("/join/")[1].split("?")[0].strip()
+            res = consume_expiring_invite(token)
+            if res.get("valid") and res.get("target_url"):
+                self.send_response(302)
+                self.send_header("Location", res["target_url"])
+                self.end_headers()
+                logger.info(f"✅ Expiring invite {token} consumed successfully for {res.get('email')}. Redirected to Canva.")
+                return
+            else:
+                self.send_response(410)
+                self.send_header("Content-type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write('''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Link Expired — Design Hub</title>
+    <style>
+        body { background: #090D16; color: #F8FAFC; font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1.5rem; text-align: center; }
+        .card { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 2.5rem; max-width: 440px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+        .icon { font-size: 3rem; margin-bottom: 1rem; }
+        h2 { font-size: 1.35rem; margin-bottom: 0.5rem; font-weight: 800; }
+        p { color: #94A3B8; font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem; }
+        .btn { display: inline-block; background: #7D2AE8; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 12px; font-weight: 700; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">⏳</div>
+        <h2>Invitation Link Expired</h2>
+        <p>This Design Hub Canva Pro invitation link was single-use and valid for only 10 minutes.<br><br>If you need access or a replacement link, please message Design Hub on Facebook or WhatsApp.</p>
+        <a href="https://facebook.com/1312971105242105" class="btn">Contact Design Hub Support</a>
+    </div>
+</body>
+</html>'''.encode("utf-8"))
+                return
+
         if self.path == "/health":
             self.send_response(200)
             self.send_header("Content-type", "text/plain; charset=utf-8")
@@ -1179,7 +1245,17 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                 pass
 
         res = {"status": "ok"}
-        if self.path == "/api/subscriber/add":
+        if self.path == "/api/invite/create":
+            email = payload.get("email", "")
+            minutes = int(payload.get("minutes", 10))
+            link_info = create_expiring_invite(email, minutes=minutes)
+            res = {
+                "status": "ok",
+                "link": f"https://designhub-1any.onrender.com/join/{link_info['token']}",
+                "expires_at": link_info["expires_at"]
+            }
+
+        elif self.path == "/api/subscriber/add":
             email = payload.get("email", "")
             pkg = payload.get("package", "3m")
             name = payload.get("name", "")
@@ -1262,6 +1338,7 @@ def main():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).post_init(post_init).build()
 
     # Commands
+    app.add_handler(CommandHandler("link", link_command))
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("ai", ai_draft_command))

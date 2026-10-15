@@ -296,3 +296,73 @@ def delete_subscriber(email: str) -> bool:
         c.execute("DELETE FROM subscriptions WHERE email = ?", (clean_email,))
         conn.commit()
         return c.rowcount > 0
+
+import secrets
+
+CANVA_TEAM_INVITE_URL = "https://www.canva.com/brand/join?token=7VoLaeSmblzCAyFQZJ_nhg&brandingVariant=edu&referrer=team-invite"
+
+def init_expiring_links_table():
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS expiring_links (
+                token TEXT PRIMARY KEY,
+                email TEXT,
+                created_at TEXT,
+                expires_at TEXT,
+                is_used INTEGER DEFAULT 0,
+                used_at TEXT
+            )
+        """)
+        conn.commit()
+
+init_expiring_links_table()
+
+def create_expiring_invite(email: str, minutes: int = 10) -> dict:
+    init_expiring_links_table()
+    token = "dh_" + secrets.token_urlsafe(12)
+    created_at = datetime.now()
+    expires_at = created_at + timedelta(minutes=minutes)
+    
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            INSERT INTO expiring_links (token, email, created_at, expires_at, is_used)
+            VALUES (?, ?, ?, ?, 0)
+        """, (token, email.lower().strip(), created_at.strftime("%Y-%m-%d %H:%M:%S"), expires_at.strftime("%Y-%m-%d %H:%M:%S")))
+        conn.commit()
+    
+    return {
+        "token": token,
+        "email": email,
+        "expires_at": expires_at.strftime("%Y-%m-%d %H:%M:%S"),
+        "minutes": minutes
+    }
+
+def consume_expiring_invite(token: str) -> dict:
+    init_expiring_links_table()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute("SELECT * FROM expiring_links WHERE token = ?", (token,))
+        row = c.fetchone()
+        if not row:
+            return {"valid": False, "reason": "not_found", "message": "Invalid invitation link."}
+        
+        row_dict = dict(row)
+        if row_dict["is_used"]:
+            return {"valid": False, "reason": "already_used", "message": "This invitation link has already been claimed."}
+        
+        if now_str > row_dict["expires_at"]:
+            return {"valid": False, "reason": "expired", "message": "This invitation link has expired."}
+        
+        # Mark as used (Single-use lock!)
+        c.execute("UPDATE expiring_links SET is_used = 1, used_at = ? WHERE token = ?", (now_str, token))
+        conn.commit()
+        
+        return {
+            "valid": True,
+            "target_url": CANVA_TEAM_INVITE_URL,
+            "email": row_dict["email"]
+        }

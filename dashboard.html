@@ -755,6 +755,7 @@
                                 ${sub.payment_status !== 'PAID' ? `
                                     <button class="btn-action btn-action-paid" onclick="actionMarkPaid('${sub.email}')" title="Confirm Payment">✅ Paid</button>
                                 ` : ''}
+                                <button class="btn-action" onclick="actionGenerateLink('${sub.email}')" title="Generate 10-Min Expiring Link">🔗 Link</button>
                                 <button class="btn-action" onclick="openExtendModal('${sub.email}')" title="Extend Plan">⌛ Extend</button>
                                 ${sub.status !== 'kicked' ? `
                                     <button class="btn-action btn-action-kick" onclick="actionKick('${sub.email}')" title="Revoke Access">🚨 Kick</button>
