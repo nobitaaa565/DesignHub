@@ -136,15 +136,20 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 
     clean_text = msg_text.strip().lower()
 
-    # Global Command: Request a Fresh New Link
-    new_link_triggers = (
-        "newlink", "new link", "new_link", "action_new_link", "নতুন লিংক", 
-        "link expired", "expired link", "লিংক কাজ করছে না", "expire", "expired"
+    # Global Command: Request a Fresh New Link (Session management & on-demand brand-new generation)
+    is_new_link_request = (
+        "action_new_link" in clean_text
+        or any(k in clean_text for k in [
+            "new link", "newlink", "notun link", "নতুন লিংক", "link expired", 
+            "link is expired", "link has expired", "expired link", "মেয়াদ শেষ", 
+            "লিংক কাজ করছে না", "kaj kore na", "link den", "link pathan", 
+            "send link", "give link", "link please", "expire", "expired", "আরেকটি লিংক"
+        ])
+        or clean_text in ("link", "লিংক", "নতুন লিংক চাই")
     )
-    if clean_text in new_link_triggers or "action_new_link" in clean_text:
+    if is_new_link_request:
         customer_email = state.get("email") or state.get("saved_email")
         if not customer_email:
-            # Check subscriptions.db
             from subscription_manager import list_subscribers
             sender_words = set(sender_name.lower().split())
             for s in list_subscribers():
@@ -155,37 +160,46 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                     break
 
         if customer_email:
-            # Generate brand-new link each time!
-            link_data = create_expiring_invite(customer_email, minutes=15)
+            # Always generate a brand-new unique token with a fresh 30-minute session
+            link_data = create_expiring_invite(customer_email, minutes=30)
             join_url = f"https://designhub-1any.onrender.com/join/{link_data['token']}"
             state["join_link"] = join_url
+            state["stage"] = "awaiting_payment"
             states[sender_id] = state
             save_states(states)
 
             reply = (
                 f"✨ {sender_name}, আপনার জন্য একটি একদম নতুন জয়েন লিংক তৈরি করা হয়েছে:\n\n"
                 f"🔗 {join_url}\n\n"
-                f"⚠️ গুরুত্বপূর্ণ: এই নতুন লিংকটি আগামী ১৫ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
-                f"পেমেন্ট সম্পন্ন করে TrxID বা স্ক্রিনশট পাঠিয়ে দিন। ধন্যবাদ! 🎨"
+                f"⚠️ গুরুত্বপূর্ণ: এই নতুন লিংকটি আগামী ৩০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
+                f"💳 পেমেন্ট তথ্য:\n"
+                f"• বিকাশ / নগদ (Personal): 01711-223344\n\n"
+                f"টিমে যুক্ত হয়ে পেমেন্ট সম্পন্ন করে TrxID বা স্ক্রিনশট পাঠিয়ে দিন। ধন্যবাদ! 🎨"
             )
             quick_btns = [
-                {"content_type": "text", "title": "🔗 Generate New Link", "payload": "ACTION_NEW_LINK"},
+                {"content_type": "text", "title": "🔗 New Link", "payload": "ACTION_NEW_LINK"},
+                {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
                 {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
             ]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
-            logger.info(f"Generated fresh new link for {sender_name} ({customer_email})")
+            logger.info(f"Generated fresh 30-min link for {sender_name} ({customer_email})")
             return
         else:
-            reply = "আপনার কোনো জিমেইল পাওয়া যায়নি। দয়া করে আপনার জিমেইলটি (Gmail) লিখে পাঠান:"
-            send_fb_message(sender_id, reply, page_token)
+            reply = "আপনার কোনো জিমেইল পাওয়া যায়নি। দয়া করে আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, সেটি লিখে পাঠান:"
+            quick_btns = [{"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
             return
 
     # Global Triggers: Native 'Get Started' button, 'Restart', or Greetings ('Hi', 'Hello')
-    start_keywords = (
-        "get_started", "start", "restart", "রিস্টার্ট", "reset", "শুরু", "মেনু", "menu", "action_restart",
-        "hi", "hello", "hey", "hlo", "hy", "hola", "সালাম", "assalamu alaikum", "slam", "kemon achen"
+    is_restart_request = (
+        "action_restart" in clean_text
+        or "restart" in clean_text
+        or "রিস্টার্ট" in clean_text
+        or "get_started" in clean_text
+        or clean_text in ("start", "reset", "শুরু", "মেনু", "menu", "hi", "hello", "hey", "hlo", "hy", "hola", "সালাম", "assalamu alaikum", "slam")
+        or any(clean_text.startswith(k + " ") for k in ("hi", "hello", "hey", "start", "menu"))
     )
-    if clean_text in start_keywords or any(clean_text.startswith(k + " ") for k in ("hi", "hello", "hey")):
+    if is_restart_request:
         states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
         save_states(states)
         text = (
@@ -344,8 +358,8 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             # 1. Enroll in database as PENDING payment
             add_subscriber(confirmed_email, pkg_key, sender_name)
 
-            # 2. Generate 10-minute expiring invite link
-            link_data = create_expiring_invite(confirmed_email, minutes=10)
+            # 2. Generate 30-minute expiring invite link (each time brand-new token)
+            link_data = create_expiring_invite(confirmed_email, minutes=30)
             join_url = f"https://designhub-1any.onrender.com/join/{link_data['token']}"
 
             state["stage"] = "awaiting_payment"
@@ -358,7 +372,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 f"🎉 অভিনন্দন {sender_name}!\n\n"
                 f"আপনার Canva Pro টিম জয়েন লিংক নিচে দেওয়া হলো:\n"
                 f"🔗 {join_url}\n\n"
-                f"⚠️ গুরুত্বপূর্ণ: এই লিংকটি আগামী ১০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
+                f"⚠️ গুরুত্বপূর্ণ: এই লিংকটি আগামী ৩০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
                 f"💳 পেমেন্ট তথ্য:\n"
                 f"• প্যাকেজ: {pkg_name}\n"
                 f"• বিকাশ / নগদ (Personal): 01711-223344\n\n"
@@ -404,6 +418,33 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 except Exception as e:
                     logger.error(f"Error alerting Telegram: {e}")
             return
+
+    # Fallback for awaiting_payment stage: Don't stay silent on customer queries
+    if stage == "awaiting_payment":
+        customer_email = state.get("email") or state.get("saved_email")
+        join_url = state.get("join_link")
+        if not join_url and customer_email:
+            link_data = create_expiring_invite(customer_email, minutes=30)
+            join_url = f"https://designhub-1any.onrender.com/join/{link_data['token']}"
+            state["join_link"] = join_url
+            states[sender_id] = state
+            save_states(states)
+
+        reply = (
+            f"ℹ️ {sender_name}, আপনার Canva Pro জয়েন লিংক:\n"
+            f"🔗 {join_url}\n\n"
+            f"💳 পেমেন্ট তথ্য:\n"
+            f"• বিকাশ / নগদ (Personal): 01711-223344\n\n"
+            f"টিমে জয়েন করা হয়ে গেলে পেমেন্টের TrxID বা স্ক্রিনশট পাঠিয়ে দিন।\n"
+            f"নতুন লিংক প্রয়োজন হলে নিচের বাটনে ট্যাপ করুন:"
+        )
+        quick_btns = [
+            {"content_type": "text", "title": "🔗 New Link", "payload": "ACTION_NEW_LINK"},
+            {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
+            {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+        ]
+        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+        return
 
 
 def send_payment_confirmed_to_customer(sender_id: str, sender_name: str, package_name: str, page_token: str):

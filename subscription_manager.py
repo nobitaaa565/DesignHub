@@ -317,18 +317,23 @@ def init_consumed_tokens_table():
             CREATE TABLE IF NOT EXISTS consumed_tokens (
                 token TEXT PRIMARY KEY,
                 email TEXT,
-                consumed_at TEXT
+                consumed_at TEXT,
+                access_count INTEGER DEFAULT 1
             )
         """)
+        c.execute("PRAGMA table_info(consumed_tokens)")
+        cols = [col[1] for col in c.fetchall()]
+        if "access_count" not in cols:
+            c.execute("ALTER TABLE consumed_tokens ADD COLUMN access_count INTEGER DEFAULT 1")
         conn.commit()
 
 init_consumed_tokens_table()
 
 
-def create_expiring_invite(email: str, minutes: int = 15) -> dict:
+def create_expiring_invite(email: str, minutes: int = 30) -> dict:
     """
-    Generates a cryptographically signed, stateless, self-expiring link.
-    Valid on ANY server instance (Render, local, backup) without database desync issues.
+    Generates a cryptographically signed, stateless, self-expiring link with a full session window.
+    Each call generates a brand-new unique token using a fresh nonce and timestamp.
     """
     expires_ts = int(time.time()) + (minutes * 60)
     nonce = secrets.token_hex(4)
@@ -345,10 +350,26 @@ def create_expiring_invite(email: str, minutes: int = 15) -> dict:
     }
 
 
+def extract_email_from_token(token: str) -> str:
+    """Safely extracts the registered email from an invitation token."""
+    try:
+        raw_b64 = token.replace("dh_", "", 1)
+        pad = 4 - (len(raw_b64) % 4)
+        if pad != 4:
+            raw_b64 += "=" * pad
+        decoded = base64.urlsafe_b64decode(raw_b64).decode("utf-8")
+        parts = decoded.split("|")
+        if len(parts) >= 1 and "@" in parts[0]:
+            return parts[0].strip().lower()
+    except Exception:
+        pass
+    return ""
+
+
 def consume_expiring_invite(token: str, is_bot_prefetch: bool = False) -> dict:
     """
-    Validates the cryptographic HMAC signature and epoch expiry of the token.
-    Enforces single-use consumption while ignoring Facebook preview crawlers.
+    Validates the cryptographic HMAC signature and manages the active onboarding session.
+    Allows smooth multi-device / reload access within the session window (30 mins) while preventing viral redistribution.
     """
     init_consumed_tokens_table()
     now_ts = int(time.time())
@@ -368,24 +389,31 @@ def consume_expiring_invite(token: str, is_bot_prefetch: bool = False) -> dict:
             expected_data = f"{email}|{exp_ts}|{nonce}".encode("utf-8")
             expected_sig = hmac.new(INVITE_HMAC_SECRET, expected_data, hashlib.sha256).hexdigest()[:16]
             if not hmac.compare_digest(sig, expected_sig):
-                return {"valid": False, "reason": "invalid_signature", "message": "Invalid link signature."}
+                return {"valid": False, "reason": "invalid_signature", "email": email, "message": "Invalid link signature."}
             
-            # Verify expiry
+            # Verify session expiry
             if now_ts > exp_ts:
-                return {"valid": False, "reason": "expired", "message": "This invitation link has expired."}
+                return {"valid": False, "reason": "expired", "email": email, "message": "This invitation session has expired."}
             
-            # Check single-use consumption
+            # Session Management: Allow client reloads, app switching, and OAuth callbacks up to 20 accesses
             with sqlite3.connect(DB_FILE) as conn:
                 c = conn.cursor()
-                c.execute("SELECT 1 FROM consumed_tokens WHERE token = ?", (token,))
-                if c.fetchone():
-                    return {"valid": False, "reason": "already_used", "message": "This invitation link has already been claimed."}
-                
-                if not is_bot_prefetch:
-                    c.execute("INSERT OR IGNORE INTO consumed_tokens (token, email, consumed_at) VALUES (?, ?, ?)", (
-                        token, email, datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    ))
-                    conn.commit()
+                c.execute("SELECT access_count FROM consumed_tokens WHERE token = ?", (token,))
+                row = c.fetchone()
+                if row:
+                    count = row[0] or 1
+                    if count >= 20:
+                        return {"valid": False, "reason": "session_limit", "email": email, "message": "Invitation session access limit reached."}
+                    if not is_bot_prefetch:
+                        c.execute("UPDATE consumed_tokens SET access_count = access_count + 1 WHERE token = ?", (token,))
+                        conn.commit()
+                else:
+                    if not is_bot_prefetch:
+                        c.execute("""
+                            INSERT INTO consumed_tokens (token, email, consumed_at, access_count) 
+                            VALUES (?, ?, ?, 1)
+                        """, (token, email, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        conn.commit()
             
             return {
                 "valid": True,

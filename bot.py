@@ -28,6 +28,7 @@ from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 from subscription_manager import (
     delete_subscriber,
     create_expiring_invite,
+    extract_email_from_token,
     consume_expiring_invite,
     add_subscriber,
     mark_paid,
@@ -432,6 +433,14 @@ def check_and_reply_inbox(bot=None):
             sender_id = sender.get("id")
             sender_name = sender.get("name", "Customer")
             msg_text = latest_msg.get("message", "").strip()
+            qr = latest_msg.get("quick_reply", {})
+            qr_payload = qr.get("payload", "").strip() if isinstance(qr, dict) else ""
+            pb = latest_msg.get("postback", {})
+            pb_payload = pb.get("payload", "").strip() if isinstance(pb, dict) else ""
+            if qr_payload:
+                msg_text = f"{msg_text} {qr_payload}".strip() if msg_text else qr_payload
+            if pb_payload:
+                msg_text = f"{msg_text} {pb_payload}".strip() if msg_text else pb_payload
 
             if not sender_id or sender_id == page_id or msg_id in replied or not msg_text:
                 continue
@@ -1298,7 +1307,25 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        # Self-Expiring Single-Use Canva Invite Redirect (Crawler-Safe & Epoch-Timed)
+        # On-Demand Session Renewal: Generates a brand-new token and redirects straight to Canva
+        if self.path.startswith("/renew/"):
+            token = self.path.split("/renew/")[1].split("?")[0].strip()
+            email = extract_email_from_token(token)
+            if email:
+                new_invite = create_expiring_invite(email, minutes=30)
+                new_token = new_invite["token"]
+                self.send_response(302)
+                self.send_header("Location", f"/join/{new_token}")
+                self.end_headers()
+                logger.info(f"🔄 Session renewed on-demand for {email} -> /join/{new_token}")
+                return
+            else:
+                self.send_response(302)
+                self.send_header("Location", "https://m.me/1312971105242105?text=newlink")
+                self.end_headers()
+                return
+
+        # Self-Expiring Canva Invite Redirect (Session-Managed & Crawler-Safe)
         if self.path.startswith("/join/"):
             token = self.path.split("/join/")[1].split("?")[0].strip()
             user_agent = self.headers.get("User-Agent", "").lower()
@@ -1308,36 +1335,122 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                 self.send_response(302)
                 self.send_header("Location", res["target_url"])
                 self.end_headers()
-                logger.info(f"✅ Expiring invite {token} consumed successfully (Bot: {is_bot}). Redirected to Canva.")
+                logger.info(f"✅ Expiring invite {token} accessed successfully (Bot: {is_bot}). Redirected to Canva.")
                 return
             else:
                 self.send_response(410)
                 self.send_header("Content-type", "text/html; charset=utf-8")
                 self.end_headers()
-                self.wfile.write('''<!DOCTYPE html>
-<html>
+                renew_href = f"/renew/{token}"
+                messenger_href = "https://m.me/1312971105242105?text=newlink"
+                html_resp = f'''<!DOCTYPE html>
+<html lang="bn">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Link Expired — Design Hub</title>
+    <title>Invitation Session Expired — Design Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background: #090D16; color: #F8FAFC; font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1.5rem; text-align: center; }
-        .card { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 2.5rem; max-width: 440px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
-        .icon { font-size: 3rem; margin-bottom: 1rem; }
-        h2 { font-size: 1.35rem; margin-bottom: 0.5rem; font-weight: 800; }
-        p { color: #94A3B8; font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem; }
-        .btn { display: inline-block; background: #7D2AE8; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 12px; font-weight: 700; font-size: 0.9rem; }
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ 
+            background: radial-gradient(circle at 50% 20%, #17102e 0%, #090D16 100%); 
+            color: #F8FAFC; 
+            font-family: 'Hind Siliguri', 'Outfit', -apple-system, sans-serif; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh; 
+            padding: 1.5rem; 
+            text-align: center; 
+        }}
+        .card {{ 
+            background: rgba(17, 24, 39, 0.85); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 24px; 
+            padding: 2.75rem 2rem; 
+            max-width: 460px; 
+            width: 100%;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(125, 42, 232, 0.15); 
+            animation: fadeIn 0.5s ease-out;
+        }}
+        @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(15px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+        .icon-wrap {{ 
+            width: 72px; 
+            height: 72px; 
+            background: rgba(125, 42, 232, 0.15); 
+            border: 1px solid rgba(125, 42, 232, 0.3); 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            margin: 0 auto 1.5rem; 
+            font-size: 2.25rem; 
+        }}
+        h2 {{ font-size: 1.4rem; font-weight: 800; margin-bottom: 0.75rem; color: #FFFFFF; font-family: 'Outfit', sans-serif; }}
+        .badge {{
+            display: inline-block;
+            background: rgba(245, 158, 11, 0.15);
+            color: #FBBF24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            padding: 0.3rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }}
+        p {{ color: #94A3B8; font-size: 0.95rem; line-height: 1.6; margin-bottom: 2rem; }}
+        .btn-group {{ display: flex; flex-direction: column; gap: 0.85rem; }}
+        .btn-renew {{ 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 0.5rem;
+            background: linear-gradient(135deg, #7D2AE8 0%, #00C4CC 100%); 
+            color: white; 
+            text-decoration: none; 
+            padding: 0.9rem 1.5rem; 
+            border-radius: 14px; 
+            font-weight: 700; 
+            font-size: 1rem; 
+            box-shadow: 0 10px 25px rgba(125, 42, 232, 0.35); 
+            transition: all 0.25s ease;
+        }}
+        .btn-renew:hover {{ transform: translateY(-2px); box-shadow: 0 15px 30px rgba(125, 42, 232, 0.5); }}
+        .btn-msg {{ 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 255, 255, 0.12); 
+            color: #E2E8F0; 
+            text-decoration: none; 
+            padding: 0.85rem 1.5rem; 
+            border-radius: 14px; 
+            font-weight: 600; 
+            font-size: 0.95rem; 
+            transition: background 0.2s ease;
+        }}
+        .btn-msg:hover {{ background: rgba(255, 255, 255, 0.1); color: #FFFFFF; }}
+        .brand-footer {{ margin-top: 1.75rem; font-size: 0.8rem; color: #64748B; }}
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="icon">⏳</div>
-        <h2>Invitation Link Expired</h2>
-        <p>This Design Hub Canva Pro invitation link was single-use and valid for only 10 minutes.<br><br>If you need access or a replacement link, please message Design Hub on Facebook or WhatsApp.</p>
-        <a href="https://facebook.com/1312971105242105" class="btn">Contact Design Hub Support</a>
+        <div class="icon-wrap">⏳</div>
+        <div class="badge">Session Expired • সেশন শেষ</div>
+        <h2>Invitation Session Expired</h2>
+        <p>এই Canva Pro ইনভাইটেশন লিংকটির ৩০ মিনিটের সেশন মেয়াদ শেষ হয়ে গেছে।<br><br>সরাসরি একটি নতুন লিংক তৈরি করে এখনই যুক্ত হতে নিচের বাটনে ট্যাপ করুন:</p>
+        <div class="btn-group">
+            <a href="{renew_href}" class="btn-renew">⚡ Generate Fresh Link & Join Now</a>
+            <a href="{messenger_href}" class="btn-msg">💬 Open Messenger (মেসেঞ্জারে লিংক নিন)</a>
+        </div>
+        <div class="brand-footer">Design Hub • Official Canva Pro Edu Partner</div>
     </div>
 </body>
-</html>'''.encode("utf-8"))
+</html>'''
+                self.wfile.write(html_resp.encode("utf-8"))
                 return
 
         if self.path == "/health":
