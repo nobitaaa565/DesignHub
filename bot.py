@@ -1,0 +1,1071 @@
+#!/usr/bin/env python3
+"""
+Telegram Bot to Automate Facebook Page Publishing & Comment Auto-Replies (Design Hub)
+Features:
+- Direct Text & Photo Publishing to Facebook
+- AI Post Drafting via Google Gemini 3.5 Flash
+- AI Image Generation with Matching Captions
+- 1-Tap Inline Button Previews & Approvals
+- 24/7 Automated Comment Responder with Keyword Matching
+- Instant Telegram Alerts for Every Handled Comment
+- /comments Command for On-Demand Comment Scanning
+"""
+
+import os
+import sys
+import json
+import asyncio
+import logging
+import urllib.parse
+from pathlib import Path
+import requests
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from canva_worker import invite_canva_member, kick_canva_member, is_canva_authenticated
+from subscription_manager import (
+    add_subscriber,
+    mark_paid,
+    kick_subscriber,
+    extend_subscriber,
+    get_subscriber,
+    list_subscribers,
+    get_db_stats,
+    make_subscriber_keyboard,
+    format_subscriber_card
+)
+from dotenv import load_dotenv
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters,
+)
+
+# Load configuration with absolute path resolution
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+
+FB_PAGE_ID = os.getenv("FB_PAGE_ID")
+FB_PAGE_ACCESS_TOKEN = os.getenv("FB_PAGE_ACCESS_TOKEN")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+ALLOWED_USER_ID = os.getenv("TELEGRAM_ALLOWED_USER_ID")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+DATA_FILE = Path(__file__).resolve().parent / "replied_comments.json"
+
+# Configure logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# Temporary in-memory storage for pending post drafts
+PENDING_POSTS = {}
+
+
+# ==================== AUTH & UTILS ====================
+
+def check_auth(user_id: int) -> bool:
+    """Security check to ensure only the authorized owner can use the bot."""
+    if not ALLOWED_USER_ID:
+        return True
+    try:
+        return str(user_id) == str(ALLOWED_USER_ID)
+    except Exception:
+        return False
+
+
+def get_fb_page_info():
+    """Fetch Facebook Page details to confirm live status."""
+    url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}"
+    params = {"fields": "id,name,link,fan_count", "access_token": FB_PAGE_ACCESS_TOKEN}
+    try:
+        res = requests.get(url, params=params, timeout=10)
+        if res.status_code == 200:
+            return res.json()
+    except Exception as e:
+        logger.error(f"Error fetching page info: {e}")
+    return None
+
+
+def call_gemini(prompt: str, system_prompt: str = "") -> str:
+    """Call Google Gemini 3.5 Flash for post drafting and copywriting."""
+    if not GEMINI_API_KEY:
+        return ""
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={GEMINI_API_KEY}"
+    full_prompt = f"{system_prompt}\n\nTask: {prompt}" if system_prompt else prompt
+    payload = {
+        "contents": [{"parts": [{"text": full_prompt}]}],
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 800}
+    }
+    try:
+        res = requests.post(url, json=payload, timeout=20)
+        if res.status_code == 200:
+            data = res.json()
+            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        else:
+            logger.error(f"Gemini API error ({res.status_code}): {res.text}")
+    except Exception as e:
+        logger.error(f"Error calling Gemini: {e}")
+    return ""
+
+
+def generate_image_bytes(prompt: str) -> bytes:
+    """Generate image using AI generation engine."""
+    clean_prompt = urllib.parse.quote(prompt.strip())
+    url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&nologo=true"
+    try:
+        res = requests.get(url, timeout=30)
+        if res.status_code == 200 and len(res.content) > 1000:
+            return res.content
+    except Exception as e:
+        logger.error(f"Image generation error: {e}")
+    return b""
+
+
+def publish_text_to_fb(message: str) -> dict:
+    """Publish plain text post to Facebook Page feed."""
+    url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/feed"
+    payload = {
+        "message": message,
+        "access_token": FB_PAGE_ACCESS_TOKEN
+    }
+    res = requests.post(url, data=payload, timeout=20)
+    return res.json()
+
+
+def publish_photo_to_fb(image_bytes: bytes, caption: str = "") -> dict:
+    """Publish photo post with caption to Facebook Page."""
+    url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/photos"
+    files = {"source": ("image.jpg", image_bytes, "image/jpeg")}
+    data = {"access_token": FB_PAGE_ACCESS_TOKEN}
+    if caption:
+        data["caption"] = caption
+    res = requests.post(url, data=data, files=files, timeout=30)
+    return res.json()
+
+
+# ==================== AUTO-COMMENT RESPONDER ENGINE ====================
+
+def load_replied_ids() -> set:
+    if DATA_FILE.exists():
+        try:
+            with open(DATA_FILE, "r") as f:
+                return set(json.load(f))
+        except Exception:
+            return set()
+    return set()
+
+
+def save_replied_ids(ids: set):
+    try:
+        with open(DATA_FILE, "w") as f:
+            json.dump(list(ids), f, indent=2)
+    except Exception as e:
+        logger.error(f"Error saving replied IDs: {e}")
+
+
+# High-converting automatic greeting and package templates (Bengali & English)
+GREETING_PACKAGE_BN = (
+    "হ্যালো {name}! 👋 Design Hub-এ আপনাকে স্বাগতম।\n\n"
+    "আপনার নিজস্ব পার্সোনাল জিমেইলেই (Gmail) পাচ্ছেন ১০০% অফিসিয়াল Canva Pro লাইসেন্স! "
+    "কোনো পাসওয়ার্ডের প্রয়োজন নেই—সম্পূর্ণ নিরাপদ ও প্রাইভেট। 🔒✨\n\n"
+    "🔥 আমাদের স্পেশাল প্যাকেজসমূহ:\n"
+    "⭐ ১ মাস — মাত্র ২৫ টাকা\n"
+    "⚡ ৩ মাস — মাত্র ৫০ টাকা (🔥 সর্বাধিক জনপ্রিয় • Access First, Pay Later)\n"
+    "🚀 ১২ মাস (১ বছর) — মাত্র ১৫০ টাকা (সেরা ভ্যালু)\n\n"
+    "✨ যে যে সুবিধাগুলো পাবেন:\n"
+    "• ১০০M+ প্রিমিয়াম ফটো, ভিডিও, অডিও ও গ্রাফিক্স\n"
+    "• ১-ক্লিকে AI ব্যাকগ্রাউন্ড রিমুভার ও ম্যাজিক টুলস\n"
+    "• ৩,০০০+ প্রিমিয়াম ফন্ট ও ব্র্যান্ড কিট অ্যাক্সেস\n"
+    "• ২ মিনিটে ইনস্ট্যান্ট অ্যাক্টিভেশন গ্যারান্টি\n\n"
+    "🛡️ আমাদের বিশেষ সুবিধা: \"আগে অ্যাক্সেস পেয়ে চেক করে নিন, তারপর নিশ্চিন্তে পেমেন্ট করুন!\"\n\n"
+    "👉 এখনই অ্যাক্টিভেশন নিতে আপনার জিমেইলটি আমাদের পেজের ইনবক্সে পাঠিয়ে দিন! 🎨📩"
+)
+
+GREETING_PACKAGE_EN = (
+    "Hello {name}! 👋 Welcome to Design Hub.\n\n"
+    "Get official, full-featured Canva Pro access directly on your own personal email (100% Private, Secure & No password required)! 🔒✨\n\n"
+    "🔥 Special Package Deals:\n"
+    "⭐ 1 Month  — 25 TK\n"
+    "⚡ 3 Months — 50 TK (🔥 Most Popular • Access First, Pay Later)\n"
+    "🚀 12 Months — 150 TK (Best Value Deal)\n\n"
+    "✨ What You Unlock:\n"
+    "• 100M+ Premium Stock Photos, Videos, Audio & Graphics\n"
+    "• 1-Click AI Magic Background Remover & Magic Eraser\n"
+    "• 3,000+ Premium Fonts, Unlimited Folders & Brand Kit\n"
+    "• Instant 2-Minute Activation Guarantee\n\n"
+    "🛡️ Zero Risk Policy: Access First, Check Everything, Then Pay!\n\n"
+    "👉 Send your email address in our Page Inbox now to get your access right away! 🎨📩"
+)
+
+ORDER_DIRECT_BN = (
+    "হ্যালো {name}! 😊 Design Hub-এ যোগাযোগ করার জন্য ধন্যবাদ।\n\n"
+    "আপনার নিজস্ব জিমেইল অ্যাকাউন্টে অফিসিয়াল Canva Pro চালু করতে:\n"
+    "⚡ প্যাকেজ: ১ মাস (২৫ টাকা) | ৩ মাস (৫০ টাকা) | ১২ মাস (১৫০ টাকা)\n"
+    "🛡️ সুবিধা: আগে অ্যাক্সেস নিন, চেক করুন, তারপর পেমেন্ট করুন!\n\n"
+    "👉 অনুগ্রহ করে আপনার জিমেইল (Gmail) অ্যাড্রেসটি আমাদের পেজের ইনবক্সে পাঠিয়ে দিন। মাত্র ২ মিনিটেই অ্যাক্টিভেশন পেয়ে যাবেন!"
+)
+
+ORDER_DIRECT_EN = (
+    "Hi {name}! 😊 Thank you for your interest in Design Hub.\n\n"
+    "We provide official Canva Pro on your own personal email address (Access First, Pay Later)!\n"
+    "⚡ Packages: 1 Mo (25 TK) | 3 Mo (50 TK) | 12 Mo (150 TK)\n\n"
+    "👉 Please send your email address in our page Inbox for instant activation within 2 minutes!"
+)
+
+
+def is_bengali(text: str) -> bool:
+    """Check if the text contains Bengali script."""
+    return any("\u0980" <= c <= "\u09ff" for c in text)
+
+
+def determine_reply(message: str, user_name: str) -> str:
+    msg = message.lower()
+    order_keywords = ["inbox", "buy", "order", "lagbe", "setup", "চাই", "deben", "how to buy", "কিনব", "নেব", "অর্ডার"]
+    bengali_keywords = ["কত", "টাকা", "দাম", "চাই", "প্যাকেজ", "অফার", "ক্যানভা", "কেমনে", "ভাই", "দিবেন"]
+
+    has_order = any(k in msg for k in order_keywords)
+    has_bengali = is_bengali(message) or any(k in msg for k in bengali_keywords)
+
+    if has_order:
+        return ORDER_DIRECT_BN.format(name=user_name) if has_bengali else ORDER_DIRECT_EN.format(name=user_name)
+    else:
+        # Default high-converting greeting & package message for all initial comments
+        return GREETING_PACKAGE_BN.format(name=user_name) if has_bengali else GREETING_PACKAGE_EN.format(name=user_name)
+
+
+def send_telegram_alert_sync(user_name: str, comment_text: str, reply_text: str, post_id: str):
+    if not TELEGRAM_BOT_TOKEN or not ALLOWED_USER_ID:
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    text = (
+        f"🔔 *New Facebook Comment Handled!*\n\n"
+        f"👤 *User:* {user_name}\n"
+        f"💬 *Comment:* \"{comment_text}\"\n"
+        f"🤖 *Auto-Reply Sent:*\n_{reply_text}_\n\n"
+        f"🔗 Post: https://facebook.com/{post_id}"
+    )
+    payload = {
+        "chat_id": ALLOWED_USER_ID,
+        "text": text,
+        "parse_mode": "Markdown"
+    }
+    try:
+        requests.post(url, json=payload, timeout=10)
+    except Exception as e:
+        logger.error(f"Error sending Telegram alert: {e}")
+
+
+def post_fb_comment_reply(comment_id: str, reply_text: str) -> bool:
+    url = f"https://graph.facebook.com/v20.0/{comment_id}/comments"
+    payload = {
+        "message": reply_text,
+        "access_token": FB_PAGE_ACCESS_TOKEN
+    }
+    try:
+        res = requests.post(url, data=payload, timeout=15)
+        if res.status_code == 200 and "id" in res.json():
+            logger.info(f"Replied to comment {comment_id}: {res.json().get('id')}")
+            return True
+        else:
+            logger.error(f"Failed to reply to comment {comment_id}: {res.text}")
+            return False
+    except Exception as e:
+        logger.error(f"Exception replying to comment {comment_id}: {e}")
+        return False
+
+
+def check_and_reply_comments() -> dict:
+    """Scans all posts on the page and auto-replies to new comments."""
+    replied_ids = load_replied_ids()
+    url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/feed"
+    params = {
+        "fields": "id,message,comments{id,from,message,created_time,comments{id,from}}",
+        "access_token": FB_PAGE_ACCESS_TOKEN
+    }
+
+    stats = {"scanned_posts": 0, "replied_count": 0}
+
+    try:
+        res = requests.get(url, params=params, timeout=15)
+        if res.status_code != 200:
+            logger.error(f"Error fetching feed: {res.text}")
+            return stats
+
+        posts = res.json().get("data", [])
+        stats["scanned_posts"] = len(posts)
+
+        for post in posts:
+            post_id = post.get("id")
+            comments = post.get("comments", {}).get("data", [])
+
+            for c in comments:
+                c_id = c.get("id")
+                c_from = c.get("from", {})
+                from_id = c_from.get("id")
+                from_name = c_from.get("name", "Friend")
+                c_msg = c.get("message", "")
+
+                # Skip if already replied or if comment is from page itself
+                if c_id in replied_ids or from_id == FB_PAGE_ID:
+                    continue
+
+                # Check if page already replied in nested comments
+                nested = c.get("comments", {}).get("data", [])
+                already_replied = any(n.get("from", {}).get("id") == FB_PAGE_ID for n in nested)
+                if already_replied:
+                    replied_ids.add(c_id)
+                    save_replied_ids(replied_ids)
+                    continue
+
+                # Determine the readymade reply
+                reply = determine_reply(c_msg, from_name)
+                logger.info(f"Auto-replying to {from_name} on post {post_id}: '{c_msg}'")
+
+                # Send reply to Facebook
+                success = post_fb_comment_reply(c_id, reply)
+                if success:
+                    replied_ids.add(c_id)
+                    save_replied_ids(replied_ids)
+                    stats["replied_count"] += 1
+                    send_telegram_alert_sync(from_name, c_msg, reply, post_id)
+
+    except Exception as e:
+        logger.error(f"Error checking comments: {e}")
+
+    return stats
+
+
+async def comment_monitor_loop():
+    """Background async worker that runs every 60 seconds."""
+    logger.info("🚀 Background Comment Auto-Responder loop initialized (60s interval).")
+    while True:
+        try:
+            await asyncio.sleep(60)
+            await asyncio.to_thread(check_and_reply_comments)
+        except asyncio.CancelledError:
+            logger.info("Comment monitor loop cancelled.")
+            break
+        except Exception as e:
+            logger.error(f"Error in background comment monitor loop: {e}")
+
+
+# ==================== TELEGRAM COMMANDS ====================
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        await update.message.reply_text("⛔ Unauthorized.")
+        return
+
+    page_info = get_fb_page_info()
+    page_name = page_info.get("name", "Facebook Page") if page_info else "Disconnected"
+    ai_status = "🟢 Google Gemini 3.5 Flash Online" if GEMINI_API_KEY else "⚪ AI Key Inactive"
+
+    msg = (
+        f"👋 Welcome, {user.first_name}!\n\n"
+        f"📱 *Design Hub Automation Center*\n"
+        f"• Facebook: *{page_name}*\n"
+        f"• AI Engine: *{ai_status}*\n"
+        f"• Auto-Comments: *🟢 Active (60s loop)*\n\n"
+        f"👥 *Subscriber Management:*\n"
+        f"• `/add <email> [1m/3m/12m]` — Add subscriber & generate 1-tap card\n"
+        f"• `/paid <email>` — Confirm bKash/Nagad payment received\n"
+        f"• `/kick <email>` — Manually revoke & kick user access\n"
+        f"• `/extend <email> [1m/3m/12m]` — Extend plan duration\n"
+        f"• `/subs` — View active & pending subscribers\n"
+        f"• `/check <email>` — Inspect subscriber status & actions\n\n"
+        f"⚡ *Facebook Page Automation:*\n"
+        f"• ✍️ `/ai <topic>` — Gemini viral post in Bangla or English\n"
+        f"• 🎨 `/image <prompt>` — AI image with tailored caption\n"
+        f"• 💬 `/comments` — Scan & auto-reply to Facebook comments\n"
+        f"• 📷 *Send photo/text* — Preview with language selection\n"
+        f"• 📊 `/status` — System health & subscriber stats\n"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+
+    page_info = get_fb_page_info()
+    fb_status = f"🟢 Connected ({page_info.get('name')})" if page_info else "🔴 Disconnected"
+    ai_status = "🟢 Gemini 3.5 Flash (Active)" if GEMINI_API_KEY else "🔴 Inactive"
+    replied_ids = load_replied_ids()
+
+    status_msg = (
+        f"📊 *System Status*\n"
+        f"• Your Telegram ID: `{user.id}`\n"
+        f"• FB Page: {fb_status}\n"
+        f"• Page ID: `{FB_PAGE_ID}`\n"
+        f"• AI Engine: {ai_status}\n"
+        f"• Auto-Comment Responder: 🟢 Active (Checks every 60s)\n"
+        f"• Total Comments Handled: `{len(replied_ids)}`\n"
+        f"• Active Paid Subs: `{get_db_stats()['active_paid']}` | Pending: `{get_db_stats()['pending']}`\n"
+    )
+    await update.message.reply_text(status_msg, parse_mode="Markdown")
+
+
+async def scan_comments_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+
+    status_msg = await update.message.reply_text("🔍 *Scanning Facebook Page for new comments...*", parse_mode="Markdown")
+    stats = await asyncio.to_thread(check_and_reply_comments)
+
+    res_text = (
+        f"✅ *Comment Scan Complete!*\n\n"
+        f"• Posts Scanned: `{stats.get('scanned_posts', 0)}`\n"
+        f"• New Comments Replied: `{stats.get('replied_count', 0)}`\n"
+        f"• Next automated scan in ~60 seconds."
+    )
+    await status_msg.edit_text(res_text, parse_mode="Markdown")
+
+
+async def ai_draft_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "💡 *Usage:* `/ai <topic>`\n*Example:* `/ai 5 reasons to upgrade to Canva Pro today for freelancers`",
+            parse_mode="Markdown"
+        )
+        return
+
+    topic = " ".join(context.args)
+    status_msg = await update.message.reply_text("🤖 *Gemini is writing your Facebook post...*", parse_mode="Markdown")
+
+    system_prompt = (
+        "You are an expert social media manager for 'Design Hub', a Facebook page providing premium creative "
+        "assets, Canva Pro access, graphic design tips, and design tool subscriptions to creators and businesses. "
+        "Write a punchy, highly engaging Facebook post. Include a catchy hook, 2-3 value bullet points, "
+        "a clear Call to Action (e.g. 'Send a message to get yours now!'), and 3-5 relevant hashtags."
+    )
+    generated_text = call_gemini(topic, system_prompt)
+
+    if not generated_text:
+        await status_msg.edit_text("❌ Failed to generate with Gemini. Please try again.")
+        return
+
+    PENDING_POSTS[user.id] = {"type": "text", "content": generated_text, "topic": topic}
+
+    reply_markup = get_post_keyboard("text")
+
+    preview = (
+        f"🤖 *AI Generated Post:*\n"
+        f"────────────────────────\n"
+        f"{generated_text}\n"
+        f"────────────────────────\n"
+        f"Publish this to *Design Hub*?"
+    )
+    await status_msg.edit_text(preview, reply_markup=reply_markup)
+
+
+async def image_gen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "💡 *Usage:* `/image <description>`\n*Example:* `/image Modern Canva Pro promotional banner, purple gradient, 4k`",
+            parse_mode="Markdown"
+        )
+        return
+
+    prompt = " ".join(context.args)
+    status_msg = await update.message.reply_text("🎨 *Generating AI image & caption...*", parse_mode="Markdown")
+
+    caption_prompt = f"Write a 2-sentence engaging Facebook caption with 3 hashtags for a post showcasing: {prompt}"
+    caption = call_gemini(caption_prompt) or "✨ Transform your workflow with Design Hub!\n\n#DesignHub #CreativeTools #GraphicDesign"
+
+    img_bytes = generate_image_bytes(prompt)
+    if not img_bytes:
+        await status_msg.edit_text("❌ Failed to generate image. Please try a different prompt.")
+        return
+
+    PENDING_POSTS[user.id] = {
+        "type": "photo",
+        "image_bytes": img_bytes,
+        "caption": caption,
+        "prompt": prompt
+    }
+
+    keyboard = [
+        [
+            InlineKeyboardButton("🚀 Publish Photo to FB", callback_data="publish_confirm"),
+            InlineKeyboardButton("🔄 Regenerate", callback_data="image_regen")
+        ],
+        [InlineKeyboardButton("❌ Cancel", callback_data="publish_cancel")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await status_msg.delete()
+    await update.message.reply_photo(
+        photo=img_bytes,
+        caption=f"📝 *Caption:*\n{caption}\n\nPublish to *Design Hub*?",
+        reply_markup=reply_markup
+    )
+
+
+async def quick_post_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: `/post Your message here`", parse_mode="Markdown")
+        return
+
+    text = " ".join(context.args)
+    await update.message.reply_text("⏳ Publishing directly to Facebook...")
+
+    res = publish_text_to_fb(text)
+    if "id" in res:
+        post_id = res["id"]
+        await update.message.reply_text(
+            f"🎉 *Successfully Published!*\n• Post ID: `{post_id}`\n• Page: https://facebook.com/{FB_PAGE_ID}",
+            parse_mode="Markdown"
+        )
+    else:
+        err_msg = res.get("error", {}).get("message", "Unknown error")
+        await update.message.reply_text(f"❌ Failed to publish: {err_msg}")
+
+
+
+# Ready-to-use high-converting caption templates for post publishing
+CANVA_PRO_PROMO_BN = (
+    "ডিজাইন নিয়ে আর কোনো লিমিটেশন নয়! 🎨🚀\n"
+    "আপনার নিজস্ব পার্সোনাল জিমেইলেই (Gmail) পাচ্ছেন ১০০% অফিসিয়াল Canva Pro লাইসেন্স—সম্পূর্ণ নিরাপদ ও প্রাইভেট! 🔒✨\n\n"
+    "💎 আমাদের স্পেশাল প্যাকেজসমূহ:\n"
+    "⭐ ১ মাস — মাত্র ২৫ টাকা\n"
+    "⚡ ৩ মাস — মাত্র ৫০ টাকা (🔥 সর্বাধিক জনপ্রিয় • Access First, Pay Later)\n"
+    "🚀 ১২ মাস (১ বছর) — মাত্র ১৫০ টাকা (সেরা ভ্যালু)\n\n"
+    "✨ যে যে সুবিধাগুলো পাবেন:\n"
+    "✅ ১০০M+ প্রিমিয়াম ফটো, ভিডিও, টেমপ্লেট ও গ্রাফিক্স\n"
+    "✅ ১-ক্লিকে AI ব্যাকগ্রাউন্ড রিমুভার ও ম্যাজিক স্টুডিও\n"
+    "✅ ৩,০০০+ প্রিমিয়াম ফন্ট ও ফুল ব্র্যান্ড কিট অ্যাক্সেস\n"
+    "✅ মাত্র ২ মিনিটে ইনস্ট্যান্ট ডেলিভারি গ্যারান্টি\n\n"
+    "🛡️ আমাদের বিশেষ সুবিধা: \"আগে অ্যাক্সেস পেয়ে চেক করে নিন, তারপর নিশ্চিন্তে পেমেন্ট করুন!\" (Access First, Pay Later)\n\n"
+    "👉 অফারটি নিতে এখনই কমেন্ট করুন অথবা আপনার জিমেইলটি আমাদের পেজের ইনবক্সে পাঠিয়ে দিন! 🎨📩\n\n"
+    "#DesignHub #CanvaPro #CanvaProBangladesh #GraphicDesignBD #FreelancingBangladesh #CreativeTools #StudentOffer"
+)
+
+CANVA_PRO_PROMO_EN = (
+    "Stop wasting hours on complex design tools. Upgrade your workflow with Canva Pro today! ⚡🎨\n\n"
+    "Get 100% official Canva Pro directly on your personal email — safe, private, and zero passwords needed.\n\n"
+    "🔥 Why Creators Love Canva Pro:\n"
+    "• 100M+ Premium Stock Photos, Videos, Audio & Graphics\n"
+    "• 1-Click AI Magic Background Remover & Magic Eraser\n"
+    "• 3,000+ Premium Fonts, Custom Brand Kits & Resizing\n"
+    "• Instant 2-Minute Activation Guarantee\n\n"
+    "🏷️ Exclusive Rates:\n"
+    "⭐ 1 Month  — 25 TK\n"
+    "⚡ 3 Months — 50 TK (🔥 Most Popular • Access First, Pay Later)\n"
+    "🚀 12 Months — 150 TK (Best Value Deal)\n\n"
+    "🛡️ Zero Risk Policy: Access First, Check Everything, Then Pay!\n\n"
+    "👉 Drop a message in our Page Inbox with your Gmail to get instant access right now! 📩✨\n\n"
+    "#DesignHub #CanvaPro #DesignTools #ContentCreators #FreelancerLife #GraphicDesigners #DigitalTools"
+)
+
+
+def get_post_keyboard(post_type: str = "text") -> InlineKeyboardMarkup:
+    if post_type == "photo":
+        keyboard = [
+            [
+                InlineKeyboardButton("🚀 Publish Photo to FB", callback_data="publish_confirm"),
+                InlineKeyboardButton("❌ Cancel", callback_data="publish_cancel")
+            ],
+            [
+                InlineKeyboardButton("🇧🇩 বাংলা ক্যাপশন (AI)", callback_data="caption_ai_bn"),
+                InlineKeyboardButton("🇬🇧 English Caption (AI)", callback_data="caption_ai_en")
+            ],
+            [
+                InlineKeyboardButton("💎 Canva Offer (বাংলা)", callback_data="caption_promo_bn"),
+                InlineKeyboardButton("💎 Canva Offer (English)", callback_data="caption_promo_en")
+            ]
+        ]
+    else:
+        keyboard = [
+            [
+                InlineKeyboardButton("🚀 Publish to Facebook", callback_data="publish_confirm"),
+                InlineKeyboardButton("❌ Cancel", callback_data="publish_cancel")
+            ],
+            [
+                InlineKeyboardButton("🇧🇩 বাংলায় লিখুন (AI)", callback_data="ai_lang_bn"),
+                InlineKeyboardButton("🇬🇧 English Polish (AI)", callback_data="ai_polish")
+            ],
+            [
+                InlineKeyboardButton("💎 Canva Offer (বাংলা)", callback_data="caption_promo_bn"),
+                InlineKeyboardButton("💎 Canva Offer (English)", callback_data="caption_promo_en")
+            ],
+            [
+                InlineKeyboardButton("🔄 Rewrite Angle", callback_data="ai_rewrite")
+            ]
+        ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+
+# ==================== SUBSCRIBER MANAGEMENT COMMANDS ====================
+
+async def add_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+    if not context.args:
+        await update.message.reply_text(
+            "💡 *Usage:* `/add <email> [package] [name]`\n"
+            "*Packages:* `1m` (25 TK), `3m` (50 TK), `12m` (150 TK)\n"
+            "*Example:* `/add rahim@gmail.com 1m Rahim`",
+            parse_mode="Markdown"
+        )
+        return
+
+    email = context.args[0]
+    pkg = context.args[1] if len(context.args) > 1 else "1m"
+    name = " ".join(context.args[2:]) if len(context.args) > 2 else ""
+
+    sub = add_subscriber(email, pkg, name)
+    card_text = format_subscriber_card(sub)
+    
+    # Canva invite dispatch
+    canva_note = ""
+    if is_canva_authenticated():
+        status_msg = await update.message.reply_text(f"⏳ *Dispatching Canva Pro invite to* `{email}`...", parse_mode="Markdown")
+        canva_res = await asyncio.to_thread(invite_canva_member, email)
+        if canva_res.get("status") == "success":
+            canva_note = f"\n\n🎨 *Canva:* {canva_res.get('message', 'Invite dispatched!')}"
+        else:
+            canva_note = f"\n\n⚠️ *Canva:* {canva_res.get('message')}"
+        await status_msg.delete()
+    else:
+        canva_note = "\n\n💡 *Canva Automation:* Session not saved yet. Run `python canva_login_helper.py` once on your Mac to enable 100% automatic invites."
+
+    card_text += canva_note
+    card_text += "\n\n⚠️ *Action:* Tap below once bKash/Nagad payment arrives:"
+    keyboard = make_subscriber_keyboard(email, is_paid=False)
+
+    await update.message.reply_text(card_text, reply_markup=keyboard, parse_mode="Markdown")
+
+
+async def paid_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+    if not context.args:
+        await update.message.reply_text("💡 *Usage:* `/paid <email>`\n*Example:* `/paid rahim@gmail.com`", parse_mode="Markdown")
+        return
+
+    email = context.args[0]
+    ok = mark_paid(email)
+    if ok:
+        sub = get_subscriber(email)
+        card_text = format_subscriber_card(sub)
+        card_text += "\n\n🎉 *Payment Confirmed!* Subscription is locked & active."
+        keyboard = make_subscriber_keyboard(email, is_paid=True)
+        await update.message.reply_text(card_text, reply_markup=keyboard, parse_mode="Markdown")
+    else:
+        await update.message.reply_text(f"❌ Subscriber with email `{email}` not found.", parse_mode="Markdown")
+
+
+async def kick_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+    if not context.args:
+        await update.message.reply_text("💡 *Usage:* `/kick <email>`\n*Example:* `/kick rahim@gmail.com`", parse_mode="Markdown")
+        return
+
+    email = context.args[0]
+    ok = kick_subscriber(email)
+    canva_note = ""
+    if is_canva_authenticated():
+        canva_res = await asyncio.to_thread(kick_canva_member, email)
+        canva_note = f"\n• Canva: {canva_res.get('message', 'Removed from team')}"
+
+    if ok:
+        await update.message.reply_text(
+            f"🚨 *User Kicked & Access Revoked!*\n\n"
+            f"• Email: `{email}`\n"
+            f"• Status: Kicked / Revoked"
+            f"{canva_note}",
+            parse_mode="Markdown"
+        )
+    else:
+        await update.message.reply_text(f"❌ Subscriber `{email}` not found.", parse_mode="Markdown")
+
+
+async def extend_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+    if not context.args:
+        await update.message.reply_text(
+            "💡 *Usage:* `/extend <email> [package]`\n"
+            "*Packages:* `1m` (+30 days), `3m` (+90 days), `12m` (+365 days)\n"
+            "*Example:* `/extend rahim@gmail.com 1m`",
+            parse_mode="Markdown"
+        )
+        return
+
+    email = context.args[0]
+    pkg = context.args[1] if len(context.args) > 1 else "1m"
+    res = extend_subscriber(email, pkg)
+    if res:
+        sub = get_subscriber(email)
+        card_text = format_subscriber_card(sub)
+        card_text += f"\n\n🎉 *Subscription Extended (+{res['added_package']})!*\nNew Expiry: `{res['new_expires_at']}`"
+        keyboard = make_subscriber_keyboard(email, is_paid=True)
+        await update.message.reply_text(card_text, reply_markup=keyboard, parse_mode="Markdown")
+    else:
+        await update.message.reply_text(f"❌ Subscriber `{email}` not found. Use `/add {email}` first.", parse_mode="Markdown")
+
+
+async def list_subs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+
+    subs = list_subscribers()
+    stats = get_db_stats()
+    if not subs:
+        await update.message.reply_text("📋 *No subscribers in database.* Use `/add <email>` to add one.", parse_mode="Markdown")
+        return
+
+    lines = [
+        f"📊 *Design Hub Subscribers*",
+        f"• Total: `{stats['total']}` | 🟢 Paid: `{stats['active_paid']}` | 🟡 Pending: `{stats['pending']}` | 🔴 Kicked: `{stats['kicked']}`\n",
+        f"📋 *Recent Subscriptions:*"
+    ]
+    for s in subs[:15]:
+        p_icon = "🟢" if s["payment_status"] == "PAID" else ("🔴" if s["status"] == "kicked" else "🟡")
+        name_str = f" ({s['name']})" if s.get("name") else ""
+        lines.append(f"{p_icon} `{s['email']}`{name_str} — *{s['package']}* (Exp: {s['expires_at'][:10]})")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
+async def check_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+    if not context.args:
+        await update.message.reply_text("💡 *Usage:* `/check <email>`\n*Example:* `/check rahim@gmail.com`", parse_mode="Markdown")
+        return
+
+    email = context.args[0]
+    sub = get_subscriber(email)
+    if not sub:
+        await update.message.reply_text(f"❌ No subscriber found for `{email}`.", parse_mode="Markdown")
+        return
+
+    card_text = format_subscriber_card(sub)
+    keyboard = make_subscriber_keyboard(email, is_paid=(sub.get("payment_status") == "PAID"))
+    await update.message.reply_text(card_text, reply_markup=keyboard, parse_mode="Markdown")
+
+
+# ==================== MESSAGE HANDLERS ====================
+
+async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+
+    text = update.message.text
+    PENDING_POSTS[user.id] = {"type": "text", "content": text}
+
+    reply_markup = get_post_keyboard("text")
+
+    preview = (
+        f"📝 *Draft Preview:*\n"
+        f"────────────────────────\n"
+        f"{text}\n"
+        f"────────────────────────\n"
+        f"Publish this to *Design Hub*?"
+    )
+    await update.message.reply_text(preview, reply_markup=reply_markup, parse_mode="Markdown")
+
+
+async def handle_photo_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+
+    photo = update.message.photo[-1]
+    caption = update.message.caption or ""
+
+    file = await context.bot.get_file(photo.file_id)
+    image_bytes = await file.download_as_bytearray()
+
+    PENDING_POSTS[user.id] = {
+        "type": "photo",
+        "image_bytes": bytes(image_bytes),
+        "caption": caption
+    }
+
+    reply_markup = get_post_keyboard("photo")
+
+    await update.message.reply_text(
+        f"📷 *Photo received!*\n"
+        f"• Caption: {caption if caption else '_(No caption)_'}\n\n"
+        f"Publish to *Design Hub*?",
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
+    )
+
+
+# ==================== INLINE BUTTON ACTIONS ====================
+
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+
+    if not check_auth(user_id):
+        await query.edit_message_text("⛔ Unauthorized action.")
+        return
+
+    data = query.data
+
+    if data.startswith("sub_paid:"):
+        email = data.split(":", 1)[1]
+        mark_paid(email)
+        sub = get_subscriber(email)
+        if sub:
+            card_text = format_subscriber_card(sub) + "\n\n🎉 *Payment Confirmed!* Subscription locked & active."
+            await query.edit_message_text(card_text, reply_markup=make_subscriber_keyboard(email, is_paid=True), parse_mode="Markdown")
+        return
+
+    if data.startswith("sub_kick:"):
+        email = data.split(":", 1)[1]
+        kick_subscriber(email)
+        sub = get_subscriber(email)
+        card_text = format_subscriber_card(sub) + "\n\n🚨 *USER KICKED!* Access has been revoked."
+        await query.edit_message_text(card_text, parse_mode="Markdown")
+        return
+
+    if data.startswith("sub_ext:"):
+        parts = data.split(":")
+        email = parts[1]
+        pkg = parts[2] if len(parts) > 2 else "1m"
+        res = extend_subscriber(email, pkg)
+        if res:
+            sub = get_subscriber(email)
+            card_text = format_subscriber_card(sub) + f"\n\n🎉 *Extended (+{res['added_package']})!*\nNew Expiry: `{res['new_expires_at']}`"
+            await query.edit_message_text(card_text, reply_markup=make_subscriber_keyboard(email, is_paid=True), parse_mode="Markdown")
+        return
+
+    if data == "publish_cancel":
+        PENDING_POSTS.pop(user_id, None)
+        try:
+            await query.edit_message_text("🗑️ Post draft cancelled.")
+        except Exception:
+            await query.message.reply_text("🗑️ Post draft cancelled.")
+        return
+
+    if data == "ai_polish":
+        draft = PENDING_POSTS.get(user_id)
+        if not draft or draft.get("type") != "text":
+            await query.edit_message_text("⚠️ No active draft found.")
+            return
+
+        await query.edit_message_text("✨ *Polishing with Gemini AI...*", parse_mode="Markdown")
+        polished = call_gemini(
+            draft["content"],
+            "Enhance this Facebook post for Design Hub. Make it engaging, friendly, professional, and add relevant emojis and 3 hashtags."
+        )
+        if polished:
+            draft["content"] = polished
+            keyboard = [
+                [
+                    InlineKeyboardButton("🚀 Publish to Facebook", callback_data="publish_confirm"),
+                    InlineKeyboardButton("🔄 Rewrite", callback_data="ai_polish")
+                ],
+                [InlineKeyboardButton("❌ Cancel", callback_data="publish_cancel")]
+            ]
+            preview = (
+                f"✨ *Polished by Gemini:*\n"
+                f"────────────────────────\n"
+                f"{polished}\n"
+                f"────────────────────────\n"
+                f"Ready to publish to *Design Hub*?"
+            )
+            await query.edit_message_text(preview, reply_markup=InlineKeyboardMarkup(keyboard))
+        else:
+            await query.edit_message_text("⚠️ Could not polish with AI. Kept original text.")
+        return
+
+    if data == "ai_rewrite":
+        draft = PENDING_POSTS.get(user_id)
+        if not draft or "topic" not in draft:
+            await query.edit_message_text("⚠️ No topic found to rewrite.")
+            return
+
+        await query.edit_message_text("🔄 *Gemini is rewriting a new angle...*", parse_mode="Markdown")
+        new_text = call_gemini(
+            f"Write a fresh, different angle for Facebook post about: {draft['topic']}",
+            "You are a social media copywriter for Design Hub. Keep it concise, high-converting with emojis and hashtags."
+        )
+        if new_text:
+            draft["content"] = new_text
+            keyboard = [
+                [
+                    InlineKeyboardButton("🚀 Publish to Facebook", callback_data="publish_confirm"),
+                    InlineKeyboardButton("🔄 Rewrite Again", callback_data="ai_rewrite")
+                ],
+                [InlineKeyboardButton("❌ Cancel", callback_data="publish_cancel")]
+            ]
+            await query.edit_message_text(
+                f"🤖 *Fresh AI Draft:*\n────────────────────────\n{new_text}\n────────────────────────\nPublish to *Design Hub*?",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        return
+
+    if data == "image_regen":
+        draft = PENDING_POSTS.get(user_id)
+        if not draft or "prompt" not in draft:
+            await query.message.reply_text("⚠️ No image prompt found.")
+            return
+
+        prompt = draft["prompt"]
+        status_msg = await query.message.reply_text("🎨 *Regenerating new image...*")
+        img_bytes = generate_image_bytes(prompt)
+        if img_bytes:
+            draft["image_bytes"] = img_bytes
+            keyboard = [
+                [
+                    InlineKeyboardButton("🚀 Publish Photo to FB", callback_data="publish_confirm"),
+                    InlineKeyboardButton("🔄 Regenerate", callback_data="image_regen")
+                ],
+                [InlineKeyboardButton("❌ Cancel", callback_data="publish_cancel")]
+            ]
+            await status_msg.delete()
+            await query.message.reply_photo(
+                photo=img_bytes,
+                caption=f"📝 *Caption:*\n{draft.get('caption', '')}\n\nPublish to *Design Hub*?",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        else:
+            await status_msg.edit_text("❌ Failed to regenerate image.")
+        return
+
+    if data == "publish_confirm":
+        draft = PENDING_POSTS.get(user_id)
+        if not draft:
+            await query.message.reply_text("⚠️ No pending draft found. Send a new message.")
+            return
+
+        try:
+            await query.edit_message_text("⏳ Publishing to Facebook...")
+        except Exception:
+            pass
+
+        try:
+            if draft["type"] == "text":
+                res = publish_text_to_fb(draft["content"])
+            elif draft["type"] == "photo":
+                res = publish_photo_to_fb(draft["image_bytes"], draft.get("caption", ""))
+            else:
+                res = {"error": {"message": "Unknown post type"}}
+
+            if "id" in res:
+                post_id = res["id"]
+                PENDING_POSTS.pop(user_id, None)
+                msg = (
+                    f"🎉 *Live on Facebook!*\n\n"
+                    f"• Post ID: `{post_id}`\n"
+                    f"• View page: https://facebook.com/{FB_PAGE_ID}"
+                )
+                try:
+                    await query.edit_message_text(msg, parse_mode="Markdown")
+                except Exception:
+                    await query.message.reply_text(msg, parse_mode="Markdown")
+            else:
+                err_msg = res.get("error", {}).get("message", "Unknown error")
+                await query.message.reply_text(f"❌ Facebook API Error: {err_msg}")
+
+        except Exception as e:
+            logger.error(f"Error publishing: {e}")
+            await query.message.reply_text(f"❌ Failed to publish: {str(e)}")
+
+
+
+# ==================== RENDER / UPTIMEROBOT HEALTH SERVER ====================
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b"Design Hub Bot is Active & Running 24/7!\n")
+
+    def log_message(self, format, *args):
+        pass  # Keep logs clean
+
+
+def start_health_server():
+    port = int(os.environ.get("PORT", 10000))
+    try:
+        server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+        logger.info(f"🌐 Health server listening on 0.0.0.0:{port} for Render/UptimeRobot pings.")
+        server.serve_forever()
+    except Exception as e:
+        logger.error(f"Error starting health server: {e}")
+
+# ==================== MAIN APPLICATION ====================
+
+async def post_init(application):
+    """Start background async tasks after application initialization."""
+    asyncio.create_task(comment_monitor_loop())
+
+
+def main():
+    if not TELEGRAM_BOT_TOKEN:
+        print("❌ Error: TELEGRAM_BOT_TOKEN is not set in .env")
+        sys.exit(1)
+
+    print("🤖 Starting Design Hub Telegram Bot with Gemini 3.5 Flash & Comment Auto-Responder...")
+    # Start background web server for Render & UptimeRobot pings
+    threading.Thread(target=start_health_server, daemon=True).start()
+    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).post_init(post_init).build()
+
+    # Commands
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("status", status_command))
+    app.add_handler(CommandHandler("ai", ai_draft_command))
+    app.add_handler(CommandHandler("image", image_gen_command))
+    app.add_handler(CommandHandler("post", quick_post_command))
+    app.add_handler(CommandHandler("comments", scan_comments_command))
+    app.add_handler(CommandHandler("checkcomments", scan_comments_command))
+    app.add_handler(CommandHandler("add", add_sub_command))
+    app.add_handler(CommandHandler("paid", paid_sub_command))
+    app.add_handler(CommandHandler("kick", kick_sub_command))
+    app.add_handler(CommandHandler("extend", extend_sub_command))
+    app.add_handler(CommandHandler("subs", list_subs_command))
+    app.add_handler(CommandHandler("subscribers", list_subs_command))
+    app.add_handler(CommandHandler("check", check_sub_command))
+
+    # Messages
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo_message))
+
+    # Inline Callbacks
+    app.add_handler(CallbackQueryHandler(button_callback))
+
+    print("🚀 Bot is polling for Telegram updates & monitoring comments! Press Ctrl+C to stop.")
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()
