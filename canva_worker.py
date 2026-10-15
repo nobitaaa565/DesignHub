@@ -47,17 +47,27 @@ def invite_canva_member(email: str) -> dict:
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            launch_args = [
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-dev-shm-usage"
+            ]
+            try:
+                browser = p.chromium.launch(channel="chrome", headless=True, args=launch_args)
+            except Exception:
+                browser = p.chromium.launch(headless=True, args=launch_args)
+
             context = browser.new_context(
                 storage_state=str(SESSION_FILE),
                 viewport={"width": 1280, "height": 800},
-                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
             page = context.new_page()
+            page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
 
             # Go to Canva team members page
             logger.info(f"Navigating to Canva team settings to invite {clean_email}...")
-            page.goto("https://www.canva.com/settings/team-members", wait_until="networkidle", timeout=30000)
+            page.goto("https://www.canva.com/settings/team-members", wait_until="domcontentloaded", timeout=30000)
 
             # Check if session is expired/redirected to login
             if "login" in page.url or "signup" in page.url:
@@ -67,26 +77,23 @@ def invite_canva_member(email: str) -> dict:
                     "message": "⚠️ Canva session has expired. Please run 'python canva_login_helper.py' to refresh."
                 }
 
-            # Locate email input field
-            input_selector = (
-                "input[type='email'], "
-                "input[placeholder*='email' i], "
-                "input[placeholder*='name or email' i], "
-                "input[aria-label*='email' i]"
-            )
-            
             try:
-                page.wait_for_selector(input_selector, timeout=8000)
-                email_input = page.locator(input_selector).first
-                email_input.fill(clean_email)
-                time.sleep(0.5)
+                # 1. Click 'Invite people' button
+                page.wait_for_selector("button:has-text('Invite people')", timeout=15000)
+                invite_btn = page.locator("button:has-text('Invite people')").first
+                invite_btn.click()
+                time.sleep(1.5)
 
-                # Locate Invite / Send invitation button
-                btn_selector = "button:has-text('Invite'), button:has-text('Send invitation'), button:has-text('Send invite')"
-                invite_btn = page.locator(btn_selector).first
-                if invite_btn.is_visible():
-                    invite_btn.click()
-                    time.sleep(2)  # Wait for submission
+                # 2. Fill customer email in the modal input
+                email_inp = page.locator("input[placeholder*='email address' i], input[aria-label*='email' i]").first
+                email_inp.fill(clean_email)
+                time.sleep(1)
+
+                # 3. Click 'Send invitations' button
+                send_btn = page.locator("button:has-text('Send invitations'), button:has-text('Send invitation'), button:has-text('Invite')").first
+                if send_btn.is_visible():
+                    send_btn.click()
+                    time.sleep(3)
                     browser.close()
                     return {
                         "status": "success",
@@ -94,9 +101,8 @@ def invite_canva_member(email: str) -> dict:
                         "message": f"✅ Official Canva Pro invitation successfully dispatched to {clean_email}!"
                     }
                 else:
-                    # Press Enter as fallback
-                    email_input.press("Enter")
-                    time.sleep(2)
+                    email_inp.press("Enter")
+                    time.sleep(3)
                     browser.close()
                     return {
                         "status": "success",
@@ -108,7 +114,7 @@ def invite_canva_member(email: str) -> dict:
                 browser.close()
                 return {
                     "status": "error",
-                    "message": f"Could not find invite inputs on Canva page: {str(e)}"
+                    "message": f"Could not complete invite flow on Canva: {str(e)}"
                 }
 
     except Exception as e:
@@ -130,16 +136,26 @@ def kick_canva_member(email: str) -> dict:
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            launch_args = [
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-dev-shm-usage"
+            ]
+            try:
+                browser = p.chromium.launch(channel="chrome", headless=True, args=launch_args)
+            except Exception:
+                browser = p.chromium.launch(headless=True, args=launch_args)
+
             context = browser.new_context(
                 storage_state=str(SESSION_FILE),
                 viewport={"width": 1280, "height": 800},
-                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
             page = context.new_page()
+            page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
 
             logger.info(f"Navigating to Canva team settings to kick {clean_email}...")
-            page.goto("https://www.canva.com/settings/team-members", wait_until="networkidle", timeout=30000)
+            page.goto("https://www.canva.com/settings/team-members", wait_until="domcontentloaded", timeout=30000)
 
             if "login" in page.url or "signup" in page.url:
                 browser.close()
