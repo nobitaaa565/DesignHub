@@ -452,8 +452,11 @@ def check_and_reply_inbox(bot=None):
         logger.error(f"Error in check_and_reply_inbox: {e}")
 
 
-async def comment_monitor_loop():
+async def comment_monitor_loop(bot=None):
     """Background async worker that runs every 15 seconds for rapid inbox & comment replies."""
+    global _bot_instance
+    if bot:
+        _bot_instance = bot
     logger.info("🚀 Background Inbox & Comment Auto-Responder active (15s rapid interval).")
     while True:
         try:
@@ -1457,7 +1460,7 @@ async def post_init(application):
     except Exception as e:
         logger.error(f"Error setting bot commands: {e}")
 
-    asyncio.create_task(comment_monitor_loop())
+    asyncio.create_task(comment_monitor_loop(application.bot))
 
 
 def main():
