@@ -1148,7 +1148,25 @@ def start_health_server():
 # ==================== MAIN APPLICATION ====================
 
 async def post_init(application):
-    """Start background async tasks after application initialization."""
+    """Start background async tasks and register Telegram menu button commands."""
+    commands = [
+        BotCommand("status", "📊 System health & subscriber stats"),
+        BotCommand("subs", "👥 View active & pending subscribers"),
+        BotCommand("add", "➕ Add subscriber: /add <email> [pkg]"),
+        BotCommand("paid", "✅ Confirm payment: /paid <email>"),
+        BotCommand("extend", "⌛ Extend plan: /extend <email> [pkg]"),
+        BotCommand("kick", "🚨 Revoke access: /kick <email>"),
+        BotCommand("check", "🔍 Inspect user: /check <email>"),
+        BotCommand("comments", "💬 Scan Facebook comments now"),
+        BotCommand("ai", "✍️ Draft viral post: /ai <topic>"),
+        BotCommand("start", "🏠 Main control menu"),
+    ]
+    try:
+        await application.bot.set_my_commands(commands)
+        logger.info("✅ Telegram native Menu Button commands registered.")
+    except Exception as e:
+        logger.error(f"Error setting bot commands: {e}")
+
     asyncio.create_task(comment_monitor_loop())
 
 
