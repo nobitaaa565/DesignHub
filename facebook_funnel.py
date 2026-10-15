@@ -267,8 +267,22 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
     if image_bytes:
         logger.info(f"📸 Analyzing payment screenshot from {sender_name} ({len(image_bytes)} bytes)...")
         proof = analyze_payment_screenshot(image_bytes)
-        email_info = state.get("email") or state.get("saved_email") or "Unknown"
-        pkg_info = state.get("package_name", "Canva Pro")
+        email_info = state.get("email") or state.get("saved_email")
+        pkg_info = state.get("package_name")
+        if not email_info or not pkg_info:
+            from subscription_manager import list_subscribers
+            sender_words = set(sender_name.lower().split())
+            for s in list_subscribers():
+                sub_name = (s.get("name") or "").lower()
+                sub_words = set(sub_name.split())
+                if sender_words.intersection(sub_words):
+                    if not email_info:
+                        email_info = s.get("email")
+                    if not pkg_info:
+                        pkg_info = s.get("package")
+                    break
+        email_info = email_info or "Unknown"
+        pkg_info = pkg_info or "Canva Pro" 
 
         if proof.get("is_payment_proof"):
             provider = proof.get("provider", "Mobile Banking")
