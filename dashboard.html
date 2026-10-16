@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Design Hub — Subscriber & Multi-Team Command Center</title>
+    <title>Design Hub — Admin Operating System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-base: #0B0F17;
+            --bg-sidebar: #0D121F;
             --bg-surface: #111827;
             --bg-surface-elevated: #162032;
-            --bg-card: rgba(17, 24, 39, 0.75);
-            --bg-card-hover: rgba(30, 41, 59, 0.65);
+            --bg-card: #131B2E;
+            --bg-hover: rgba(255, 255, 255, 0.04);
             --border: rgba(255, 255, 255, 0.08);
             --border-subtle: rgba(255, 255, 255, 0.05);
-            --border-focus: rgba(125, 42, 232, 0.45);
+            --border-focus: rgba(125, 42, 232, 0.5);
             --primary: #7D2AE8;
+            --primary-hover: #6D28D9;
             --primary-glow: rgba(125, 42, 232, 0.25);
             --text-main: #F8FAFC;
             --text-muted: #94A3B8;
@@ -30,10 +32,8 @@
             --rose: #EF4444;
             --rose-bg: rgba(239, 68, 68, 0.12);
             --cyan: #00C4CC;
-            --purple-badge: #A78BFA;
-            --purple-badge-bg: rgba(125, 42, 232, 0.14);
-            --team-badge-bg: rgba(56, 189, 248, 0.12);
-            --team-badge-color: #38BDF8;
+            --blue: #38BDF8;
+            --sidebar-width: 240px;
         }
 
         * {
@@ -46,81 +46,155 @@
 
         body {
             background-color: var(--bg-base);
-            background-image: 
-                radial-gradient(at 10% 10%, rgba(125, 42, 232, 0.08) 0px, transparent 40%),
-                radial-gradient(at 90% 90%, rgba(16, 185, 129, 0.05) 0px, transparent 40%);
-            background-attachment: fixed;
             color: var(--text-main);
             min-height: 100vh;
-            padding: 1.25rem 1rem 3rem;
+            overflow-x: hidden;
         }
 
-        .container {
-            max-width: 1280px;
-            margin: 0 auto;
-        }
-
-        /* Top Header */
-        header {
+        /* SaaS Dashboard Layout with Fixed Sidebar */
+        .app-layout {
             display: flex;
-            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        aside.sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
             justify-content: space-between;
-            padding-bottom: 1.25rem;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 1.25rem;
-            flex-wrap: wrap;
-            gap: 1rem;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 1.25rem 0.85rem;
+            transition: transform 0.25s ease;
         }
 
-        .brand {
+        .sidebar-brand {
             display: flex;
             align-items: center;
-            gap: 0.85rem;
+            gap: 0.75rem;
+            padding: 0.25rem 0.5rem 1.25rem;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 1.25rem;
         }
 
         .brand-logo {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
             background: linear-gradient(135deg, #7D2AE8, #00C4CC);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 800;
-            font-size: 1.15rem;
+            font-size: 1.05rem;
             color: white;
-            box-shadow: 0 4px 16px var(--primary-glow);
+            box-shadow: 0 4px 14px var(--primary-glow);
+            flex-shrink: 0;
         }
 
-        .brand-title h1 {
-            font-size: 1.25rem;
+        .brand-text h1 {
+            font-size: 1.05rem;
             font-weight: 800;
             letter-spacing: -0.02em;
+            line-height: 1.2;
         }
 
-        .brand-title p {
-            font-size: 0.78rem;
+        .brand-text span {
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: var(--cyan);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            flex: 1;
+        }
+
+        .nav-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--text-faint);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 0.5rem 0.65rem 0.25rem;
+            margin-top: 0.5rem;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.65rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 8px;
             color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.84rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: 1px solid transparent;
         }
 
-        .header-actions {
+        .nav-item:hover {
+            color: var(--text-main);
+            background: var(--bg-hover);
+        }
+
+        .nav-item.active {
+            color: var(--text-main);
+            background: rgba(125, 42, 232, 0.14);
+            border-color: rgba(125, 42, 232, 0.3);
+        }
+
+        .nav-item-left {
             display: flex;
             align-items: center;
             gap: 0.65rem;
-            flex-wrap: wrap;
         }
 
-        /* Live Sync Badge */
-        .badge-sync {
-            display: inline-flex;
+        .nav-icon {
+            font-size: 1rem;
+            opacity: 0.85;
+        }
+
+        .nav-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            padding: 1px 6px;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-muted);
+        }
+
+        .sidebar-footer {
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+        }
+
+        .engine-status {
+            display: flex;
             align-items: center;
             gap: 0.45rem;
+            font-size: 0.74rem;
+            color: var(--emerald);
             background: rgba(16, 185, 129, 0.08);
             border: 1px solid var(--emerald-border);
-            color: var(--emerald);
-            padding: 0.35rem 0.75rem;
-            border-radius: 8px;
-            font-size: 0.76rem;
+            padding: 0.4rem 0.65rem;
+            border-radius: 6px;
             font-weight: 600;
         }
 
@@ -138,8 +212,180 @@
             50% { opacity: 0.4; transform: scale(0.8); }
         }
 
-        .btn-icon {
+        /* Main Content View Container */
+        main.main-viewport {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 1.5rem 2rem;
+            max-width: calc(100vw - var(--sidebar-width));
+        }
+
+        /* Top App Bar */
+        .top-navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-size: 0.82rem;
+            color: var(--text-faint);
+        }
+
+        .breadcrumb span.active-page {
+            color: var(--text-main);
+            font-weight: 700;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+        }
+
+        .navbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            flex-wrap: wrap;
+        }
+
+        /* Multi-Team Dropdown Popover */
+        .team-select-wrapper {
+            position: relative;
+        }
+
+        .team-select-trigger {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.5rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .team-select-trigger:hover {
+            background: var(--bg-surface-elevated);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .team-popover {
+            position: absolute;
+            top: 110%;
+            right: 0;
+            width: 270px;
+            background: #111827;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.75rem;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            z-index: 50;
+            display: none;
+        }
+
+        .team-popover.active {
+            display: block;
+        }
+
+        .team-popover-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .team-checkbox-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .team-check-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0.4rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            color: var(--text-main);
+            transition: background 0.15s ease;
+        }
+
+        .team-check-label:hover {
             background: rgba(255, 255, 255, 0.05);
+        }
+
+        .team-check-label input {
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.5rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.09);
+        }
+
+        .btn-save {
+            background: #10B981;
+            color: white;
+            font-weight: 700;
+        }
+
+        .btn-save:hover {
+            background: #059669;
+        }
+
+        .btn-icon {
+            background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--border);
             color: var(--text-muted);
             padding: 0.45rem 0.65rem;
@@ -149,11 +395,11 @@
             display: inline-flex;
             align-items: center;
             gap: 0.35rem;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
         }
 
         .btn-icon:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.09);
             color: var(--text-main);
         }
 
@@ -165,174 +411,108 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Stats Grid (Minimal Modern Cards) */
-        .stats-grid {
+        /* Metric Cards Grid */
+        .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 0.85rem;
-            margin-bottom: 1.25rem;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
         }
 
-        .stat-card {
+        .metric-card {
             background: var(--bg-surface);
             border: 1px solid var(--border);
-            border-radius: 14px;
+            border-radius: 12px;
             padding: 1.15rem;
+            position: relative;
             transition: all 0.2s ease;
         }
 
-        .stat-card:hover {
+        .metric-card:hover {
             border-color: rgba(255, 255, 255, 0.15);
-            background: var(--bg-surface-elevated);
+            transform: translateY(-2px);
         }
 
-        .stat-header {
+        .metric-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.4rem;
         }
 
-        .stat-label {
-            font-size: 0.75rem;
+        .metric-title {
+            font-size: 0.74rem;
             color: var(--text-muted);
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.05em;
         }
 
-        .stat-icon {
-            font-size: 1.15rem;
-            opacity: 0.8;
-        }
-
-        .stat-value {
+        .metric-value {
             font-size: 1.85rem;
             font-weight: 800;
             letter-spacing: -0.03em;
             line-height: 1.1;
         }
 
-        .stat-sub {
+        .metric-sub {
             font-size: 0.74rem;
             color: var(--text-faint);
             margin-top: 0.35rem;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
         }
 
-        /* Multi-Team Filtering Bar */
-        .team-filter-bar {
+        /* Graphs & Analytics Section */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-card {
             background: var(--bg-surface);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 0.65rem 0.85rem;
-            margin-bottom: 1.25rem;
+            padding: 1.25rem;
+        }
+
+        .chart-header {
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-
-        .team-pills-wrap {
-            display: flex;
             align-items: center;
-            gap: 0.45rem;
-            flex-wrap: wrap;
-            flex: 1;
+            margin-bottom: 1rem;
         }
 
-        .team-filter-label {
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-right: 0.35rem;
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
-        }
-
-        .team-pill-btn {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            padding: 0.35rem 0.75rem;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-        }
-
-        .team-pill-btn:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: var(--text-main);
-        }
-
-        .team-pill-btn.active {
-            background: rgba(125, 42, 232, 0.2);
-            border-color: rgba(125, 42, 232, 0.5);
-            color: #C4B5FD;
-            font-weight: 700;
-        }
-
-        .team-pill-btn .count {
-            background: rgba(0, 0, 0, 0.25);
-            padding: 1px 6px;
-            border-radius: 9999px;
-            font-size: 0.72rem;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* Minimal Tabs Navigation */
-        .tabs-bar {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 1.25rem;
-            padding-bottom: 0.25rem;
-        }
-
-        .tab-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
+        .chart-title {
             font-size: 0.9rem;
-            font-weight: 600;
-            padding: 0.6rem 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            display: inline-flex;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            display: flex;
             align-items: center;
             gap: 0.45rem;
-            transition: all 0.2s ease;
         }
 
-        .tab-btn:hover {
-            color: var(--text-main);
-            background: rgba(255, 255, 255, 0.04);
+        .chart-canvas-wrap {
+            position: relative;
+            width: 100%;
+            height: 220px;
         }
 
-        .tab-btn.active {
-            color: var(--text-main);
-            background: rgba(255, 255, 255, 0.08);
-            border-bottom: 2px solid var(--primary);
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
         }
 
-        .tab-count {
-            font-size: 0.72rem;
-            background: rgba(255, 255, 255, 0.08);
-            padding: 1px 6px;
-            border-radius: 9999px;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* Controls Bar */
+        /* Controls & Search */
         .controls-bar {
             display: flex;
             align-items: center;
@@ -361,12 +541,12 @@
             width: 100%;
             background: var(--bg-surface);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.65rem 0.85rem 0.65rem 2.25rem;
+            border-radius: 8px;
+            padding: 0.6rem 0.85rem 0.6rem 2.25rem;
             color: var(--text-main);
-            font-size: 0.85rem;
+            font-size: 0.84rem;
             outline: none;
-            transition: border-color 0.2s ease;
+            transition: border-color 0.15s ease;
         }
 
         .search-input:focus {
@@ -374,80 +554,11 @@
             background: var(--bg-surface-elevated);
         }
 
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            padding: 0.6rem 1rem;
-            border-radius: 10px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-decoration: none;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #7D2AE8 0%, #6D28D9 100%);
-            color: white;
-            box-shadow: 0 4px 14px var(--primary-glow);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px var(--primary-glow);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.09);
-        }
-
-        .btn-save {
-            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-            color: white;
-            font-weight: 700;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-        }
-
-        .btn-save:hover {
-            background: #059669;
-            transform: translateY(-1px);
-        }
-
-        /* Toggle Button */
-        .toggle-edit-mode {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.5rem 0.85rem;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            border: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.04);
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .toggle-edit-mode.active {
-            background: rgba(245, 158, 11, 0.15);
-            border-color: rgba(245, 158, 11, 0.4);
-            color: var(--amber);
-        }
-
         /* Minimal Tables */
-        .card-table {
+        .table-card {
             background: var(--bg-surface);
             border: 1px solid var(--border);
-            border-radius: 14px;
+            border-radius: 12px;
             overflow: hidden;
         }
 
@@ -460,22 +571,22 @@
             width: 100%;
             border-collapse: collapse;
             text-align: left;
-            font-size: 0.85rem;
+            font-size: 0.84rem;
         }
 
         th {
             background: rgba(255, 255, 255, 0.02);
             color: var(--text-muted);
             font-weight: 600;
-            font-size: 0.74rem;
+            font-size: 0.72rem;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
-            padding: 0.85rem 0.95rem;
+            letter-spacing: 0.05em;
+            padding: 0.8rem 0.95rem;
             border-bottom: 1px solid var(--border);
         }
 
         td {
-            padding: 0.8rem 0.95rem;
+            padding: 0.75rem 0.95rem;
             border-bottom: 1px solid var(--border-subtle);
             color: var(--text-main);
             vertical-align: middle;
@@ -489,49 +600,27 @@
             background: rgba(255, 255, 255, 0.02);
         }
 
-        tr.row-dirty {
-            background: rgba(245, 158, 11, 0.05) !important;
-            border-left: 3px solid var(--amber);
-        }
-
-        /* Inline Input Styling */
-        .cell-input {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 6px;
-            padding: 0.35rem 0.5rem;
-            color: var(--text-main);
-            font-size: 0.82rem;
-            outline: none;
-        }
-
-        .cell-input:focus {
-            border-color: var(--border-focus);
-            background: rgba(255, 255, 255, 0.09);
-        }
-
         /* Badges */
         .cid-badge {
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
-            color: var(--purple-badge);
-            background: var(--purple-badge-bg);
-            padding: 3px 7px;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            border: 1px solid rgba(167, 139, 250, 0.25);
+            color: var(--primary);
+            background: rgba(125, 42, 232, 0.12);
+            padding: 3px 6px;
+            border-radius: 5px;
+            font-size: 0.78rem;
+            border: 1px solid rgba(125, 42, 232, 0.25);
             display: inline-block;
         }
 
         .team-tag {
-            font-size: 0.74rem;
+            font-size: 0.72rem;
             font-weight: 600;
-            color: var(--team-badge-color);
-            background: var(--team-badge-bg);
-            border: 1px solid rgba(56, 189, 248, 0.25);
-            padding: 2px 7px;
-            border-radius: 6px;
+            color: var(--blue);
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            padding: 2px 6px;
+            border-radius: 5px;
             display: inline-flex;
             align-items: center;
             gap: 0.25rem;
@@ -549,7 +638,7 @@
         }
 
         .customer-name {
-            font-size: 0.74rem;
+            font-size: 0.72rem;
             color: var(--text-muted);
         }
 
@@ -557,9 +646,9 @@
             display: inline-flex;
             align-items: center;
             gap: 0.3rem;
-            padding: 0.25rem 0.6rem;
+            padding: 0.2rem 0.55rem;
             border-radius: 6px;
-            font-size: 0.74rem;
+            font-size: 0.72rem;
             font-weight: 700;
         }
 
@@ -584,14 +673,14 @@
         .table-actions {
             display: flex;
             align-items: center;
-            gap: 0.35rem;
+            gap: 0.3rem;
         }
 
         .btn-action {
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--border);
             color: var(--text-muted);
-            padding: 0.3rem 0.55rem;
+            padding: 0.28rem 0.5rem;
             border-radius: 6px;
             font-size: 0.75rem;
             font-weight: 600;
@@ -605,25 +694,13 @@
         }
 
         .btn-action-edit {
-            color: #38BDF8;
+            color: var(--blue);
             border-color: rgba(56, 189, 248, 0.25);
-            background: rgba(56, 189, 248, 0.08);
-        }
-
-        .btn-action-edit:hover {
-            background: rgba(56, 189, 248, 0.18);
-            color: #7DD3FC;
         }
 
         .btn-action-paid {
             color: var(--emerald);
             border-color: var(--emerald-border);
-            background: var(--emerald-bg);
-        }
-
-        .btn-action-paid:hover {
-            background: rgba(16, 185, 129, 0.2);
-            color: #34D399;
         }
 
         .btn-action-kick {
@@ -631,22 +708,131 @@
             border-color: rgba(239, 68, 68, 0.25);
         }
 
-        .btn-action-kick:hover {
-            background: var(--rose-bg);
+        /* Quick Edit Inputs */
+        .cell-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 6px;
+            padding: 0.3rem 0.45rem;
+            color: var(--text-main);
+            font-size: 0.8rem;
+            outline: none;
         }
 
-        .btn-action-save-row {
-            background: var(--emerald);
-            color: white;
+        .cell-input:focus {
+            border-color: var(--border-focus);
+            background: rgba(255, 255, 255, 0.09);
+        }
+
+        /* In-App Toast System */
+        #toastContainer {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            pointer-events: none;
+        }
+
+        .toast-item {
+            background: #1E293B;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.75rem 1.15rem;
+            border-radius: 10px;
+            font-size: 0.84rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            animation: toastSlide 0.3s ease-out forwards;
+            pointer-events: auto;
+        }
+
+        @keyframes toastSlide {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .toast-success { border-left: 4px solid var(--emerald); }
+        .toast-error { border-left: 4px solid var(--rose); }
+        .toast-warning { border-left: 4px solid var(--amber); }
+
+        /* In-App Custom Confirm & Prompt Dialogs */
+        .custom-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 1rem;
+        }
+
+        .custom-dialog-overlay.active {
+            display: flex;
+        }
+
+        .custom-dialog-card {
+            background: #111827;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.7);
+            animation: dialogPop 0.2s ease-out;
+        }
+
+        @keyframes dialogPop {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .dialog-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            margin-bottom: 0.85rem;
+        }
+
+        .dialog-icon.warning { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .dialog-icon.danger { background: var(--rose-bg); color: var(--rose); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .dialog-icon.info { background: rgba(56, 189, 248, 0.12); color: var(--blue); border: 1px solid rgba(56, 189, 248, 0.3); }
+
+        .dialog-title {
+            font-size: 1.1rem;
             font-weight: 700;
-            border: 1px solid var(--emerald);
+            margin-bottom: 0.35rem;
         }
 
-        .btn-action-save-row:hover {
-            background: #059669;
+        .dialog-message {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 1.25rem;
         }
 
-        /* Modals */
+        .dialog-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+
+        /* Generic Modals */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -746,7 +932,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 9999;
+            z-index: 99999;
         }
 
         .auth-card {
@@ -773,7 +959,89 @@
             color: white;
             font-family: 'JetBrains Mono', monospace;
         }
-    </style>
+
+        /* Responsive Mobile Drawer */
+        @media (max-width: 768px) {
+            aside.sidebar {
+                transform: translateX(-100%);
+            }
+            aside.sidebar.mobile-open {
+                transform: translateX(0);
+            }
+            main.main-viewport {
+                margin-left: 0;
+                max-width: 100vw;
+                padding: 1rem;
+            }
+        }
+    
+        /* Team Filter Chips & Quick Select */
+        .team-filter-strip {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding: 0.6rem 0.85rem;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+
+        .team-chip {
+            padding: 0.32rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .team-chip:hover {
+            background: rgba(255, 255, 255, 0.09);
+            color: var(--text-main);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .team-chip.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #FFFFFF;
+            box-shadow: 0 2px 8px var(--primary-glow);
+        }
+
+        .team-chip-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            padding: 0.08rem 0.35rem;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.35);
+        }
+
+        .btn-only {
+            background: transparent;
+            border: none;
+            color: var(--cyan);
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+            opacity: 0.75;
+            transition: all 0.15s ease;
+        }
+
+        .btn-only:hover {
+            opacity: 1;
+            background: rgba(0, 196, 204, 0.15);
+        }
+</style>
 </head>
 <body>
 
@@ -781,186 +1049,370 @@
     <div id="authScreen">
         <div class="auth-card">
             <div class="brand-logo" style="margin: 0 auto 1rem;">DH</div>
-            <h2 style="font-size: 1.25rem; margin-bottom: 0.4rem;">Admin Access</h2>
-            <p style="font-size: 0.82rem; color: var(--text-muted);">Enter PIN to access Design Hub Command Center</p>
+            <h2 style="font-size: 1.25rem; margin-bottom: 0.4rem;">Admin Operating System</h2>
+            <p style="font-size: 0.82rem; color: var(--text-muted);">Enter master PIN to access Design Hub Command Center</p>
             <input type="password" id="pinInput" class="auth-pin-input" placeholder="••••" maxlength="10" onkeydown="if(event.key==='Enter') verifyPin()">
             <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="verifyPin()">Unlock Dashboard</button>
             <p id="pinError" style="color: var(--rose); font-size: 0.8rem; margin-top: 0.75rem; display: none;">Invalid PIN. Try again.</p>
         </div>
     </div>
 
-    <!-- Main Dashboard Container -->
-    <div class="container" id="mainDashboard" style="display: none;">
-        <header>
-            <div class="brand">
-                <div class="brand-logo">DH</div>
-                <div class="brand-title">
-                    <h1>Design Hub</h1>
-                    <p>Multi-Team Subscribers & Revenue Management</p>
+    <!-- Main SaaS App Layout -->
+    <div class="app-layout" id="mainDashboard" style="display: none;">
+        
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+            <div>
+                <div class="sidebar-brand">
+                    <div class="brand-logo">DH</div>
+                    <div class="brand-text">
+                        <h1>Design Hub</h1>
+                        <span>Admin OS v2.4</span>
+                    </div>
                 </div>
+
+                <nav class="sidebar-nav">
+                    <div class="nav-label">Navigation</div>
+                    <a class="nav-item active" id="navItemOverview" onclick="switchMainView('overview')">
+                        <div class="nav-item-left">
+                            <span class="nav-icon">📊</span>
+                            <span>Overview</span>
+                        </div>
+                    </a>
+                    <a class="nav-item" id="navItemSubscribers" onclick="switchMainView('subscribers')">
+                        <div class="nav-item-left">
+                            <span class="nav-icon">👥</span>
+                            <span>Subscribers</span>
+                        </div>
+                        <span class="nav-badge" id="navSubBadge">0</span>
+                    </a>
+                    <a class="nav-item" id="navItemPayments" onclick="switchMainView('payments')">
+                        <div class="nav-item-left">
+                            <span class="nav-icon">💳</span>
+                            <span>Payment History</span>
+                        </div>
+                        <span class="nav-badge" id="navPayBadge">0</span>
+                    </a>
+                    <a class="nav-item" id="navItemTeams" onclick="switchMainView('teams')">
+                        <div class="nav-item-left">
+                            <span class="nav-icon">🎨</span>
+                            <span>Canva Teams</span>
+                        </div>
+                        <span class="nav-badge" id="navTeamBadge">1</span>
+                    </a>
+                </nav>
             </div>
-            <div class="header-actions">
-                <!-- Live Auto-Sync Status Badge -->
-                <div class="badge-sync" id="syncBadge">
+
+            <div class="sidebar-footer">
+                <div class="engine-status">
                     <span class="pulse-dot"></span>
-                    <span id="syncText">Live Sync Active</span>
+                    <span id="syncStatusSidebar">Cloud Engine 24/7</span>
                 </div>
-
-                <button class="btn-icon" id="btnRefresh" onclick="triggerManualRefresh()" title="Sync Now">
-                    <span id="refreshIcon">🔄</span> Sync
-                </button>
-                <button class="btn-icon" onclick="openAddTeamModal()" title="Add New Canva Team">
-                    ➕ New Team
-                </button>
-                <button class="btn-icon" onclick="logout()" title="Lock Screen">🔒 Lock</button>
-            </div>
-        </header>
-
-        <!-- Stats Overview (Minimal 4 Cards) -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-header">
-                    <span class="stat-label">Total Revenue</span>
-                    <span class="stat-icon" style="color: var(--emerald);">💵</span>
-                </div>
-                <div class="stat-value" style="color: var(--emerald);" id="statEarnings">৳0.00</div>
-                <div class="stat-sub"><span id="statTransCount">0</span> payments (<span id="statScopeLabel">All Teams</span>)</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-header">
-                    <span class="stat-label">Active Members</span>
-                    <span class="stat-icon" style="color: #38BDF8;">👥</span>
-                </div>
-                <div class="stat-value" id="statPaid">--</div>
-                <div class="stat-sub">Enrolled & verified in team</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-header">
-                    <span class="stat-label">Pending Review</span>
-                    <span class="stat-icon" style="color: var(--amber);">⏳</span>
-                </div>
-                <div class="stat-value" style="color: var(--amber);" id="statPending">--</div>
-                <div class="stat-sub">Awaiting verification</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-header">
-                    <span class="stat-label">Canva Seat Roster</span>
-                    <span class="stat-icon" style="color: #C4B5FD;">🎨</span>
-                </div>
-                <div class="stat-value" style="font-size: 1.3rem; color: #E0E7FF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="statTeamName">Carmella Elan</div>
-                <div class="stat-sub">
-                    <a href="https://www.canva.com/settings/team-members" target="_blank" style="color: var(--cyan); text-decoration: none; font-weight: 600;">Open Canva Team Settings ↗</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- MULTI-TEAM FILTERING BAR -->
-        <div class="team-filter-bar">
-            <div class="team-pills-wrap">
-                <span class="team-filter-label">🎨 Team Filter:</span>
-                <button class="team-pill-btn active" id="pillTeamAll" onclick="setTeamFilter('all')">
-                    All Teams <span class="count" id="countAllTeamSubs">0</span>
-                </button>
-                <div id="dynamicTeamPills" style="display: inline-flex; gap: 0.45rem; flex-wrap: wrap;"></div>
-            </div>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button class="btn-icon" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;" onclick="openAddTeamModal()">
-                    ➕ Add Team
+                <button class="btn btn-secondary" onclick="logout()" style="width: 100%; justify-content: center; font-size: 0.8rem;">
+                    🔒 Lock Session
                 </button>
             </div>
-        </div>
+        </aside>
 
-        <!-- Navigation Tabs Bar -->
-        <div class="tabs-bar">
-            <button class="tab-btn active" id="tabSubscribersBtn" onclick="switchTab('subscribers')">
-                👥 Subscribers / Students <span class="tab-count" id="countSubscribers">0</span>
-            </button>
-            <button class="tab-btn" id="tabPaymentsBtn" onclick="switchTab('payments')">
-                💳 Payment History & Ledger <span class="tab-count" id="countPayments">0</span>
-            </button>
-        </div>
-
-        <!-- VIEW 1: SUBSCRIBERS TABLE -->
-        <div id="viewSubscribers">
-            <div class="controls-bar">
-                <div class="search-box">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" class="search-input" id="searchSubInput" placeholder="Search by #800, email, name, team, or TrxID..." onkeyup="filterSubscribers()">
+        <!-- MAIN VIEWPORT -->
+        <main class="main-viewport">
+            
+            <!-- TOP APP BAR -->
+            <div class="top-navbar">
+                <div class="breadcrumb">
+                    <span id="breadcrumbSection">Dashboard</span> / 
+                    <span class="active-page" id="breadcrumbPage">Overview</span>
                 </div>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <button class="toggle-edit-mode" id="btnToggleSubEdit" onclick="toggleSubQuickEdit()">
-                        ✏️ Quick Edit Mode
+
+                <div class="navbar-actions">
+                    <!-- MULTI-TEAM FILTER POPOVER -->
+                    <div class="team-select-wrapper">
+                        <button class="team-select-trigger" onclick="toggleTeamPopover()">
+                            🎨 <span id="teamTriggerLabel">Teams: All (1)</span> ▾
+                        </button>
+                        <div class="team-popover" id="teamPopover">
+                            <div class="team-popover-header">
+                                <span>Filter Teams</span>
+                                <span style="cursor: pointer; color: var(--cyan); text-transform: none;" onclick="selectAllTeamsToggle()">Toggle All</span>
+                            </div>
+                            <div class="team-checkbox-list" id="teamCheckboxList"></div>
+                            <div style="border-top: 1px solid var(--border-subtle); margin-top: 0.65rem; padding-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                                <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.3rem 0.55rem;" onclick="openAddTeamModal()">➕ Add Team</button>
+                                <button class="btn btn-primary" style="font-size: 0.75rem; padding: 0.3rem 0.65rem;" onclick="applyTeamFilter()">Apply</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-icon" id="btnRefresh" onclick="triggerManualRefresh()" title="Sync Live Data">
+                        <span id="refreshIcon">🔄</span> Sync
                     </button>
-                    <button class="btn btn-primary" onclick="openAddModal()">➕ Add Subscriber</button>
-                </div>
-            </div>
 
-            <div class="card-table">
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style="width: 75px;">ID</th>
-                                <th>Customer</th>
-                                <th>Team</th>
-                                <th>Package</th>
-                                <th>Expires On</th>
-                                <th>Payment</th>
-                                <th>TrxID</th>
-                                <th style="text-align: right; min-width: 170px;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="subscribersTbody">
-                            <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Loading live subscribers...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- VIEW 2: PAYMENT HISTORY TABLE -->
-        <div id="viewPayments" style="display: none;">
-            <div class="controls-bar">
-                <div class="search-box">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" class="search-input" id="searchPayInput" placeholder="Search transactions by TrxID, ID, email, team, or provider..." onkeyup="filterPayments()">
-                </div>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <button class="toggle-edit-mode" id="btnTogglePayEdit" onclick="togglePayQuickEdit()">
-                        ✏️ Quick Edit Mode
+                    <button class="btn btn-primary" onclick="openAddModal()">
+                        ➕ Add Subscriber
                     </button>
-                    <button class="btn btn-primary" onclick="openRecordPaymentModal()">➕ Record Payment</button>
                 </div>
             </div>
 
-            <div class="card-table">
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style="width: 130px;">Date & Time</th>
-                                <th style="width: 70px;">ID</th>
-                                <th>Customer</th>
-                                <th>Team</th>
-                                <th>Package</th>
-                                <th>Provider</th>
-                                <th>TrxID</th>
-                                <th>Amount</th>
-                                <th>Notes</th>
-                                <th style="text-align: right; width: 110px;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="paymentsTbody">
-                            <tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Loading payment ledger...</td></tr>
-                        </tbody>
-                    </table>
+            <!-- VIEW 1: OVERVIEW & ANALYTICS -->
+            <div id="viewOverview">
+                
+                <!-- KPI Metrics Cards -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <span class="metric-title">Total Revenue</span>
+                            <span style="color: var(--emerald);">৳</span>
+                        </div>
+                        <div class="metric-value" style="color: var(--emerald);" id="kpiRevenue">৳0.00</div>
+                        <div class="metric-sub">
+                            <span id="kpiTxCount">0</span> payments verified across <span id="kpiTeamScope">all teams</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <span class="metric-title">Active Students</span>
+                            <span style="color: var(--blue);">👥</span>
+                        </div>
+                        <div class="metric-value" id="kpiActivePaid">0</div>
+                        <div class="metric-sub">Verified members with Canva Pro</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <span class="metric-title">Pending Payment</span>
+                            <span style="color: var(--amber);">⏳</span>
+                        </div>
+                        <div class="metric-value" style="color: var(--amber);" id="kpiPending">0</div>
+                        <div class="metric-sub">Awaiting verification or TrxID</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <span class="metric-title">Active Canva Teams</span>
+                            <span style="color: #C4B5FD;">🎨</span>
+                        </div>
+                        <div class="metric-value" id="kpiTeamsCount">1</div>
+                        <div class="metric-sub">
+                            <a href="https://www.canva.com/settings/team-members" target="_blank" style="color: var(--cyan); text-decoration: none; font-weight: 600;">Open Canva Seat Roster ↗</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Graphs & Analytics Section -->
+                <div class="analytics-grid">
+                    
+                    <!-- Graph 1: Revenue Timeline (Hardware-Accelerated HTML5 Canvas) -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">📈 Revenue Growth Timeline</div>
+                            <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600;">Income over verified transactions</span>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="revenueCanvas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Graph 2: Package Distribution (Donut Chart) -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">📦 Package Share</div>
+                            <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600;">1M vs 3M vs 12M</span>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="packageCanvas"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Recent Activity Preview Table -->
+                <div class="table-card">
+                    <div style="padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
+                        <h3 style="font-size: 0.92rem; font-weight: 700;">Recent Transaction Ledger</h3>
+                        <a href="javascript:void(0)" onclick="switchMainView('payments')" style="font-size: 0.78rem; color: var(--cyan); text-decoration: none; font-weight: 600;">View All Transactions →</a>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>ID</th>
+                                    <th>Customer</th>
+                                    <th>Team</th>
+                                    <th>Package</th>
+                                    <th>Method</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overviewRecentTbody">
+                                <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Loading recent ledger...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- VIEW 2: SUBSCRIBERS TABLE -->
+            <div id="viewSubscribers" style="display: none;">
+                <div class="team-filter-strip" id="subTeamChipsBar"></div>
+                <div class="controls-bar">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="search-input" id="searchSubInput" placeholder="Search by customer ID (#800), email, name, team, or TrxID..." onkeyup="filterSubscribers()">
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button class="btn btn-secondary" id="btnToggleSubEdit" onclick="toggleSubQuickEdit()">
+                            ✏️ Quick Edit Mode
+                        </button>
+                        <button class="btn btn-primary" onclick="openAddModal()">➕ Add Subscriber</button>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 75px;">ID</th>
+                                    <th>Customer</th>
+                                    <th>Team</th>
+                                    <th>Package</th>
+                                    <th>Expires On</th>
+                                    <th>Payment</th>
+                                    <th>TrxID</th>
+                                    <th style="text-align: right; min-width: 170px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subscribersTbody">
+                                <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Loading subscribers...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
 
+            <!-- VIEW 3: PAYMENT HISTORY TABLE -->
+            <div id="viewPayments" style="display: none;">
+                <div class="team-filter-strip" id="payTeamChipsBar"></div>
+                <div class="controls-bar">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="search-input" id="searchPayInput" placeholder="Search transactions by TrxID, ID, email, team, or provider..." onkeyup="filterPayments()">
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button class="btn btn-secondary" id="btnTogglePayEdit" onclick="togglePayQuickEdit()">
+                            ✏️ Quick Edit Mode
+                        </button>
+                        <button class="btn btn-primary" onclick="openRecordPaymentModal()">➕ Record Payment</button>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 130px;">Date & Time</th>
+                                    <th style="width: 70px;">ID</th>
+                                    <th>Customer</th>
+                                    <th>Team</th>
+                                    <th>Package</th>
+                                    <th>Provider</th>
+                                    <th>TrxID</th>
+                                    <th>Amount</th>
+                                    <th>Notes</th>
+                                    <th style="text-align: right; width: 110px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paymentsTbody">
+                                <tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Loading payment ledger...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 4: CANVA TEAMS MANAGEMENT -->
+            <div id="viewTeams" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                    <div>
+                        <h2 style="font-size: 1.15rem; font-weight: 800;">Canva Pro Teams</h2>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Manage team rosters, seat capacity, and member assignments</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openAddTeamModal()">➕ Add New Canva Team</button>
+                </div>
+
+                <div class="metrics-grid" id="teamsCardsGrid"></div>
+            </div>
+
+        </main>
     </div>
 
-    <!-- MODAL 1: EDIT CUSTOMER / SUBSCRIBER -->
+    <!-- TOAST CONTAINER -->
+    <div id="toastContainer"></div>
+
+    <!-- IN-APP CUSTOM ALERT DIALOG (MATCHING UI) -->
+    <div class="custom-dialog-overlay" id="alertDialog">
+        <div class="custom-dialog-card">
+            <div class="dialog-icon warning" id="alertIcon">⚠️</div>
+            <h3 class="dialog-title" id="alertTitle">System Notice</h3>
+            <p class="dialog-message" id="alertMessage">Action details.</p>
+            <div class="dialog-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-primary" onclick="closeAlertDialog()">Understood</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- IN-APP CUSTOM CONFIRM DIALOG -->
+    <div class="custom-dialog-overlay" id="confirmDialog">
+        <div class="custom-dialog-card">
+            <div class="dialog-icon danger" id="dialogIcon">⚠️</div>
+            <h3 class="dialog-title" id="dialogTitle">Are you sure?</h3>
+            <p class="dialog-message" id="dialogMessage">This action will modify customer records.</p>
+            <div class="dialog-actions">
+                <button type="button" class="btn btn-secondary" id="dialogCancelBtn" onclick="closeConfirmDialog(false)">Cancel</button>
+                <button type="button" class="btn btn-primary" id="dialogConfirmBtn" onclick="closeConfirmDialog(true)">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- IN-APP CUSTOM PROMPT DIALOG -->
+    <div class="custom-dialog-overlay" id="promptDialog">
+        <div class="custom-dialog-card">
+            <div class="dialog-icon info">✏️</div>
+            <h3 class="dialog-title" id="promptTitle">Enter Value</h3>
+            <p class="dialog-message" id="promptMessage">Please enter details:</p>
+            <input type="text" id="promptInput" class="form-input" style="margin-bottom: 1.25rem;">
+            <div class="dialog-actions">
+                <button type="button" class="btn btn-secondary" onclick="closePromptDialog(null)">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="closePromptDialog(document.getElementById('promptInput').value)">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- IN-APP SINGLE-USER INVITE LINK MODAL -->
+    <div class="modal-overlay" id="inviteLinkModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">⚡ 10-Minute Canva Invite Link</h3>
+                <button class="modal-close" onclick="closeModal('inviteLinkModal')">&times;</button>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem;">
+                This link is cryptographically signed and self-expiring. Send it to the customer on Facebook Messenger:
+            </p>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
+                <input type="text" id="inviteLinkInput" class="form-input" readonly style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;">
+                <button class="btn btn-primary" onclick="copyInviteLink()" style="flex-shrink: 0;">📋 Copy</button>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeModal('inviteLinkModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT CUSTOMER / SUBSCRIBER -->
     <div class="modal-overlay" id="editCustomerModal">
         <div class="modal">
             <div class="modal-header">
@@ -1038,7 +1490,7 @@
         </div>
     </div>
 
-    <!-- MODAL 2: EDIT PAYMENT TRANSACTION -->
+    <!-- MODAL: EDIT PAYMENT TRANSACTION -->
     <div class="modal-overlay" id="editPaymentModal">
         <div class="modal">
             <div class="modal-header">
@@ -1095,7 +1547,7 @@
                 </div>
 
                 <div style="display: flex; gap: 0.65rem; justify-content: space-between; align-items: center; margin-top: 1.25rem; border-top: 1px solid var(--border); padding-top: 1rem;">
-                    <button type="button" class="btn btn-action" style="color: var(--rose);" onclick="actionDeletePaymentRecord(document.getElementById('editPayId').value)">🗑️ Delete Transaction</button>
+                    <button type="button" class="btn btn-action" style="color: var(--rose);" onclick="actionDeletePaymentRecord(document.getElementById('editPayId').value)">🗑️ Delete Record</button>
                     <div style="display: flex; gap: 0.5rem;">
                         <button type="button" class="btn btn-secondary" onclick="closeModal('editPaymentModal')">Cancel</button>
                         <button type="submit" class="btn btn-save">💾 Save Payment</button>
@@ -1105,7 +1557,7 @@
         </div>
     </div>
 
-    <!-- MODAL 3: ADD NEW CANVA TEAM -->
+    <!-- MODAL: ADD CANVA TEAM -->
     <div class="modal-overlay" id="addTeamModal">
         <div class="modal">
             <div class="modal-header">
@@ -1115,9 +1567,9 @@
             <form onsubmit="handleAddTeam(event)">
                 <div class="form-group">
                     <label class="form-label">Team Name *</label>
-                    <input type="text" id="newTeamInput" class="form-input" placeholder="e.g. Carmella Elan 2 or Pro Team B" required>
+                    <input type="text" id="newTeamInput" class="form-input" placeholder="e.g. Carmella Elan 2 or Design Pro Team" required>
                     <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.35rem;">
-                        This team will be available for assigning customers and filtering students & earnings.
+                        This team will be immediately available in the multi-team filter and for enrolling students.
                     </p>
                 </div>
                 <div style="display: flex; gap: 0.65rem; justify-content: flex-end; margin-top: 1.25rem;">
@@ -1128,7 +1580,7 @@
         </div>
     </div>
 
-    <!-- MODAL 4: ENROLL NEW SUBSCRIBER -->
+    <!-- MODAL: ENROLL NEW SUBSCRIBER -->
     <div class="modal-overlay" id="addModal">
         <div class="modal">
             <div class="modal-header">
@@ -1185,7 +1637,7 @@
         </div>
     </div>
 
-    <!-- MODAL 5: RECORD MANUAL PAYMENT -->
+    <!-- MODAL: RECORD MANUAL PAYMENT -->
     <div class="modal-overlay" id="recordPayModal">
         <div class="modal">
             <div class="modal-header">
@@ -1243,7 +1695,7 @@
         </div>
     </div>
 
-    <!-- MODAL 6: EXTEND SUBSCRIPTION -->
+    <!-- MODAL: EXTEND SUBSCRIPTION -->
     <div class="modal-overlay" id="extendModal">
         <div class="modal">
             <div class="modal-header">
@@ -1277,8 +1729,9 @@
         let allSubscribers = [];
         let allPayments = [];
         let allTeams = ["Carmella Elan"];
-        let currentTeamFilter = "all";
-        let activeTab = "subscribers";
+        let selectedTeams = new Set(); // Multi-team selection set
+        let activeView = "overview";
+
         let lastSyncTimestamp = Date.now();
         let autoSyncTimer = null;
         let relativeTimeTimer = null;
@@ -1288,14 +1741,19 @@
         let dirtySubRows = new Set();
         let dirtyPayRows = new Set();
 
-        // Security PIN verification
+        let confirmCallback = null;
+        let promptCallback = null;
+
+        // ==================== AUTH & INITIALIZATION ====================
+
         function verifyPin() {
             const input = document.getElementById("pinInput").value.trim();
             if (input === DEFAULT_PIN || input === "1809792261") {
                 sessionStorage.setItem("dh_auth", "true");
                 document.getElementById("authScreen").style.display = "none";
-                document.getElementById("mainDashboard").style.display = "block";
+                document.getElementById("mainDashboard").style.display = "flex";
                 initDashboard();
+                showToast("Welcome to Design Hub Admin OS", "success");
             } else {
                 document.getElementById("pinError").style.display = "block";
             }
@@ -1309,7 +1767,7 @@
         window.onload = function() {
             if (sessionStorage.getItem("dh_auth") === "true") {
                 document.getElementById("authScreen").style.display = "none";
-                document.getElementById("mainDashboard").style.display = "block";
+                document.getElementById("mainDashboard").style.display = "flex";
                 initDashboard();
             }
         };
@@ -1319,7 +1777,8 @@
             if (!autoSyncTimer) {
                 autoSyncTimer = setInterval(() => {
                     const isModalOpen = !!document.querySelector(".modal-overlay.active");
-                    if (!document.hidden && !isModalOpen && !subQuickEditActive && !payQuickEditActive) {
+                    const isDialogActive = document.getElementById("confirmDialog").classList.contains("active") || document.getElementById("promptDialog").classList.contains("active");
+                    if (!document.hidden && !isModalOpen && !isDialogActive && !subQuickEditActive && !payQuickEditActive) {
                         loadDashboardData(true);
                     }
                 }, 3500);
@@ -1327,16 +1786,28 @@
             if (!relativeTimeTimer) {
                 relativeTimeTimer = setInterval(updateRelativeSyncTime, 1000);
             }
+
+            // Close team popover on outside click
+            document.addEventListener("click", (e) => {
+                const wrap = document.querySelector(".team-select-wrapper");
+                if (wrap && !wrap.contains(e.target)) {
+                    document.getElementById("teamPopover").classList.remove("active");
+                }
+            });
+
+            window.addEventListener("resize", () => {
+                if (activeView === "overview") drawAllCharts();
+            });
         }
 
         function updateRelativeSyncTime() {
             const diffSec = Math.floor((Date.now() - lastSyncTimestamp) / 1000);
-            const textEl = document.getElementById("syncText");
+            const textEl = document.getElementById("syncStatusSidebar");
             if (!textEl) return;
             if (diffSec <= 1) {
-                textEl.textContent = "Live Sync: Active • just now";
+                textEl.textContent = "Engine Synced • just now";
             } else {
-                textEl.textContent = `Live Sync: Active • ${diffSec}s ago`;
+                textEl.textContent = `Engine Synced • ${diffSec}s ago`;
             }
         }
 
@@ -1346,39 +1817,280 @@
             await loadDashboardData(false);
             setTimeout(() => {
                 if (icon) icon.classList.remove("spinning");
-            }, 600);
+            }, 500);
+            showToast("System synchronized with live cloud database", "info");
         }
 
-        function switchTab(tab) {
-            activeTab = tab;
-            document.getElementById("tabSubscribersBtn").classList.toggle("active", tab === "subscribers");
-            document.getElementById("tabPaymentsBtn").classList.toggle("active", tab === "payments");
-            document.getElementById("viewSubscribers").style.display = (tab === "subscribers") ? "block" : "none";
-            document.getElementById("viewPayments").style.display = (tab === "payments") ? "block" : "none";
+        // ==================== IN-APP CUSTOM NOTIFICATIONS & DIALOGS ====================
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById("toastContainer");
+            const toast = document.createElement("div");
+            toast.className = `toast-item toast-${type}`;
+            const icon = type === 'success' ? '✓' : (type === 'error' ? '✕' : (type === 'warning' ? '⚠️' : 'ℹ️'));
+            toast.innerHTML = `<span style="font-size: 1rem;">${icon}</span><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+                toast.style.opacity = "0";
+                toast.style.transform = "translateY(10px)";
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
 
-        function setTeamFilter(team) {
-            currentTeamFilter = team;
-            renderTeamPills();
-            loadDashboardData(false);
+        
+        let alertCallback = null;
+        function showAlert(title, message, type = 'warning') {
+            return new Promise((resolve) => {
+                alertCallback = resolve;
+                const icon = document.getElementById("alertIcon");
+                if (icon) {
+                    icon.className = `dialog-icon ${type}`;
+                    icon.textContent = type === 'error' ? '🚨' : (type === 'success' ? '✅' : '⚠️');
+                }
+                const titleEl = document.getElementById("alertTitle");
+                if (titleEl) titleEl.textContent = title;
+                const msgEl = document.getElementById("alertMessage");
+                if (msgEl) msgEl.textContent = message;
+                const dlg = document.getElementById("alertDialog");
+                if (dlg) dlg.classList.add("active");
+            });
         }
 
-        function renderTeamPills() {
-            document.getElementById("pillTeamAll").classList.toggle("active", currentTeamFilter === "all");
-            document.getElementById("statScopeLabel").textContent = currentTeamFilter === "all" ? "All Teams" : currentTeamFilter;
+        function closeAlertDialog() {
+            const dlg = document.getElementById("alertDialog");
+            if (dlg) dlg.classList.remove("active");
+            if (alertCallback) {
+                alertCallback();
+                alertCallback = null;
+            }
+        }
 
-            const wrap = document.getElementById("dynamicTeamPills");
-            wrap.innerHTML = allTeams.map(t => {
-                const subCount = allSubscribers.filter(s => (s.team_name || "Carmella Elan") === t).length;
-                const isAct = (currentTeamFilter === t) ? 'active' : '';
-                return `
-                    <button class="team-pill-btn ${isAct}" onclick="setTeamFilter('${t.replace(/'/g, "\'")}')">
-                        ${t} <span class="count">${subCount}</span>
+        // Global browser alert interception to prevent ugly browser popups:
+        window.alert = function(msg) {
+            showAlert("System Notice", msg, "warning");
+        };
+        window.confirm = function(msg) {
+            console.warn("Synchronous confirm() intercepted. Use await showConfirm() instead:", msg);
+            return false;
+        };
+        window.prompt = function(msg) {
+            console.warn("Synchronous prompt() intercepted. Use await showPrompt() instead:", msg);
+            return null;
+        };
+function showConfirm(title, message, isDanger = true) {
+            return new Promise((resolve) => {
+                confirmCallback = resolve;
+                const icon = document.getElementById("dialogIcon");
+                icon.className = `dialog-icon ${isDanger ? 'danger' : 'warning'}`;
+                icon.textContent = isDanger ? '🚨' : '⚠️';
+                document.getElementById("dialogTitle").textContent = title;
+                document.getElementById("dialogMessage").textContent = message;
+                const confirmBtn = document.getElementById("dialogConfirmBtn");
+                confirmBtn.className = `btn ${isDanger ? 'btn-action-kick' : 'btn-primary'}`;
+                confirmBtn.style.padding = "0.5rem 1rem";
+                document.getElementById("confirmDialog").classList.add("active");
+            });
+        }
+
+        function closeConfirmDialog(result) {
+            document.getElementById("confirmDialog").classList.remove("active");
+            if (confirmCallback) {
+                confirmCallback(result);
+                confirmCallback = null;
+            }
+        }
+
+        function showPrompt(title, message, defaultValue = "") {
+            return new Promise((resolve) => {
+                promptCallback = resolve;
+                document.getElementById("promptTitle").textContent = title;
+                document.getElementById("promptMessage").textContent = message;
+                const input = document.getElementById("promptInput");
+                input.value = defaultValue;
+                document.getElementById("promptDialog").classList.add("active");
+                setTimeout(() => input.focus(), 100);
+            });
+        }
+
+        function closePromptDialog(val) {
+            document.getElementById("promptDialog").classList.remove("active");
+            if (promptCallback) {
+                promptCallback(val);
+                promptCallback = null;
+            }
+        }
+
+        function showInviteLinkModal(email, link) {
+            document.getElementById("inviteLinkInput").value = link;
+            document.getElementById("inviteLinkModal").classList.add("active");
+        }
+
+        function copyInviteLink() {
+            const input = document.getElementById("inviteLinkInput");
+            input.select();
+            input.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(input.value);
+            showToast("Canva invite link copied to clipboard!", "success");
+        }
+
+        // ==================== VIEW SWITCHING ====================
+
+        function switchMainView(view) {
+            activeView = view;
+            const views = ["overview", "subscribers", "payments", "teams"];
+            views.forEach(v => {
+                const el = document.getElementById(`view${v.charAt(0).toUpperCase() + v.slice(1)}`);
+                const nav = document.getElementById(`navItem${v.charAt(0).toUpperCase() + v.slice(1)}`);
+                if (el) el.style.display = (v === view) ? "block" : "none";
+                if (nav) nav.classList.toggle("active", v === view);
+            });
+
+            const pageTitle = view === "overview" ? "Overview" : (view === "subscribers" ? "Subscribers" : (view === "payments" ? "Payment History" : "Canva Teams"));
+            document.getElementById("breadcrumbPage").textContent = pageTitle;
+
+            if (view === "overview") {
+                setTimeout(drawAllCharts, 50);
+            }
+        }
+
+        // ==================== MULTI-TEAM FILTERING SYSTEM ====================
+
+        function toggleTeamPopover() {
+            document.getElementById("teamPopover").classList.toggle("active");
+        }
+
+        
+        function renderTeamFilterChips() {
+            const bars = [document.getElementById("subTeamChipsBar"), document.getElementById("payTeamChipsBar")];
+            const isAll = (selectedTeams.size === 0 || selectedTeams.size === allTeams.length);
+
+            bars.forEach(bar => {
+                if (!bar) return;
+                let html = `
+                    <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; margin-right: 0.25rem;">Team:</span>
+                    <button type="button" class="team-chip ${isAll ? 'active' : ''}" onclick="clearAllTeamsFilter()">
+                        <span>All Teams</span>
+                        <span class="team-chip-count">${allSubscribers.length}</span>
                     </button>
+                `;
+                allTeams.forEach(t => {
+                    const isSelected = !isAll && selectedTeams.has(t);
+                    const count = allSubscribers.filter(s => (s.team_name || "Carmella Elan") === t).length;
+                    html += `
+                        <button type="button" class="team-chip ${isSelected ? 'active' : ''}" onclick="toggleTeamInSelection('${t}')">
+                            <span>${t}</span>
+                            <span class="team-chip-count">${count}</span>
+                        </button>
+                    `;
+                });
+                bar.innerHTML = html;
+            });
+        }
+
+        function toggleTeamInSelection(team) {
+            if (selectedTeams.size === 0 || selectedTeams.size === allTeams.length) {
+                selectedTeams.clear();
+                selectedTeams.add(team);
+            } else if (selectedTeams.has(team)) {
+                selectedTeams.delete(team);
+            } else {
+                selectedTeams.add(team);
+                if (selectedTeams.size === allTeams.length) {
+                    selectedTeams.clear();
+                }
+            }
+            renderTeamPopoverOptions();
+            applyTeamFilter();
+        }
+
+        function filterToSingleTeam(team) {
+            selectedTeams.clear();
+            selectedTeams.add(team);
+            renderTeamPopoverOptions();
+            applyTeamFilter();
+        }
+
+        function clearAllTeamsFilter() {
+            selectedTeams.clear();
+            renderTeamPopoverOptions();
+            applyTeamFilter();
+        }
+
+        function selectAllTeams() {
+            selectedTeams.clear();
+            allTeams.forEach(t => selectedTeams.add(t));
+            renderTeamPopoverOptions();
+            applyTeamFilter();
+        }
+function renderTeamPopoverOptions() {
+            const list = document.getElementById("teamCheckboxList");
+            const allSelected = (selectedTeams.size === 0 || selectedTeams.size === allTeams.length);
+
+            list.innerHTML = allTeams.map(t => {
+                const isChecked = allSelected || selectedTeams.has(t);
+                const subCount = allSubscribers.filter(s => (s.team_name || "Carmella Elan") === t).length;
+                return `
+                    <label class="team-check-label">
+                        <div style="display: flex; align-items: center; gap: 0.45rem;">
+                            <input type="checkbox" value="${t}" ${isChecked ? 'checked' : ''} onchange="onTeamCheckboxChange(this)">
+                            <span>${t}</span>
+                        </div>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">${subCount}</span>
+                    </label>
                 `;
             }).join('');
 
+            updateTeamTriggerLabel();
             populateTeamSelects();
+        }
+
+        function onTeamCheckboxChange(cb) {
+            if (selectedTeams.size === 0) {
+                // If it was "all", populate explicit
+                allTeams.forEach(t => selectedTeams.add(t));
+            }
+            if (cb.checked) {
+                selectedTeams.add(cb.value);
+            } else {
+                selectedTeams.delete(cb.value);
+            }
+            if (selectedTeams.size === allTeams.length) {
+                selectedTeams.clear(); // 0 means all
+            }
+            updateTeamTriggerLabel();
+        }
+
+        function selectAllTeamsToggle() {
+            if (selectedTeams.size === 0 || selectedTeams.size === allTeams.length) {
+                // Deselect all except first
+                selectedTeams.clear();
+                selectedTeams.add(allTeams[0]);
+            } else {
+                selectedTeams.clear(); // 0 means all
+            }
+            renderTeamPopoverOptions();
+        }
+
+        function updateTeamTriggerLabel() {
+            const labelEl = document.getElementById("teamTriggerLabel");
+            if (selectedTeams.size === 0 || selectedTeams.size === allTeams.length) {
+                labelEl.textContent = `Teams: All (${allTeams.length})`;
+                document.getElementById("kpiTeamScope").textContent = "all teams";
+            } else if (selectedTeams.size === 1) {
+                const single = Array.from(selectedTeams)[0];
+                labelEl.textContent = `Team: ${single}`;
+                document.getElementById("kpiTeamScope").textContent = single;
+            } else {
+                labelEl.textContent = `Teams: ${selectedTeams.size} Selected`;
+                document.getElementById("kpiTeamScope").textContent = `${selectedTeams.size} teams`;
+            }
+        }
+
+        function applyTeamFilter() {
+            document.getElementById("teamPopover").classList.remove("active");
+            loadDashboardData(false);
+            showToast("Team filter applied", "info");
         }
 
         function populateTeamSelects() {
@@ -1394,14 +2106,23 @@
             });
         }
 
+        // ==================== DATA FETCHING & SYNC ====================
+
         async function loadDashboardData(isBackground = false) {
             try {
-                const teamQuery = currentTeamFilter === "all" ? "" : `?team=${encodeURIComponent(currentTeamFilter)}`;
+                let teamParam = "all";
+                if (selectedTeams.size > 0 && selectedTeams.size < allTeams.length) {
+                    teamParam = Array.from(selectedTeams).join(",");
+                }
 
-                const resSubs = await fetch(`/api/subscribers${teamQuery}`);
+                const queryStr = teamParam === "all" ? "" : `?team=${encodeURIComponent(teamParam)}`;
+
+                const [resSubs, resPay] = await Promise.all([
+                    fetch(`/api/subscribers${queryStr}`),
+                    fetch(`/api/payments${queryStr}`)
+                ]);
+
                 const dataSubs = await resSubs.json();
-
-                const resPay = await fetch(`/api/payments${teamQuery}`);
                 const dataPay = await resPay.json();
 
                 allSubscribers = dataSubs.subscribers || [];
@@ -1410,20 +2131,21 @@
 
                 const stats = dataSubs.stats || {};
                 const earnings = dataSubs.earnings || dataPay.earnings || { total_bdt: 0, total_count: 0 };
-                const teamName = currentTeamFilter !== "all" ? currentTeamFilter : (dataSubs.team_name || "Carmella Elan");
 
-                document.getElementById("statEarnings").textContent = `৳${(earnings.total_bdt || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                document.getElementById("statTransCount").textContent = earnings.total_count || 0;
+                // Update KPI Metrics
+                document.getElementById("kpiRevenue").textContent = `৳${(earnings.total_bdt || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                document.getElementById("kpiTxCount").textContent = earnings.total_count || 0;
+                document.getElementById("kpiActivePaid").textContent = stats.active_paid || 0;
+                document.getElementById("kpiPending").textContent = stats.pending || 0;
+                document.getElementById("kpiTeamsCount").textContent = allTeams.length;
 
-                document.getElementById("statPaid").textContent = stats.active_paid || 0;
-                document.getElementById("statPending").textContent = stats.pending || 0;
-                document.getElementById("statTeamName").textContent = teamName;
+                // Update Navigation Badges
+                document.getElementById("navSubBadge").textContent = allSubscribers.length;
+                document.getElementById("navPayBadge").textContent = allPayments.length;
+                document.getElementById("navTeamBadge").textContent = allTeams.length;
 
-                document.getElementById("countSubscribers").textContent = allSubscribers.length;
-                document.getElementById("countPayments").textContent = allPayments.length;
-                document.getElementById("countAllTeamSubs").textContent = stats.total || allSubscribers.length;
-
-                renderTeamPills();
+                renderTeamPopoverOptions();
+                renderTeamsGrid();
 
                 const subSearchFocused = (document.activeElement === document.getElementById("searchSubInput"));
                 const paySearchFocused = (document.activeElement === document.getElementById("searchPayInput"));
@@ -1431,35 +2153,268 @@
                 if (!subSearchFocused || !isBackground) filterSubscribers();
                 if (!paySearchFocused || !isBackground) filterPayments();
 
+                renderOverviewRecentTable();
+
+                if (activeView === "overview") {
+                    drawAllCharts();
+                }
+
                 lastSyncTimestamp = Date.now();
                 updateRelativeSyncTime();
             } catch (err) {
-                console.error("Dashboard sync error:", err);
+                console.error("Dashboard synchronization error:", err);
             }
         }
 
-        // ==================== SUBSCRIBERS TABLE & ACTIONS ====================
+        // ==================== CHARTS & GRAPHS RENDERING (PURE CANVAS) ====================
+
+        function drawAllCharts() {
+            drawRevenueTimelineChart();
+            drawPackageDonutChart();
+        }
+
+        function drawRevenueTimelineChart() {
+            const canvas = document.getElementById("revenueCanvas");
+            if (!canvas) return;
+            const ctx = canvas.getContext("2d");
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const w = rect.width;
+            const h = rect.height;
+            ctx.clearRect(0, 0, w, h);
+
+            if (allPayments.length === 0) {
+                ctx.fillStyle = "#64748B";
+                ctx.font = "600 13px 'Plus Jakarta Sans', sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("No revenue transactions recorded yet", w / 2, h / 2);
+                return;
+            }
+
+            // Group payments by date chronologically
+            const sorted = [...allPayments].sort((a, b) => (a.paid_at || "").localeCompare(b.paid_at || ""));
+            let cumulative = 0;
+            const points = sorted.map((p, idx) => {
+                cumulative += p.amount;
+                return {
+                    label: (p.paid_at || "").substring(5, 10),
+                    val: cumulative,
+                    amount: p.amount
+                };
+            });
+
+            // Ensure at least 2 points for a continuous curve
+            if (points.length === 1) {
+                points.unshift({ label: "Start", val: 0, amount: 0 });
+            }
+
+            const padLeft = 45;
+            const padRight = 20;
+            const padTop = 20;
+            const padBottom = 30;
+            const chartW = w - padLeft - padRight;
+            const chartH = h - padTop - padBottom;
+
+            const maxVal = Math.max(...points.map(p => p.val)) * 1.15 || 100;
+
+            // Draw horizontal grid lines
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+            ctx.lineWidth = 1;
+            ctx.font = "500 10px 'JetBrains Mono', monospace";
+            ctx.fillStyle = "#64748B";
+            ctx.textAlign = "right";
+
+            for (let i = 0; i <= 4; i++) {
+                const y = padTop + (chartH / 4) * i;
+                const gridVal = Math.round(maxVal - (maxVal / 4) * i);
+                ctx.beginPath();
+                ctx.moveTo(padLeft, y);
+                ctx.lineTo(w - padRight, y);
+                ctx.stroke();
+                ctx.fillText(`৳${gridVal}`, padLeft - 6, y + 3);
+            }
+
+            // Calculate point coordinates
+            const coords = points.map((p, i) => {
+                const x = padLeft + (chartW / (points.length - 1)) * i;
+                const y = padTop + chartH - (p.val / maxVal) * chartH;
+                return { x, y, label: p.label, val: p.val };
+            });
+
+            // Area Gradient
+            const grad = ctx.createLinearGradient(0, padTop, 0, padTop + chartH);
+            grad.addColorStop(0, "rgba(16, 185, 129, 0.35)");
+            grad.addColorStop(1, "rgba(16, 185, 129, 0.0)");
+
+            ctx.beginPath();
+            ctx.moveTo(coords[0].x, padTop + chartH);
+            coords.forEach(pt => ctx.lineTo(pt.x, pt.y));
+            ctx.lineTo(coords[coords.length - 1].x, padTop + chartH);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Line
+            ctx.beginPath();
+            ctx.moveTo(coords[0].x, coords[0].y);
+            coords.forEach(pt => ctx.lineTo(pt.x, pt.y));
+            ctx.strokeStyle = "#10B981";
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Points
+            coords.forEach(pt => {
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = "#10B981";
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = "#0B0F17";
+                ctx.stroke();
+            });
+        }
+
+        function drawPackageDonutChart() {
+            const canvas = document.getElementById("packageCanvas");
+            if (!canvas) return;
+            const ctx = canvas.getContext("2d");
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const w = rect.width;
+            const h = rect.height;
+            ctx.clearRect(0, 0, w, h);
+
+            let m1 = 0, m3 = 0, m12 = 0;
+            allSubscribers.forEach(s => {
+                const p = (s.package || "").toLowerCase();
+                if (p.includes("12") || p.includes("year")) m12++;
+                else if (p.includes("3")) m3++;
+                else m1++;
+            });
+
+            const total = m1 + m3 + m12;
+            if (total === 0) {
+                ctx.fillStyle = "#64748B";
+                ctx.font = "600 13px 'Plus Jakarta Sans', sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("No subscription packages enrolled", w / 2, h / 2);
+                return;
+            }
+
+            const data = [
+                { label: "1M (25৳)", count: m1, color: "#38BDF8" },
+                { label: "3M (50৳)", count: m3, color: "#7D2AE8" },
+                { label: "1Y (150৳)", count: m12, color: "#10B981" }
+            ].filter(d => d.count > 0);
+
+            const cx = w * 0.35;
+            const cy = h / 2;
+            const radius = Math.min(cx, cy) - 15;
+            const innerRadius = radius * 0.58;
+
+            let startAngle = -Math.PI / 2;
+            data.forEach(slice => {
+                const sliceAngle = (slice.count / total) * (Math.PI * 2);
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, startAngle, startAngle + sliceAngle);
+                ctx.arc(cx, cy, innerRadius, startAngle + sliceAngle, startAngle, true);
+                ctx.closePath();
+                ctx.fillStyle = slice.color;
+                ctx.fill();
+                startAngle += sliceAngle;
+            });
+
+            // Center text
+            ctx.fillStyle = "#F8FAFC";
+            ctx.font = "800 16px 'Plus Jakarta Sans', sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(total, cx, cy + 5);
+
+            // Legends on the right
+            const legendX = w * 0.65;
+            let legendY = cy - (data.length * 20) / 2 + 10;
+            data.forEach(item => {
+                const pct = Math.round((item.count / total) * 100);
+                ctx.fillStyle = item.color;
+                ctx.beginPath();
+                ctx.arc(legendX, legendY, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "#F8FAFC";
+                ctx.font = "600 11px 'Plus Jakarta Sans', sans-serif";
+                ctx.textAlign = "left";
+                ctx.fillText(`${item.label}`, legendX + 12, legendY + 3);
+
+                ctx.fillStyle = "#94A3B8";
+                ctx.font = "500 11px 'JetBrains Mono', monospace";
+                ctx.fillText(`${pct}%`, legendX + 85, legendY + 3);
+
+                legendY += 24;
+            });
+        }
+
+        function renderOverviewRecentTable() {
+            const tbody = document.getElementById("overviewRecentTbody");
+            if (!allPayments || allPayments.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No recent transactions logged.</td></tr>`;
+                return;
+            }
+
+            const recents = allPayments.slice(0, 5);
+            tbody.innerHTML = recents.map(p => {
+                return `
+                    <tr>
+                        <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-muted);">${(p.paid_at || '').substring(0, 10)}</span></td>
+                        <td><span class="cid-badge">#${p.customer_id || 800}</span></td>
+                        <td>
+                            <div class="customer-info">
+                                <span class="customer-email">${p.email}</span>
+                                <span class="customer-name">${p.name || 'Customer'}</span>
+                            </div>
+                        </td>
+                        <td><span class="team-tag">🎨 ${p.team_name || 'Carmella Elan'}</span></td>
+                        <td><span style="font-weight: 600;">${p.package}</span></td>
+                        <td><span style="font-size: 0.78rem; font-weight: 600; color: var(--blue);">${p.provider || 'bKash'}</span></td>
+                        <td><span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--emerald);">৳${parseFloat(p.amount || 0).toFixed(2)}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ==================== SUBSCRIBERS TABLE & INLINE EDITING ====================
 
         function toggleSubQuickEdit() {
             subQuickEditActive = !subQuickEditActive;
-            document.getElementById("btnToggleSubEdit").classList.toggle("active", subQuickEditActive);
-            document.getElementById("btnToggleSubEdit").textContent = subQuickEditActive ? "✓ Exit Quick Edit" : "✏️ Quick Edit Mode";
+            const btn = document.getElementById("btnToggleSubEdit");
+            btn.classList.toggle("btn-primary", subQuickEditActive);
+            btn.classList.toggle("btn-secondary", !subQuickEditActive);
+            btn.textContent = subQuickEditActive ? "✓ Exit Quick Edit" : "✏️ Quick Edit Mode";
             dirtySubRows.clear();
             filterSubscribers();
+            if (subQuickEditActive) {
+                showToast("Quick edit mode active. Modify inputs and click 💾 Save on each row.", "info");
+            }
         }
 
         function markSubRowDirty(email) {
             dirtySubRows.add(email);
-            const row = document.getElementById(`subrow_${btoa(email).replace(/=/g, '')}`);
-            if (row) row.classList.add("row-dirty");
-            const saveBtn = document.getElementById(`subsave_${btoa(email).replace(/=/g, '')}`);
+            const rowKey = btoa(email).replace(/=/g, '');
+            const row = document.getElementById(`subrow_${rowKey}`);
+            if (row) row.style.background = "rgba(245, 158, 11, 0.06)";
+            const saveBtn = document.getElementById(`subsave_${rowKey}`);
             if (saveBtn) saveBtn.style.display = "inline-flex";
         }
 
         function renderSubscribersTable(list) {
             const tbody = document.getElementById("subscribersTbody");
             if (!list || list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No subscribers found for this team filter.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No subscribers found for current filter.</td></tr>`;
                 return;
             }
 
@@ -1513,9 +2468,9 @@
                             </td>
                             <td style="text-align: right;">
                                 <div class="table-actions" style="justify-content: flex-end;">
-                                    <button class="btn-action btn-action-save-row" id="subsave_${rowKey}" onclick="saveInlineSubscriber('${sub.email}')" title="Click to Save Updates" style="display: ${dirtySubRows.has(sub.email) ? 'inline-flex' : 'none'};">💾 Save</button>
-                                    <button class="btn-action btn-action-edit" onclick="openEditCustomerModal('${sub.email}')" title="Full Edit Dialog">✏️ Full</button>
-                                    <button class="btn-action" onclick="actionDelete('${sub.email}')" title="Delete record" style="color: var(--text-faint);">🗑️</button>
+                                    <button class="btn btn-save" id="subsave_${rowKey}" onclick="saveInlineSubscriber('${sub.email}')" title="Save this row" style="padding: 0.28rem 0.65rem; font-size: 0.75rem; display: ${dirtySubRows.has(sub.email) ? 'inline-flex' : 'none'};">💾 Save</button>
+                                    <button class="btn-action btn-action-edit" onclick="openEditCustomerModal('${sub.email}')" title="Full Dialog">✏️ Full</button>
+                                    <button class="btn-action" onclick="actionDelete('${sub.email}')" title="Delete record" style="color: var(--rose);">🗑️</button>
                                 </div>
                             </td>
                         </tr>
@@ -1547,7 +2502,7 @@
                                 ${sub.status !== 'kicked' ? `
                                     <button class="btn-action btn-action-kick" onclick="actionKick('${sub.email}')" title="Revoke Access">🚨 Kick</button>
                                 ` : ''}
-                                <button class="btn-action" onclick="actionDelete('${sub.email}')" title="Delete record" style="color: var(--text-faint);">🗑️</button>
+                                <button class="btn-action" onclick="actionDelete('${sub.email}')" title="Delete record" style="color: var(--rose);">🗑️</button>
                             </div>
                         </td>
                     </tr>
@@ -1585,26 +2540,31 @@
                 saveBtn.disabled = true;
             }
 
-            await fetch("/api/subscriber/update", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email: origEmail,
-                    fields: {
-                        name,
-                        email,
-                        team_name,
-                        package: pkg,
-                        expires_at: expires_at ? `${expires_at} 23:59:59` : undefined,
-                        payment_status,
-                        status: payment_status === 'REVOKED' ? 'kicked' : 'active',
-                        trx_id
-                    }
-                })
-            });
+            try {
+                await fetch("/api/subscriber/update", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: origEmail,
+                        fields: {
+                            name,
+                            email,
+                            team_name,
+                            package: pkg,
+                            expires_at: expires_at ? `${expires_at} 23:59:59` : undefined,
+                            payment_status,
+                            status: payment_status === 'REVOKED' ? 'kicked' : 'active',
+                            trx_id
+                        }
+                    })
+                });
 
-            dirtySubRows.delete(origEmail);
-            loadDashboardData();
+                dirtySubRows.delete(origEmail);
+                showToast(`Saved updates for ${email}`, "success");
+                loadDashboardData();
+            } catch (e) {
+                showToast("Failed to save changes", "error");
+            }
         }
 
         // ==================== EDIT CUSTOMER MODAL ====================
@@ -1644,68 +2604,90 @@
             const saveBtn = e.target.querySelector(".btn-save");
             if (saveBtn) saveBtn.textContent = "Saving...";
 
-            await fetch("/api/subscriber/update", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email: origEmail,
-                    fields: {
-                        name,
-                        email,
-                        team_name,
-                        package: pkg,
-                        payment_status,
-                        status,
-                        expires_at: expVal ? `${expVal} 23:59:59` : undefined,
-                        trx_id
-                    }
-                })
-            });
+            try {
+                await fetch("/api/subscriber/update", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: origEmail,
+                        fields: {
+                            name,
+                            email,
+                            team_name,
+                            package: pkg,
+                            payment_status,
+                            status,
+                            expires_at: expVal ? `${expVal} 23:59:59` : undefined,
+                            trx_id
+                        }
+                    })
+                });
 
-            closeModal("editCustomerModal");
-            loadDashboardData();
+                closeModal("editCustomerModal");
+                showToast(`Customer #${document.getElementById("editCidBadge").textContent} updated successfully!`, "success");
+                loadDashboardData();
+            } catch (err) {
+                showToast("Error updating customer", "error");
+            }
         }
 
         async function actionModalKick() {
             const email = document.getElementById("editOrigEmail").value;
-            if (confirm(`Kick ${email} and set status to Kicked / Revoked?`)) {
+            const confirmed = await showConfirm(
+                "Revoke Canva Pro Access?",
+                `Are you sure you want to KICK ${email}? This will mark their status as Revoked.`,
+                true
+            );
+            if (confirmed) {
                 await fetch("/api/subscriber/kick", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email })
                 });
                 closeModal("editCustomerModal");
+                showToast(`Access revoked for ${email}`, "warning");
                 loadDashboardData();
             }
         }
 
         async function actionModalDelete() {
             const email = document.getElementById("editOrigEmail").value;
-            if (confirm(`Permanently delete ${email} from database?`)) {
+            const confirmed = await showConfirm(
+                "Permanently Delete Customer?",
+                `Are you sure you want to delete ${email}? All enrollment records will be erased.`,
+                true
+            );
+            if (confirmed) {
                 await fetch("/api/subscriber/delete", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email })
                 });
                 closeModal("editCustomerModal");
+                showToast(`Customer record deleted`, "error");
                 loadDashboardData();
             }
         }
 
-        // ==================== PAYMENTS TABLE & ACTIONS ====================
+        // ==================== PAYMENTS TABLE & INLINE EDITING ====================
 
         function togglePayQuickEdit() {
             payQuickEditActive = !payQuickEditActive;
-            document.getElementById("btnTogglePayEdit").classList.toggle("active", payQuickEditActive);
-            document.getElementById("btnTogglePayEdit").textContent = payQuickEditActive ? "✓ Exit Quick Edit" : "✏️ Quick Edit Mode";
+            const btn = document.getElementById("btnTogglePayEdit");
+            btn.classList.toggle("btn-primary", payQuickEditActive);
+            btn.classList.toggle("btn-secondary", !payQuickEditActive);
+            btn.textContent = payQuickEditActive ? "✓ Exit Quick Edit" : "✏️ Quick Edit Mode";
             dirtyPayRows.clear();
             filterPayments();
+            if (payQuickEditActive) {
+                showToast("Quick edit mode active. Modify inputs and click 💾 Save on each transaction.", "info");
+            }
         }
 
         function markPayRowDirty(id) {
             dirtyPayRows.add(id);
             const row = document.getElementById(`payrow_${id}`);
-            if (row) row.classList.add("row-dirty");
+            if (row) row.style.background = "rgba(245, 158, 11, 0.06)";
             const saveBtn = document.getElementById(`paysave_${id}`);
             if (saveBtn) saveBtn.style.display = "inline-flex";
         }
@@ -1713,7 +2695,7 @@
         function renderPaymentsTable(list) {
             const tbody = document.getElementById("paymentsTbody");
             if (!list || list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No payment transactions recorded for this team filter.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No payment transactions recorded for current filter.</td></tr>`;
                 return;
             }
 
@@ -1745,8 +2727,8 @@
                             <td><input type="text" class="cell-input" id="pay_notes_${p.id}" value="${p.notes || ''}" onchange="markPayRowDirty(${p.id})"></td>
                             <td style="text-align: right;">
                                 <div class="table-actions" style="justify-content: flex-end;">
-                                    <button class="btn-action btn-action-save-row" id="paysave_${p.id}" onclick="saveInlinePayment(${p.id})" title="Save Payment" style="display: ${dirtyPayRows.has(p.id) ? 'inline-flex' : 'none'};">💾 Save</button>
-                                    <button class="btn-action btn-action-edit" onclick="openEditPaymentModal(${p.id})" title="Full Edit Dialog">✏️</button>
+                                    <button class="btn btn-save" id="paysave_${p.id}" onclick="saveInlinePayment(${p.id})" title="Save Payment" style="padding: 0.28rem 0.65rem; font-size: 0.75rem; display: ${dirtyPayRows.has(p.id) ? 'inline-flex' : 'none'};">💾 Save</button>
+                                    <button class="btn-action btn-action-edit" onclick="openEditPaymentModal(${p.id})" title="Full Dialog">✏️</button>
                                     <button class="btn-action" onclick="actionDeletePaymentRecord(${p.id})" title="Delete Transaction" style="color: var(--rose);">🗑️</button>
                                 </div>
                             </td>
@@ -1766,7 +2748,7 @@
                         </td>
                         <td>${teamBadge}</td>
                         <td><span style="font-weight: 600;">${p.package}</span></td>
-                        <td><span style="font-size: 0.8rem; font-weight: 600; color: #38BDF8;">${p.provider || 'bKash'}</span></td>
+                        <td><span style="font-size: 0.8rem; font-weight: 600; color: var(--blue);">${p.provider || 'bKash'}</span></td>
                         <td>${trxBadge}</td>
                         <td><span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--emerald); font-size: 0.95rem;">৳${parseFloat(p.amount || 0).toFixed(2)}</span></td>
                         <td><span style="font-size: 0.78rem; color: var(--text-muted);">${p.notes || 'Verified'}</span></td>
@@ -1811,17 +2793,22 @@
                 saveBtn.disabled = true;
             }
 
-            await fetch("/api/payment/update", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    id: payId,
-                    fields: { amount, provider, team_name, package, trx_id, notes }
-                })
-            });
+            try {
+                await fetch("/api/payment/update", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        id: payId,
+                        fields: { amount, provider, team_name, package, trx_id, notes }
+                    })
+                });
 
-            dirtyPayRows.delete(payId);
-            loadDashboardData();
+                dirtyPayRows.delete(payId);
+                showToast(`Payment #${payId} updated!`, "success");
+                loadDashboardData();
+            } catch (err) {
+                showToast("Failed to update payment", "error");
+            }
         }
 
         function openEditPaymentModal(payId) {
@@ -1857,32 +2844,79 @@
             const saveBtn = e.target.querySelector(".btn-save");
             if (saveBtn) saveBtn.textContent = "Saving...";
 
-            await fetch("/api/payment/update", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    id: payId,
-                    fields: { amount, provider, team_name, package, trx_id, paid_at, notes }
-                })
-            });
+            try {
+                await fetch("/api/payment/update", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        id: payId,
+                        fields: { amount, provider, team_name, package, trx_id, paid_at, notes }
+                    })
+                });
 
-            closeModal("editPaymentModal");
-            loadDashboardData();
+                closeModal("editPaymentModal");
+                showToast(`Payment transaction #${payId} updated`, "success");
+                loadDashboardData();
+            } catch (err) {
+                showToast("Error updating payment transaction", "error");
+            }
         }
 
         async function actionDeletePaymentRecord(id) {
-            if (confirm(`Permanently delete transaction record #${id}?`)) {
+            const confirmed = await showConfirm(
+                "Delete Payment Transaction?",
+                `Are you sure you want to delete payment record #${id}? This will adjust your total revenue calculation.`,
+                true
+            );
+            if (confirmed) {
                 await fetch("/api/payment/delete", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ id: parseInt(id) })
                 });
                 closeModal("editPaymentModal");
+                showToast(`Transaction #${id} deleted`, "error");
                 loadDashboardData();
             }
         }
 
-        // ==================== TEAM MANAGEMENT ====================
+        // ==================== CANVA TEAMS VIEW ====================
+
+        function renderTeamsGrid() {
+            const grid = document.getElementById("teamsCardsGrid");
+            if (!grid) return;
+
+            grid.innerHTML = allTeams.map(t => {
+                const members = allSubscribers.filter(s => (s.team_name || "Carmella Elan") === t);
+                const teamRevenue = allPayments.filter(p => (p.team_name || "Carmella Elan") === t).reduce((acc, c) => acc + c.amount, 0);
+
+                return `
+                    <div class="metric-card" style="border-top: 3px solid var(--primary);">
+                        <div class="metric-header">
+                            <span class="metric-title">🎨 Canva Team</span>
+                            <span style="font-size: 0.76rem; background: rgba(56, 189, 248, 0.1); color: var(--blue); padding: 2px 6px; border-radius: 4px; font-weight: 700;">ACTIVE</span>
+                        </div>
+                        <div class="metric-value" style="font-size: 1.35rem; margin-top: 0.2rem;">${t}</div>
+                        <div style="margin: 0.85rem 0; font-size: 0.82rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.25rem;">
+                            <div>👥 <strong>${members.length}</strong> enrolled students</div>
+                            <div>💵 <strong>৳${teamRevenue.toFixed(2)}</strong> collected revenue</div>
+                        </div>
+                        <div style="border-top: 1px solid var(--border-subtle); padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                            <a href="https://www.canva.com/settings/team-members" target="_blank" style="color: var(--cyan); text-decoration: none; font-size: 0.8rem; font-weight: 600;">Seat Roster ↗</a>
+                            <button class="btn btn-secondary" style="font-size: 0.74rem; padding: 0.3rem 0.6rem;" onclick="filterToSpecificTeam('${t.replace(/'/g, "\'")}')">View Students</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterToSpecificTeam(t) {
+            selectedTeams.clear();
+            selectedTeams.add(t);
+            switchMainView("subscribers");
+            updateTeamTriggerLabel();
+            loadDashboardData(false);
+        }
 
         function openAddTeamModal() {
             document.getElementById("newTeamInput").value = "";
@@ -1901,16 +2935,16 @@
             });
 
             closeModal("addTeamModal");
-            setTeamFilter(team_name);
+            selectedTeams.clear();
+            selectedTeams.add(team_name);
+            showToast(`Team '${team_name}' registered successfully!`, "success");
+            loadDashboardData(false);
         }
 
         // ==================== OTHER MODALS & ACTIONS ====================
 
         function openAddModal() {
             populateTeamSelects();
-            if (currentTeamFilter !== "all") {
-                document.getElementById("addTeamSelect").value = currentTeamFilter;
-            }
             document.getElementById("addModal").classList.add("active");
         }
 
@@ -1922,9 +2956,6 @@
 
         function openRecordPaymentModal() {
             populateTeamSelects();
-            if (currentTeamFilter !== "all") {
-                document.getElementById("payTeamSelect").value = currentTeamFilter;
-            }
             document.getElementById("recordPayModal").classList.add("active");
         }
 
@@ -1959,6 +2990,7 @@
             document.getElementById("addTrxId").value = "";
             document.getElementById("addIsPaid").checked = false;
             toggleAddPaidFields();
+            showToast(`Customer ${email} enrolled in ${team_name}`, "success");
             loadDashboardData();
         }
 
@@ -1974,6 +3006,7 @@
             });
 
             closeModal("extendModal");
+            showToast(`Subscription extended for ${email}`, "success");
             loadDashboardData();
         }
 
@@ -1998,17 +3031,21 @@
             document.getElementById("payAmount").value = "";
             document.getElementById("payTrxId").value = "";
             document.getElementById("payNotes").value = "";
+            showToast(`Payment of ৳${amount} logged for ${email}`, "success");
             loadDashboardData();
         }
 
         async function actionMarkPaid(email) {
-            const trx = prompt(`Enter bKash/Nagad TrxID for ${email} (Optional):`) || "";
-            await fetch("/api/subscriber/paid", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, trx_id: trx })
-            });
-            loadDashboardData();
+            const trx = await showPrompt("Confirm Payment", `Enter bKash/Nagad TrxID for ${email} (Optional):`, "");
+            if (trx !== null) {
+                await fetch("/api/subscriber/paid", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, trx_id: trx })
+                });
+                showToast(`Payment marked as PAID for ${email}`, "success");
+                loadDashboardData();
+            }
         }
 
         async function actionGenerateLink(email) {
@@ -2019,28 +3056,40 @@
             });
             const data = await res.json();
             if (data && data.link) {
-                prompt(`⚡ 10-Minute Single-User Canva Invite Link for ${email}:\n(Copy and send to customer)`, data.link);
+                showInviteLinkModal(email, data.link);
             }
         }
 
         async function actionKick(email) {
-            if (confirm(`Are you sure you want to KICK ${email} and revoke their Canva Pro access?`)) {
+            const confirmed = await showConfirm(
+                "Revoke Canva Pro Seat?",
+                `Are you sure you want to KICK ${email}? This will revoke their team membership.`,
+                true
+            );
+            if (confirmed) {
                 await fetch("/api/subscriber/kick", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email })
                 });
+                showToast(`Member kicked: ${email}`, "warning");
                 loadDashboardData();
             }
         }
 
         async function actionDelete(email) {
-            if (confirm(`Permanently delete ${email} from subscribers database?`)) {
+            const confirmed = await showConfirm(
+                "Permanently Delete Customer?",
+                `Are you sure you want to delete ${email}? All record data will be permanently deleted.`,
+                true
+            );
+            if (confirmed) {
                 await fetch("/api/subscriber/delete", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email })
                 });
+                showToast(`Deleted ${email}`, "error");
                 loadDashboardData();
             }
         }
