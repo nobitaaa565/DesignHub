@@ -98,6 +98,7 @@ When given a campaign topic or context, autonomously pick both the **Style Arche
 | **Feature Launches, All-in-One Capabilities, Pro Designers, Modern Tech Appeal** | **Style 2: Atmospheric Dark Mode & Floating Elements** | Geometry A (Top Headline & Bottom Dock) OR Geometry C (Diagonal Flow) | `dynamic_horizontal_promo_1080x1350.jpg` & `design2.jpg` |
 | **Beginners, Student Deals, High-Trust Offers ('Access First, Pay Later'), Friendly Walkthrough** | **Style 1: Clean & Bright Studio Character** | Geometry B (Reverse Split) OR Classic Split with varied character & prop | `design1.jpg` |
 | **Curiosity Campaigns, Secret Tools, Gift Bundles, Micro-World Reveals** | **Style 4: Hand Holding Miniature Glass Capsule** | Geometry E (Centered Hand & Capsule) with Bottom Floating Pill Offer | `DESIGN-4` |
+| **Direct Subscription Promo, Mobile App Checkout, All-in-One AI Suite, bKash Offers** | **Style 6: Real Model & Floating 3D Feature Badges** | Geometry G (Phone in Hand with Orbiting 3D Tiles & Hero Model) | `design-6_reference` |
 
 ---
 
