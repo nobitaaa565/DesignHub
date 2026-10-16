@@ -29,15 +29,21 @@ def analyze_payment_screenshot(image_bytes: bytes) -> dict:
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
     
     prompt = (
-        "Examine this payment confirmation receipt or screenshot from Bangladesh Mobile Banking.\n"
-        "Extract the transaction details into valid JSON with this exact format:\n"
+        "Examine this payment confirmation receipt or screenshot from Bangladesh Mobile Banking (bKash, Nagad, Rocket, Upay).\n"
+        "CRITICAL INSTRUCTIONS:\n"
+        "1. Extract the exact recipient/receiver phone number (the account money was transferred TO, under 'To', 'Recipient', 'প্রাপক', 'Receiver', or under receiver contact info, e.g. 01571425035 or 01798361516).\n"
+        "2. Extract the exact amount sent (e.g. 25, 50, 99, 150 Tk).\n"
+        "3. Extract the Transaction ID (TrxID).\n"
+        "4. Extract the provider (bKash, Nagad, Rocket, Upay).\n\n"
+        "Return valid JSON with this exact format:\n"
         "{\n"
         '  "is_payment_proof": true,\n'
         '  "provider": "bKash" | "Nagad" | "Rocket" | "Upay" | "Bank",\n'
         '  "trx_id": "Exact Transaction ID (TrxID)",\n'
         '  "amount": "Exact amount (e.g. 50.00 Tk, ৳50.00)",\n'
+        '  "amount_numeric": 50.0,\n'
+        '  "recipient": "Exact receiver/merchant phone number (e.g. 01571425035)",\n'
         '  "sender": "Sender phone number if visible, else null",\n'
-        '  "recipient": "Recipient/Merchant number or name if visible, else null",\n'
         '  "timestamp": "Date and time if visible, else null"\n'
         "}\n"
         "If this image has NO payment/transaction details at all, return {\"is_payment_proof\": false}.\n"
@@ -62,7 +68,7 @@ def analyze_payment_screenshot(image_bytes: bytes) -> dict:
         }
     }
 
-    models_to_try = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-flash-latest", "gemini-2.5-pro"]
+    models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-flash-latest"]
     for m in models_to_try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={GEMINI_API_KEY}"
         try:
@@ -120,6 +126,57 @@ def extract_trx_from_text(text: str) -> dict:
         "provider": provider,
         "trx_id": trx_match.group(1).upper() if trx_match else None,
         "amount": amount_val
+    }
+
+
+
+OFFICIAL_PAYMENT_NUMBERS = ["01571425035", "01798361516"]
+
+
+def normalize_bd_phone(phone: str) -> str:
+    """Normalizes any Bangladeshi phone number to standard 11 digits (e.g. 01571425035)."""
+    if not phone:
+        return ""
+    clean = re.sub(r"[^\d]", "", str(phone))
+    if clean.startswith("880") and len(clean) == 13:
+        clean = clean[2:]
+    return clean
+
+
+def verify_payment_against_order(proof: dict, expected_price: float = None) -> dict:
+    """
+    Checks if recipient matches any official Design Hub numbers (01571425035, 01798361516)
+    and whether the amount matches the expected package price.
+    """
+    raw_recipient = proof.get("recipient") or ""
+    clean_recip = normalize_bd_phone(raw_recipient)
+
+    receiver_matched = False
+    matched_number = None
+    for official in OFFICIAL_PAYMENT_NUMBERS:
+        if official in clean_recip or (clean_recip and clean_recip == official):
+            receiver_matched = True
+            matched_number = official
+            break
+
+    amt_val = proof.get("amount_numeric")
+    if amt_val is None and proof.get("amount"):
+        m = re.search(r"(\d+(?:\.\d{1,2})?)", str(proof.get("amount")))
+        if m:
+            amt_val = float(m.group(1))
+
+    amount_matched = None
+    if expected_price is not None and amt_val is not None:
+        amount_matched = abs(amt_val - float(expected_price)) < 1.0  # within 1 Tk tolerance
+
+    return {
+        "receiver_matched": receiver_matched,
+        "matched_official_number": matched_number,
+        "clean_recipient": clean_recip,
+        "raw_recipient": raw_recipient,
+        "amount_numeric": amt_val,
+        "amount_matched": amount_matched,
+        "expected_price": expected_price
     }
 
 

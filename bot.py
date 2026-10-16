@@ -405,10 +405,32 @@ def save_conv_states(states: dict):
         pass
 
 
+def to_unicode_bold(text: str) -> str:
+    out = []
+    for char in text:
+        cp = ord(char)
+        if 65 <= cp <= 90:
+            out.append(chr(cp - 65 + 0x1d400))
+        elif 97 <= cp <= 122:
+            out.append(chr(cp - 97 + 0x1d41a))
+        elif 48 <= cp <= 57:
+            out.append(chr(cp - 48 + 0x1d7ce))
+        else:
+            out.append(char)
+    return ''.join(out)
+
+
+def format_messenger_text(text: str) -> str:
+    if not text:
+        return ""
+    return re.sub(r'\*\*(.*?)\*\*', lambda m: to_unicode_bold(m.group(1)), str(text))
+
+
 def send_fb_message(recipient_id: str, message_text: str, token: str, quick_replies=None) -> bool:
     """Send text message directly to a customer in Facebook Messenger inbox with optional quick reply buttons."""
+    formatted_text = format_messenger_text(message_text)
     url = f"https://graph.facebook.com/v20.0/me/messages?access_token={token}"
-    msg_payload = {"text": message_text}
+    msg_payload = {"text": formatted_text}
     if quick_replies:
         msg_payload["quick_replies"] = quick_replies
 

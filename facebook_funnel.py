@@ -32,7 +32,7 @@ from subscription_manager import (
     clear_pending_telegram_msg,
     get_canva_team_name
 )
-from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
+from payment_verifier import analyze_payment_screenshot, extract_trx_from_text, verify_payment_against_order, normalize_bd_phone
 
 logger = logging.getLogger("FacebookFunnel")
 
@@ -91,8 +91,35 @@ def save_replied_ids(ids: set):
 RESTART_BUTTON = {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
 
 
+def to_unicode_bold(text: str) -> str:
+    """Converts ASCII alphanumeric characters into Unicode Mathematical Bold characters
+    so that text displays as actual bold in Facebook Messenger."""
+    out = []
+    for char in text:
+        cp = ord(char)
+        if 65 <= cp <= 90:    # A-Z
+            out.append(chr(cp - 65 + 0x1d400))
+        elif 97 <= cp <= 122: # a-z
+            out.append(chr(cp - 97 + 0x1d41a))
+        elif 48 <= cp <= 57:  # 0-9
+            out.append(chr(cp - 48 + 0x1d7ce))
+        else:
+            out.append(char)
+    return ''.join(out)
+
+
+def format_messenger_text(text: str) -> str:
+    """Transforms **bold text** into genuine Unicode bold and removes the asterisks,
+    preventing raw '**' from showing up in Facebook Messenger."""
+    if not text:
+        return ""
+    return re.sub(r'\*\*(.*?)\*\*', lambda m: to_unicode_bold(m.group(1)), str(text))
+
+
 def send_fb_message(recipient_id: str, text: str, page_token: str, quick_replies=None) -> bool:
     """Send message to customer with quick reply buttons, ALWAYS guaranteeing the Restart button is present."""
+    # Convert any **bold** markdown into actual Unicode bold glyphs
+    formatted_text = format_messenger_text(text)
     url = f"https://graph.facebook.com/v20.0/me/messages?access_token={page_token}"
     
     if quick_replies is None:
@@ -104,7 +131,7 @@ def send_fb_message(recipient_id: str, text: str, page_token: str, quick_replies
             buttons.append(RESTART_BUTTON)
 
     msg_payload = {
-        "text": text,
+        "text": formatted_text,
         "quick_replies": buttons
     }
 
@@ -320,24 +347,64 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         email_info = email_info or "Unknown"
         pkg_info = pkg_info or "Canva Pro" 
 
+        # Derive expected package price
+        pkg_price = state.get("package_price")
+        if not pkg_price and pkg_info:
+            if "25" in str(pkg_info) or "১ মাস" in str(pkg_info):
+                pkg_price = 25
+            elif "50" in str(pkg_info) or "৩ মাস" in str(pkg_info):
+                pkg_price = 50
+            elif "99" in str(pkg_info) or "৬ মাস" in str(pkg_info):
+                pkg_price = 99
+            elif "150" in str(pkg_info) or "১ বছর" in str(pkg_info):
+                pkg_price = 150
+
         if proof.get("is_payment_proof"):
             provider = proof.get("provider", "Mobile Banking")
             trx_id = proof.get("trx_id") or "Found in Screenshot"
             amt = proof.get("amount") or "N/A"
+            recip_raw = proof.get("recipient") or ""
+
+            # Verify receiver phone number and amount
+            verification = verify_payment_against_order(proof, expected_price=pkg_price)
+            recip_phone = verification.get("clean_recipient") or recip_raw or "Not detected"
 
             state["trx_id"] = trx_id
             state["provider"] = provider
             state["amount"] = amt
+            state["recipient"] = recip_phone
             state["proof_received"] = True
             states[sender_id] = state
             save_states(states)
 
-            reply = (
-                f"ধন্যবাদ {sender_name}! আপনার {provider} পেমেন্ট স্ক্রিনশট পেয়েছি।\n\n"
-                f"• TrxID: {trx_id}\n"
-                f"• পরিমাণ: {amt}\n\n"
-                f"আমাদের টিম এটি ভেরিফাই করছে। ভেরিফিকেশন সফল হলেই কনফার্মেশন মেসেজ পাবেন। 🎨"
-            )
+            recip_badge = "✅" if verification["receiver_matched"] else "⚠️"
+            amt_badge = "✅" if verification["amount_matched"] is True else ("⚠️" if verification["amount_matched"] is False else "")
+
+            # Customer reply logic
+            if not verification["receiver_matched"] and verification["clean_recipient"]:
+                reply = (
+                    f"⚠️ {sender_name}, আপনার স্ক্রিনশটে প্রাপক নম্বরটি ({recip_phone}) আমাদের অফিসিয়াল বিকাশ/নগদ নম্বরের (01571425035, 01798361516) সাথে মেলেনি।\n\n"
+                    f"• TrxID: **{trx_id}**\n"
+                    f"• পরিমাণ: **{amt}**\n\n"
+                    f"আমাদের অ্যাডমিন এটি ম্যানুয়ালি চেক করছেন। আপনি যদি ভুল নম্বরে পাঠিয়ে থাকেন, অনুগ্রহ করে চেক করে জানান।"
+                )
+            elif verification["amount_matched"] is False:
+                reply = (
+                    f"ধন্যবাদ {sender_name}! আপনার {provider} পেমেন্ট স্ক্রিনশট পেয়েছি।\n\n"
+                    f"• প্রাপক নম্বর: **{recip_phone}** {recip_badge}\n"
+                    f"• TrxID: **{trx_id}**\n"
+                    f"• পাঠানো পরিমাণ: **{amt}** ⚠️ (প্যাকেজ মূল্য: **{pkg_price}** টাকা)\n\n"
+                    f"টাকার পরিমাণে গরমিল থাকায় আমাদের টিম এটি ম্যানুয়ালি পর্যালোচনা করছে।"
+                )
+            else:
+                reply = (
+                    f"ধন্যবাদ {sender_name}! আপনার {provider} পেমেন্ট স্ক্রিনশট পেয়েছি।\n\n"
+                    f"• প্রাপক নম্বর: **{recip_phone}** {recip_badge}\n"
+                    f"• TrxID: **{trx_id}**\n"
+                    f"• পরিমাণ: **{amt}** {amt_badge}\n\n"
+                    f"আমাদের টিম এটি ভেরিফাই করছে। ভেরিফিকেশন সফল হলেই কনফার্মেশন মেসেজ পাবেন। 🎨"
+                )
+
             quick_btns = [
                 {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
                 {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
@@ -345,16 +412,23 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
 
             cid = get_customer_id_by_sender(sender_id, sender_name, email_info)
+
+            receiver_status = f"✅ MATCH (`{recip_phone}`)" if verification["receiver_matched"] else (f"🚨 MISMATCH (`{recip_phone}`)" if recip_phone != "Not detected" else "⚠️ Not Detected")
+            amount_status = f"✅ MATCH (`{amt}`)" if verification["amount_matched"] is True else (f"⚠️ MISMATCH (Got `{amt}`, Expected `{pkg_price} TK`)" if verification["amount_matched"] is False else f"ℹ️ `{amt}`")
+            auto_status = "🟢 *ALL DETAILS MATCH OFFICIAL DATA!*" if (verification["receiver_matched"] and verification["amount_matched"]) else "🟡 *Attention: Double-check details before approving.*"
+
             caption = (
-                f"📸 *NEW PAYMENT SCREENSHOT VERIFIED VIA GEMINI! (Messenger)*\n"
+                f"📸 *PAYMENT SCREENSHOT OCR & VERIFICATION (Messenger)*\n"
                 f"────────────────────────\n"
                 f"👤 Customer: {sender_name} (ID: `#{cid}`)\n"
                 f"📧 Email: `{email_info}`\n"
-                f"📦 Package: {pkg_info}\n"
+                f"📦 Package: {pkg_info} ({pkg_price or 'N/A'} TK)\n"
                 f"📱 Provider: {provider}\n"
+                f"📞 Receiver: {receiver_status}\n"
+                f"💵 Amount: {amount_status}\n"
                 f"🔢 TrxID: `{trx_id}`\n"
-                f"💵 Amount: {amt}\n"
-                f"────────────────────────"
+                f"────────────────────────\n"
+                f"{auto_status}"
             )
             keyboard = {
                 "inline_keyboard": [
