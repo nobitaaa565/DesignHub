@@ -603,22 +603,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 
-async def fraud_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    if not check_auth(user.id):
-        return
-
-    wait_msg = await update.message.reply_text("🔍 *Scanning Canva Team Roster...*\nConnecting to Canva via Chrome session and auditing against database subscribers...", parse_mode="Markdown")
-    try:
-        from canva_fraud_detector import audit_team_fraud, format_fraud_telegram_message
-        audit = audit_team_fraud()
-        text, markup = format_fraud_telegram_message(audit)
-        kb = InlineKeyboardMarkup(markup["inline_keyboard"]) if markup else None
-        await wait_msg.edit_text(text, reply_markup=kb, parse_mode="Markdown")
-    except Exception as e:
-        await wait_msg.edit_text(f"⚠️ *Fraud Audit Error:*\n`{str(e)}`", parse_mode="Markdown")
-
-
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not check_auth(user.id):
@@ -652,7 +636,6 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💡 *Commands:* `/earnings` for ledger | `/team` for Canva team"
     )
     status_kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔍 Check Fraud (Canva Audit)", callback_data="audit_fraud")],
         [InlineKeyboardButton("💰 View Revenue Ledger", callback_data="btn_earnings"), InlineKeyboardButton("🎨 Canva Team", callback_data="btn_team")]
     ])
     await update.message.reply_text(status_msg, reply_markup=status_kb, parse_mode="Markdown")
@@ -1284,18 +1267,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
     data = query.data
-    if data == "audit_fraud":
-        await query.edit_message_text("🔍 *Scanning Canva Team Roster...*\nAuditing live Canva members against authorized active database subscribers...", parse_mode="Markdown")
-        try:
-            from canva_fraud_detector import audit_team_fraud, format_fraud_telegram_message
-            audit = audit_team_fraud()
-            text, markup = format_fraud_telegram_message(audit)
-            kb = InlineKeyboardMarkup(markup["inline_keyboard"]) if markup else None
-            await query.edit_message_text(text, reply_markup=kb, parse_mode="Markdown")
-        except Exception as e:
-            await query.edit_message_text(f"⚠️ *Fraud Audit Error:*\n`{str(e)}`", parse_mode="Markdown")
-        return
-
     if data == "btn_earnings":
         earnings = get_total_earnings()
         await query.edit_message_text(f"💰 *Total Revenue:* `৳{earnings['total_bdt']:,.2f}` BDT across {earnings['total_count']} payments.\n\nUse `/earnings` for full ledger.", parse_mode="Markdown")
@@ -1952,7 +1923,6 @@ async def post_init(application):
     """Start background async tasks and register Telegram menu button commands."""
     commands = [
         BotCommand("status", "📊 System health & subscriber stats"),
-        BotCommand("fraud", "🔍 Audit Canva team & find unauthorized members"),
         BotCommand("earnings", "💰 View total revenue & payment history"),
         BotCommand("team", "🎨 View & change active Canva Team"),
         BotCommand("subs", "👥 View active & pending subscribers"),
@@ -1990,8 +1960,6 @@ def main():
     app.add_handler(CommandHandler("link", link_command))
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("status", status_command))
-    app.add_handler(CommandHandler("fraud", fraud_command))
-    app.add_handler(CommandHandler("checkfraud", fraud_command))
     app.add_handler(CommandHandler("ai", ai_draft_command))
     app.add_handler(CommandHandler("image", image_gen_command))
     app.add_handler(CommandHandler("post", quick_post_command))
