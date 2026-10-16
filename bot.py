@@ -134,56 +134,6 @@ def call_gemini(prompt: str, system_prompt: str = "") -> str:
     return ""
 
 
-def generate_image_via_gemini(prompt: str) -> bytes:
-    """Attempts to generate image directly via official Google Gemini Image API models."""
-    if not GEMINI_API_KEY:
-        return b""
-    models = ["gemini-2.5-flash-image", "gemini-3.1-flash-image", "gemini-3-pro-image", "gemini-3.1-flash-lite-image"]
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
-    for m in models:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={GEMINI_API_KEY}"
-        try:
-            res = requests.post(url, json=payload, timeout=30)
-            if res.status_code == 200:
-                data = res.json()
-                for part in data.get("candidates", [{}])[0].get("content", {}).get("parts", []):
-                    if "inlineData" in part:
-                        import base64
-                        logger.info(f"✅ Successfully generated image via Google {m} API!")
-                        return base64.b64decode(part["inlineData"]["data"])
-        except Exception as e:
-            logger.debug(f"Gemini Image API attempt ({m}) skipped: {e}")
-    return b""
-
-
-def generate_image_bytes(prompt: str) -> bytes:
-    """Generate image: Tries Gemini Image API first, auto-fallbacks to Flux, and composites brand logo."""
-    # 1. Try Google Gemini Image API
-    img_bytes = generate_image_via_gemini(prompt)
-
-    # 2. Fallback to Flux if Gemini image quota is exceeded (429 / billing required)
-    if not img_bytes:
-        clean_prompt = urllib.parse.quote(prompt.strip())
-        url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1080&height=1350&model=flux&nologo=true"
-        try:
-            res = requests.get(url, timeout=35)
-            if res.status_code == 200 and len(res.content) > 1000:
-                img_bytes = res.content
-        except Exception as e:
-            logger.error(f"Flux fallback generation error: {e}")
-
-    # 3. Composite official Design Hub logo (top-left, transparent)
-    if img_bytes:
-        try:
-            from design_art_director import composite_brand_logo
-            return composite_brand_logo(img_bytes)
-        except Exception as ce:
-            logger.error(f"Error compositing logo: {ce}")
-            return img_bytes
-
-    return b""
-
-
 def publish_text_to_fb(message: str) -> dict:
     """Publish plain text post to Facebook Page feed."""
     url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/feed"
@@ -1551,34 +1501,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
 
-    if data == "image_regen":
-        draft = PENDING_POSTS.get(user_id)
-        if not draft or "prompt" not in draft:
-            await query.message.reply_text("⚠️ No image prompt found.")
-            return
-
-        prompt = draft["prompt"]
-        status_msg = await query.message.reply_text("🎨 *Regenerating new image...*")
-        img_bytes = generate_image_bytes(prompt)
-        if img_bytes:
-            draft["image_bytes"] = img_bytes
-            keyboard = [
-                [
-                    InlineKeyboardButton("🚀 Publish Photo to FB", callback_data="publish_confirm"),
-                    InlineKeyboardButton("🔄 Regenerate", callback_data="image_regen")
-                ],
-                [InlineKeyboardButton("❌ Cancel", callback_data="publish_cancel")]
-            ]
-            await status_msg.delete()
-            await query.message.reply_photo(
-                photo=img_bytes,
-                caption=f"📝 *Caption:*\n{draft.get('caption', '')}\n\nPublish to *Design Hub*?",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-        else:
-            await status_msg.edit_text("❌ Failed to regenerate image.")
-        return
-
     if data == "publish_confirm":
         draft = PENDING_POSTS.get(user_id)
         if not draft:
@@ -2028,7 +1950,6 @@ def main():
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("ai", ai_draft_command))
-    app.add_handler(CommandHandler("image", image_gen_command))
     app.add_handler(CommandHandler("post", quick_post_command))
     app.add_handler(CommandHandler("comments", scan_comments_command))
     app.add_handler(CommandHandler("checkcomments", scan_comments_command))
