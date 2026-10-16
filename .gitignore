@@ -9,3 +9,4 @@ canva_session_b64.txt
 
 subscriptions.db
 *.db
+*.command
