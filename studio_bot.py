@@ -4,7 +4,7 @@ Design Hub - Dedicated Studio Poster Generator Bot
 Telegram Bot: @designposterbot
 Runs natively on macOS in the background to:
 1. Browse and showcase all 7 Design Reference Archetypes at once (/designs)
-2. Generate promotional posters using Google Imagen 3 / Gemini Image models (/create)
+2. Generate promotional posters using Google Imagen 3 / Gemini Image models (with Cloud FLUX fallback)
 3. Automatically format images to 4:5 Facebook Portrait (1080x1350)
 4. Programmatically composite the official transparent Design Hub brand logo
 5. 1-Tap Publish directly to Design Hub's Facebook Page
@@ -17,6 +17,7 @@ import json
 import asyncio
 import logging
 import base64
+import urllib.parse
 import requests
 from pathlib import Path
 from datetime import datetime
@@ -60,73 +61,45 @@ logger = logging.getLogger("StudioBot")
 DESIGNS = [
     {
         "id": 1,
-        "name": "Style 1: Clean & Bright Studio Character",
-        "folder": "designs/design-1_reference",
+        "name": "Design 1",
+        "title": "Style 1: Clean & Bright Studio Character",
         "image": "designs/design-1_reference/canva_pro_studio_promo_1080x1350.jpg",
-        "headline": "Daylight Studio, 3D Student Creator & Dashed Coupon",
-        "dna": "Warm daylight studio, friendly 3D Pixar-style student creator with tablet, 3D Canva tile, dashed coupon box with prominent golden amber ticket [ মাত্র ২৫ টাকা ], and clear trust guarantees.",
-        "triggers": "Beginners, student deals, friendly walkthroughs, 'Access First, Pay Later'.",
-        "geometry": "Reverse Split / Character Right (1080x1350)",
     },
     {
         "id": 2,
-        "name": "Style 2: Atmospheric Dark Mode & Floating 3D Elements",
-        "folder": "designs/design-2_reference",
+        "name": "Design 2",
+        "title": "Style 2: Atmospheric Dark Mode & Floating 3D Elements",
         "image": "designs/design-2_reference/dynamic_horizontal_promo_1080x1350.jpg",
-        "headline": "Cyber Obsidian & Floating 3D Creative Tools",
-        "dna": "Deep obsidian navy, neon cyan/purple rim lighting, floating 3D creative assets (swatches, typography, stylus), frosted-glass bottom dock.",
-        "triggers": "Feature launches, pro designers, all-in-one suite, modern tech appeal.",
-        "geometry": "Top Headline & Bottom Dock (1080x1350)",
     },
     {
         "id": 3,
-        "name": "Style 3: Ultra-Premium Glassmorphism Pricing Tiles",
-        "folder": "designs/design-3_reference",
+        "name": "Design 3",
+        "title": "Style 3: Ultra-Premium Glassmorphism Pricing Tiles",
         "image": "designs/design-3_reference/reference.jpg",
-        "headline": "Spotlight & 3-Card Frosted Glass Comparison",
-        "dna": "Dramatic overhead studio spotlight, 3 floating frosted-glass cards with elevated center hero card, centered brand floor.",
-        "triggers": "Direct sales, plan upgrades, tier comparisons, flash discounts.",
-        "geometry": "3-Card Floor Spotlight (1080x1080)",
     },
     {
         "id": 4,
-        "name": "Style 4: Poetic Conceptual Art & Physical Metaphor",
-        "folder": "designs/design-4_reference",
+        "name": "Design 4",
+        "title": "Style 4: Poetic Conceptual Art & Physical Metaphor",
         "image": "designs/design-4_reference/canva_conceptual_promo_1080x1350.jpg",
-        "headline": "Physical Tool to Glowing Glass Ribbon",
-        "dna": "Fine-art physical pencil transforming into a sweeping luminous ribbon of frosted colored glass, ending in glowing origami.",
-        "triggers": "Creative empowerment, brand storytelling, intellectual luxury.",
-        "geometry": "Centered Gallery Minimalist (1080x1350)",
     },
     {
         "id": 5,
-        "name": "Style 5: National & Observance Day Vector Art",
-        "folder": "designs/design-5_reference",
+        "name": "Design 5",
+        "title": "Style 5: National & Observance Day Vector Art",
         "image": "designs/design-5_reference/national_revolution_and_solidarity_day_celebration.jpg",
-        "headline": "Bangladesh National Day Vector Art",
-        "dna": "Handcrafted patriotic vector art, national flag elements, dynamic skyline silhouettes, zero commercial selling.",
-        "triggers": "National days, victory day, independence day, solidarity day.",
-        "geometry": "Patriotic Vector Hierarchy (1080x1350)",
     },
     {
         "id": 6,
-        "name": "Style 6: Real Model & Floating 3D Feature Badges",
-        "folder": "designs/design-6_reference",
+        "name": "Design 6",
+        "title": "Style 6: Real Model & Floating 3D Feature Badges",
         "image": "designs/design-6_reference/canva_pro_mobile_promo_1080x1350.jpg",
-        "headline": "Charismatic Model, Smartphone & 4 Orbiting App Tiles",
-        "dna": "Photographic human creator holding smartphone with live UI, 4 orbiting 3D squircle tiles (Canva, AI Wand, 100M+ Assets, Fonts), neon portal aperture.",
-        "triggers": "Direct mobile subscription checkout, bKash/Nagad campaigns, student creator promos.",
-        "geometry": "Real Model & Orbiting App Tiles (1080x1350)",
     },
     {
         "id": 7,
-        "name": "Style 7: Premium SaaS Split-Bento & Feature Stack Grid",
-        "folder": "designs/design-7_reference",
+        "name": "Design 7",
+        "title": "Style 7: Premium SaaS Split-Bento & Feature Stack Grid",
         "image": "designs/design-7_reference/canva_pro_bento_promo_1080x1350.jpg",
-        "headline": "Split Bento Grid, Stacked Features & Unique Price Ticket",
-        "dna": "Vibrant gradient hero card with 3D crown, stark-white embossed ticket badge with unmissable price [ মাত্র ৫০ টাকা ], 5 white feature micro-cards, bottom trust bar.",
-        "triggers": "Multi-feature pro breakdown, clear price-point campaigns, high-trust Bangladeshi audience.",
-        "geometry": "Split-Bento Hero Card & Feature Stack (1080x1350)",
     },
 ]
 
@@ -328,26 +301,19 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = (
-        "🎨 *Welcome to Design Hub Studio Bot!*\n\n"
-        "This bot runs in the background on your Mac to showcase your design references, "
-        "synthesize promotional posters, and publish them to Facebook.\n\n"
-        "📌 *Commands:*\n"
-        "• `/designs` — Show all 7 Design References at once with live posters\n"
-        "• `/create` — Open interactive generation picker\n"
+        "🎨 *Design Hub Studio Bot*\n\n"
+        "• `/designs` — Show all 7 design references at once\n"
         "• `/create <style_num> <price>` — e.g. `/create 7 50tk`\n"
-        "• `/help` — Full guide and prompt tips"
+        "• `/create` — Open interactive picker"
     )
 
     keyboard = [
         [
-            InlineKeyboardButton("🖼️ Show All 7 Designs at Once", callback_data="send_all_designs"),
+            InlineKeyboardButton("🖼️ Show All 7 Designs", callback_data="send_all_designs"),
         ],
         [
-            InlineKeyboardButton("✨ Quick Create: Style 7 (50 TK)", callback_data="gen_quick:7:50tk"),
-            InlineKeyboardButton("✨ Quick Create: Style 1 (25 TK)", callback_data="gen_quick:1:25tk"),
-        ],
-        [
-            InlineKeyboardButton("🎨 Custom Create Menu", callback_data="menu_create"),
+            InlineKeyboardButton("✨ Create Style 7 (50 TK)", callback_data="gen_quick:7:50tk"),
+            InlineKeyboardButton("✨ Create Style 1 (25 TK)", callback_data="gen_quick:1:25tk"),
         ],
     ]
 
@@ -359,36 +325,22 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_designs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles /designs command: immediately sends all 7 designs at a time."""
+    """Handles /designs command: immediately sends all 7 designs with minimalist captions."""
     if not check_auth(update):
         return
     await send_all_designs(update.effective_chat.id, context)
 
 
 async def send_all_designs(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
-    """Sends all 7 design references sequentially into the chat with full posters and details."""
-    status_msg = await context.bot.send_message(
-        chat_id=chat_id,
-        text="📤 *Loading all 7 Design References from archive...*",
-        parse_mode="Markdown",
-    )
-
+    """Sends all 7 design references with clean, minimalist caption: simply Design Number."""
     total = len(DESIGNS)
     for i, d in enumerate(DESIGNS):
         img_path = WORKSPACE_DIR / d["image"]
-        caption = (
-            f"🎨 *Design {i + 1} of {total}: {d['name']}*\n"
-            f"────────────────────────\n"
-            f"🌟 *Concept:* {d['headline']}\n"
-            f"✨ *Visual DNA:* {d['dna']}\n"
-            f"📐 *Geometry:* {d['geometry']}\n"
-            f"🎯 *Best For:* {d['triggers']}\n"
-            f"📂 *Archive Folder:* `{d['folder']}`"
-        )
+        caption = f"🎨 *Design {d['id']}*"
+
         keyboard = [
             [
                 InlineKeyboardButton(f"🎨 Create in Style {d['id']}", callback_data=f"select_style:{d['id']}"),
-                InlineKeyboardButton(f"⚡ Quick {d['id']} (50 TK)", callback_data=f"gen_quick:{d['id']}:50tk"),
             ]
         ]
 
@@ -401,33 +353,7 @@ async def send_all_designs(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="Markdown",
                     reply_markup=InlineKeyboardMarkup(keyboard),
                 )
-        else:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=caption,
-                parse_mode="Markdown",
-                reply_markup=InlineKeyboardMarkup(keyboard),
-            )
-        await asyncio.sleep(0.4)
-
-    # Final summary message with quick action prompt
-    summary_text = (
-        "✅ *All 7 Design References Displayed Above!*\n\n"
-        "💡 *How to generate:*\n"
-        "• Tap **[ Create in Style X ]** under any poster above\n"
-        "• Or send: `/create <style_number> <price>`\n"
-        "  *(Example: `/create 7 50tk` or `/create 1 25tk`)*"
-    )
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=summary_text,
-        parse_mode="Markdown",
-    )
-
-    try:
-        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg.message_id)
-    except Exception:
-        pass
+        await asyncio.sleep(0.3)
 
 
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -436,10 +362,9 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     text = update.message.text.lower().strip()
-    if any(k in text for k in ["show design", "show all design", "all design", "designs", "design list"]):
+    if any(k in text for k in ["show design", "show all design", "all design", "designs", "design"]):
         await send_all_designs(update.effective_chat.id, context)
     elif text.startswith("create ") or text.startswith("/create"):
-        # pass to create command
         parts = update.message.text.split()[1:]
         context.args = parts
         await cmd_create(update, context)
@@ -448,7 +373,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 # =====================================================================
-# GENERATION ENGINE
+# GENERATION ENGINE (WITH SEAMLESS CLOUD FLUX FALLBACK)
 # =====================================================================
 
 async def cmd_create(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -458,19 +383,16 @@ async def cmd_create(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     args = context.args
     if not args:
-        # Show interactive style picker
         keyboard = []
         for d in DESIGNS:
-            keyboard.append([InlineKeyboardButton(f"Style {d['id']}: {d['headline']}", callback_data=f"select_style:{d['id']}")])
+            keyboard.append([InlineKeyboardButton(f"Design {d['id']}: {d['title']}", callback_data=f"select_style:{d['id']}")])
         await update.message.reply_text(
-            "🎨 *Choose a Design Style to Generate:*\n\n"
-            "Pick one of the 7 archetypes from your design archive:",
+            "🎨 *Choose a Design Style:*",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
         return
 
-    # Parse arguments: e.g. /create 7 50tk or /create 1 25tk
     style_num = 7
     price = "50 TK / 3 MONTHS"
     topic = "Canva Pro Subscription"
@@ -486,139 +408,121 @@ async def cmd_create(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def execute_generation(chat_id: int, context: ContextTypes.DEFAULT_TYPE, style_id: int, topic: str, price: str):
-    """Executes the AI generation and post-processing pipeline."""
+    """Executes AI generation (Google Imagen 3 with automatic Cloud FLUX fallback) and post-processing."""
     status_msg = await context.bot.send_message(
         chat_id=chat_id,
-        text=f"⏳ *Preparing Style {style_id} Poster Generation...*\n"
+        text=f"⏳ *Generating Style {style_id} Poster...*\n"
              f"• Package: `{price}`\n"
-             f"• Model: `Google Imagen 3 (gemini-2.5-flash-image)`\n"
-             f"• Layout: 4:5 Facebook Portrait (1080x1350)",
+             f"• Ratio: 4:5 Facebook Portrait (1080x1350)",
         parse_mode="Markdown",
     )
 
     prompt = craft_prompt_for_style(style_id, topic, price)
-    logger.info(f"Crafted prompt for Style {style_id}: {prompt[:150]}...")
+    timestamp = int(time.time())
+    raw_path = GENERATED_DIR / f"raw_style_{style_id}_{timestamp}.jpg"
+    final_path = GENERATED_DIR / f"poster_style_{style_id}_{timestamp}.jpg"
 
-    if not GEMINI_API_KEY:
+    raw_bytes = None
+    engine_name = "Google Imagen 3"
+
+    # Step 1: Attempt Google Gemini Image API
+    if GEMINI_API_KEY:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={GEMINI_API_KEY}"
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseModalities": ["IMAGE"]}
+        }
+        try:
+            res = requests.post(url, json=payload, timeout=40)
+            if res.status_code == 200:
+                data = res.json()
+                candidate = data.get("candidates", [{}])[0]
+                parts = candidate.get("content", {}).get("parts", [])
+                for p in parts:
+                    if "inlineData" in p:
+                        raw_bytes = base64.b64decode(p["inlineData"]["data"])
+                        break
+            elif res.status_code == 429:
+                logger.info("Google API returned 429 quota. Falling back to Cloud FLUX engine seamlessly...")
+        except Exception as e:
+            logger.warning(f"Google API request failed: {e}. Switching to Cloud FLUX engine...")
+
+    # Step 2: Seamless Cloud Fallback (FLUX Cloud - Free, Unlimited, High Quality)
+    if not raw_bytes:
+        try:
+            engine_name = "Cloud FLUX"
+            await context.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=status_msg.message_id,
+                text="🎨 *Generating artwork via Cloud FLUX engine...*",
+                parse_mode="Markdown",
+            )
+            encoded_prompt = urllib.parse.quote(prompt)
+            # 768x1024 or 864x1152 matches ~3:4 / 4:5
+            flux_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=864&height=1152&nologo=true&model=flux"
+            flux_res = requests.get(flux_url, timeout=45)
+            if flux_res.status_code == 200 and len(flux_res.content) > 2000:
+                raw_bytes = flux_res.content
+        except Exception as e:
+            logger.error(f"Fallback engine failed: {e}")
+
+    if not raw_bytes:
         await context.bot.edit_message_text(
             chat_id=chat_id,
             message_id=status_msg.message_id,
-            text="❌ `GEMINI_API_KEY` is not set in `.env`.",
+            text="❌ Image generation timed out. Please try again.",
             parse_mode="Markdown",
         )
         return
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={GEMINI_API_KEY}"
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"responseModalities": ["IMAGE"]}
-    }
-
+    # Step 3: Mac Post-Processing Pipeline
     try:
+        with open(raw_path, "wb") as f:
+            f.write(raw_bytes)
+
         await context.bot.edit_message_text(
             chat_id=chat_id,
             message_id=status_msg.message_id,
-            text="🎨 *Contacting Google Image Engine...*\nGenerating high-resolution artwork...",
+            text="📐 *Formatting to 1080x1350 & compositing Design Hub brand logo...*",
             parse_mode="Markdown",
         )
 
-        res = requests.post(url, json=payload, timeout=60)
+        post_process_poster(raw_path, final_path, style_id)
 
-        if res.status_code == 200:
-            data = res.json()
-            candidate = data.get("candidates", [{}])[0]
-            parts = candidate.get("content", {}).get("parts", [])
-            img_b64 = None
-            for p in parts:
-                if "inlineData" in p:
-                    img_b64 = p["inlineData"].get("data")
-                    break
+        caption = (
+            f"🎉 *Design {style_id} Poster Ready!*\n"
+            f"• *Price:* `{price}`\n"
+            f"• *Dimensions:* 1080×1350 (4:5 Facebook Portrait)\n"
+            f"• *Engine:* `{engine_name}`"
+        )
 
-            if img_b64:
-                raw_bytes = base64.b64decode(img_b64)
-                timestamp = int(time.time())
-                raw_path = GENERATED_DIR / f"raw_style_{style_id}_{timestamp}.jpg"
-                final_path = GENERATED_DIR / f"poster_style_{style_id}_{timestamp}.jpg"
+        keyboard = [
+            [
+                InlineKeyboardButton("🚀 Publish to Facebook Page", callback_data=f"publish_fb:{final_path.name}"),
+            ],
+            [
+                InlineKeyboardButton("🔄 Re-generate", callback_data=f"gen_quick:{style_id}:{price}"),
+                InlineKeyboardButton("🖼️ All Designs", callback_data="send_all_designs"),
+            ]
+        ]
 
-                with open(raw_path, "wb") as f:
-                    f.write(raw_bytes)
-
-                await context.bot.edit_message_text(
-                    chat_id=chat_id,
-                    message_id=status_msg.message_id,
-                    text="📐 *Artwork received!*\nApplying 1080x1350 formatting & compositing Design Hub brand logo...",
-                    parse_mode="Markdown",
-                )
-
-                post_process_poster(raw_path, final_path, style_id)
-
-                caption = (
-                    f"🎉 *Poster Generated Successfully!*\n"
-                    f"• *Style Archetype:* Style {style_id}\n"
-                    f"• *Dimensions:* 1080×1350 (4:5 Facebook Portrait)\n"
-                    f"• *Price Tag:* `{price}`\n"
-                    f"• *Logo Overlay:* Official Design Hub Logo (Top-Left)\n"
-                    f"• *File:* `{final_path.name}`"
-                )
-
-                keyboard = [
-                    [
-                        InlineKeyboardButton("🚀 Publish to Facebook Page", callback_data=f"publish_fb:{final_path.name}"),
-                    ],
-                    [
-                        InlineKeyboardButton("🔄 Re-generate", callback_data=f"gen_quick:{style_id}:{price}"),
-                        InlineKeyboardButton("🖼️ View All Designs", callback_data="send_all_designs"),
-                    ]
-                ]
-
-                with open(final_path, "rb") as photo:
-                    await context.bot.send_photo(
-                        chat_id=chat_id,
-                        photo=photo,
-                        caption=caption,
-                        parse_mode="Markdown",
-                        reply_markup=InlineKeyboardMarkup(keyboard),
-                    )
-
-                await context.bot.delete_message(chat_id=chat_id, message_id=status_msg.message_id)
-                return
-            else:
-                raise Exception("No image data found in Google API response.")
-
-        elif res.status_code == 429:
-            help_text = (
-                "⚠️ *Google AI Studio Quota Notice (429)*\n\n"
-                "Google requires a linked Pay-as-you-go billing account to generate images via the API.\n\n"
-                "🔗 *How to Unlock:*\n"
-                "1. Go to [aistudio.google.com](https://aistudio.google.com/app/plan_information)\n"
-                "2. Click **Set up billing** on your Gemini API key project.\n"
-                "*(Costs only ~$0.03 / 3.5 BDT per image)*\n\n"
-                "📋 *Master Prompt Crafted by Bot:*\n"
-                f"```\n{prompt}\n```"
-            )
-            await context.bot.edit_message_text(
+        with open(final_path, "rb") as photo:
+            await context.bot.send_photo(
                 chat_id=chat_id,
-                message_id=status_msg.message_id,
-                text=help_text,
+                photo=photo,
+                caption=caption,
                 parse_mode="Markdown",
-                disable_web_page_preview=True,
+                reply_markup=InlineKeyboardMarkup(keyboard),
             )
-            return
-        else:
-            await context.bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=status_msg.message_id,
-                text=f"❌ *Google API Error ({res.status_code}):*\n`{res.text[:300]}`",
-                parse_mode="Markdown",
-            )
-            return
+
+        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg.message_id)
 
     except Exception as e:
-        logger.error(f"Generation error: {e}", exc_info=True)
+        logger.error(f"Post processing error: {e}", exc_info=True)
         await context.bot.edit_message_text(
             chat_id=chat_id,
             message_id=status_msg.message_id,
-            text=f"❌ *Generation Failed:* {str(e)}",
+            text=f"❌ Error processing poster: {e}",
             parse_mode="Markdown",
         )
 
@@ -638,16 +542,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "send_all_designs":
         await send_all_designs(chat_id, context)
 
-    elif data == "menu_create":
-        keyboard = []
-        for d in DESIGNS:
-            keyboard.append([InlineKeyboardButton(f"Style {d['id']}: {d['headline']}", callback_data=f"select_style:{d['id']}")])
-        await query.message.reply_text(
-            "🎨 *Choose a Design Style to Generate:*",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard),
-        )
-
     elif data.startswith("select_style:"):
         style_id = int(data.split(":")[1])
         keyboard = [
@@ -664,7 +558,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
         ]
         await query.message.reply_text(
-            f"🎯 *Style {style_id} Selected!*\nPick a pricing package to generate:",
+            f"🎯 *Design {style_id} Selected!*\nPick a pricing package to generate:",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
@@ -706,7 +600,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def post_init(application):
     """Sets bot menu commands."""
     commands = [
-        BotCommand("designs", "Show all 7 design references at once"),
+        BotCommand("designs", "Show all 7 designs"),
         BotCommand("create", "Generate a new promotional poster"),
         BotCommand("start", "Open Studio dashboard"),
     ]
