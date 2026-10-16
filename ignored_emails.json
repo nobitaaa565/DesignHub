@@ -1,0 +1,13 @@
+{
+  "_comment": "Emails in this list are whitelisted. They will NEVER be flagged as fraud or unauthorized in Canva audits. You can add or remove emails here anytime.",
+  "ignored_emails": [
+    "2302034@bdu.ac.bd",
+    "aridoy102536@gmail.com",
+    "frankribery565@gmail.com",
+    "imamtayassuk@gmail.com",
+    "omormim64@gmail.com",
+    "raiyan0015@gmail.com",
+    "tanvirsunny565@gmail.com",
+    "ziaulislam1002@gmail.com"
+  ]
+}

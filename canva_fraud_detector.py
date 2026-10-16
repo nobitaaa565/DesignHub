@@ -26,11 +26,23 @@ SESSION_FILE = Path(__file__).resolve().parent / "canva_session.json"
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_ALLOWED_USER_ID = os.getenv("TELEGRAM_ALLOWED_USER_ID")
 
-# Known official owner / admin emails that shouldn't be flagged as customers
-EXCLUDED_OWNER_EMAILS = {
-    "frankribery565@gmail.com",
-    "tanvirsunny565@gmail.com"
-}
+IGNORE_FILE = Path(__file__).resolve().parent / "ignored_emails.json"
+
+def load_ignored_emails() -> set:
+    """Loads the user-managed ignore/whitelist from ignored_emails.json."""
+    fallback = {"frankribery565@gmail.com", "tanvirsunny565@gmail.com"}
+    if IGNORE_FILE.exists():
+        try:
+            with open(IGNORE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return {str(e).lower().strip() for e in data if e}
+                elif isinstance(data, dict):
+                    emails = data.get("ignored_emails", [])
+                    return {str(e).lower().strip() for e in emails if e}
+        except Exception as e:
+            logger.error(f"Error reading {IGNORE_FILE}: {e}")
+    return fallback
 
 
 def scan_canva_members() -> dict:
@@ -102,13 +114,14 @@ def audit_team_fraud() -> dict:
         if s.get("status") == "active" and s.get("payment_status") != "KICKED"
     }
 
+    ignored_emails = load_ignored_emails()
     fraud_emails = []
     verified_emails = []
-    owner_emails = []
+    ignored_found = []
 
     for email in canva_members:
-        if email in EXCLUDED_OWNER_EMAILS:
-            owner_emails.append(email)
+        if email in ignored_emails:
+            ignored_found.append(email)
         elif email in authorized_db_emails:
             verified_emails.append(email)
         else:
@@ -123,10 +136,10 @@ def audit_team_fraud() -> dict:
         "total_authorized_db": len(authorized_db_emails),
         "verified_count": len(verified_emails),
         "fraud_count": len(fraud_emails),
-        "owner_count": len(owner_emails),
+        "ignored_count": len(ignored_found),
         "fraud_emails": fraud_emails,
         "verified_emails": verified_emails,
-        "owner_emails": owner_emails
+        "ignored_emails": ignored_found
     }
 
 
@@ -139,7 +152,7 @@ def format_fraud_telegram_message(audit: dict):
     total = audit["total_canva"]
     fraud = audit["fraud_emails"]
     verified = audit["verified_emails"]
-    owners = audit["owner_emails"]
+    ignored = audit.get("ignored_emails", [])
 
     if not fraud:
         text = (
@@ -148,9 +161,9 @@ def format_fraud_telegram_message(audit: dict):
             f"🎨 *Team Name:* `{team_name}`\n"
             f"👥 *Total Members in Canva:* `{total}`\n"
             f"🟢 *Verified Subscribers:* `{len(verified)}`\n"
-            f"👑 *Team Owners:* `{len(owners)}`\n"
+            f"🛡️ *Whitelisted / Ignored:* `{len(ignored)}`\n"
             f"────────────────────────\n"
-            f"🎉 *Zero fraud detected!* All members in your Canva Team are authorized and registered in your database."
+            f"🎉 *Zero fraud detected!* All {total} members in your Canva Team are either verified or whitelisted in your `ignored_emails.json` list."
         )
         keyboard = {
             "inline_keyboard": [
@@ -168,7 +181,7 @@ def format_fraud_telegram_message(audit: dict):
         f"🎨 *Team Name:* `{team_name}`\n"
         f"👥 *Total Seats Occupied in Canva:* `{total}`\n"
         f"🟢 *Legit Active Subscribers:* `{len(verified)}`\n"
-        f"👑 *Team Owners:* `{len(owners)}`\n"
+        f"🛡️ *Whitelisted / Ignored:* `{len(ignored)}`\n"
         f"⚠️ *Unauthorized / Extra Members:* `{len(fraud)}`\n"
         f"────────────────────────\n"
         f"⚠️ *The following {len(fraud)} emails are inside your Canva Team but have NO active paid record in your database:*\n\n"
