@@ -3,7 +3,7 @@
 Design Hub - Dedicated Studio Poster Generator Bot
 Telegram Bot: @designposterbot
 Runs natively on macOS in the background to:
-1. Browse and showcase all 7 Design Reference Archetypes sequentially (/designs)
+1. Browse and showcase all 7 Design Reference Archetypes at once (/designs)
 2. Generate promotional posters using Google Imagen 3 / Gemini Image models (/create)
 3. Automatically format images to 4:5 Facebook Portrait (1080x1350)
 4. Programmatically composite the official transparent Design Hub brand logo
@@ -56,15 +56,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("StudioBot")
 
-# All 7 Design Archetypes in folder sequence
+# All 7 Design Archetypes in folder sequence with master posters
 DESIGNS = [
     {
         "id": 1,
         "name": "Style 1: Clean & Bright Studio Character",
         "folder": "designs/design-1_reference",
-        "image": "designs/design-1_reference/sample_poster.jpg",
-        "headline": "Daylight Studio & Friendly 3D Creator",
-        "dna": "Soft ivory daylight studio, friendly 3D designer character with stylus, dashed discount coupon box, clear trust badges.",
+        "image": "designs/design-1_reference/canva_pro_studio_promo_1080x1350.jpg",
+        "headline": "Daylight Studio, 3D Student Creator & Dashed Coupon",
+        "dna": "Warm daylight studio, friendly 3D Pixar-style student creator with tablet, 3D Canva tile, dashed coupon box with prominent golden amber ticket [ মাত্র ২৫ টাকা ], and clear trust guarantees.",
         "triggers": "Beginners, student deals, friendly walkthroughs, 'Access First, Pay Later'.",
         "geometry": "Reverse Split / Character Right (1080x1350)",
     },
@@ -158,7 +158,6 @@ def post_process_poster(raw_image_path: Path, output_image_path: Path, style_id:
 
     # Clean top-left logo area (patch placeholder text like 'Logo Overlay' or generic artifact)
     if style_id != 3:
-        # Patch top-left box
         draw = ImageDraw.Draw(img)
         c_top = img.getpixel((min(w - 1, 100), 15))
         c_bot = img.getpixel((min(w - 1, 100), min(h - 1, 115)))
@@ -178,14 +177,12 @@ def post_process_poster(raw_image_path: Path, output_image_path: Path, style_id:
 
     # Format to target_w, target_h
     if style_id == 3:
-        # Square crop/resize
         min_dim = min(w, h)
         left = (w - min_dim) // 2
         top = (h - min_dim) // 2
         cropped = img.crop((left, top, left + min_dim, top + min_dim))
         canvas = cropped.resize((1080, 1080), Image.Resampling.LANCZOS)
     else:
-        # Fit into 1080x1350 with seamless background padding
         fit_h = 1310
         scale = fit_h / h
         fit_w = int(w * scale)
@@ -219,11 +216,9 @@ def post_process_poster(raw_image_path: Path, output_image_path: Path, style_id:
         logo_resized = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
 
         if style_id == 3:
-            # Bottom center floor for Style 3
             lx = (target_w - logo_w) // 2
             ly = target_h - logo_h - 40
         else:
-            # Top-left corner with 5.5% margin
             lx = 60
             ly = 55
         canvas.paste(logo_resized, (lx, ly), logo_resized)
@@ -284,13 +279,16 @@ def craft_prompt_for_style(style_id: int, topic: str, price: str) -> str:
         )
     elif style_id == 1:
         return (
-            f"A 1080x1350 portrait clean, bright, professional social media promo poster for {topic or 'Canva Pro'}. "
-            "Background: Soft morning ivory-white studio gradient with gentle floor shadows. "
-            "Left Side: Official 3D Canva squircle tile (cyan to purple gradient with white script) with title 'CANVA PRO'. "
-            f"Dashed coupon box with highlighted amber price '[ {price_tag} ]'. 3 bullet points with colored icons detailing key benefits. "
-            "Rounded solid CTA button 'GET ACCESS'. "
-            "Right Side: Charming 3D character sitting casually on a glossy branded prop, smiling and pointing towards the offer on the left. "
-            "Top-left corner is completely clear and empty for direct brand logo overlay."
+            f"A clean, bright, professional social media promotional poster for {topic or 'Canva Pro subscription'}, "
+            "inspired by Pixar 3D studio art. Aspect ratio 3:4 vertical. "
+            "Background: Warm morning ivory-white daylight studio gradient with soft diffused floor contact shadows. "
+            "Layout: Split screen. Left side: Official 3D Canva squircle tile with bold modern title 'CANVA PRO'. "
+            f"Dashed coupon box with a prominent, unique golden amber pill badge displaying '[ মাত্র {price_tag} ]' with subtle shadow. "
+            "3 bullet points with vibrant colored icons: 'Magic Studio AI', '1-Click Background Remover', '100M+ Premium Assets'. "
+            "Below is a solid rounded CTA button 'GET ACCESS NOW' and trust line 'Access First | Pay Later'. "
+            "Right side: A charming, friendly 3D Pixar-style young student creator with warm smile, wearing a casual denim jacket, "
+            "sitting relaxed on a glossy white pedestal, holding a digital tablet and gesturing enthusiastically toward the offer on the left. "
+            "Top-left corner is completely clear and empty for brand logo overlay."
         )
     elif style_id == 4:
         return (
@@ -331,22 +329,22 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (
         "🎨 *Welcome to Design Hub Studio Bot!*\n\n"
-        "This bot runs in the background on your Mac to generate studio-grade promotional posters "
-        "and publish them directly to your Facebook Page.\n\n"
-        "📌 *Quick Commands:*\n"
-        "• `/designs` — Browse all 7 Design References sequentially with live photos\n"
-        "• `/create` — Generate a new promotional poster (interactive picker)\n"
+        "This bot runs in the background on your Mac to showcase your design references, "
+        "synthesize promotional posters, and publish them to Facebook.\n\n"
+        "📌 *Commands:*\n"
+        "• `/designs` — Show all 7 Design References at once with live posters\n"
+        "• `/create` — Open interactive generation picker\n"
         "• `/create <style_num> <price>` — e.g. `/create 7 50tk`\n"
         "• `/help` — Full guide and prompt tips"
     )
 
     keyboard = [
         [
-            InlineKeyboardButton("🖼️ Browse All 7 Styles (/designs)", callback_data="nav_design:0"),
+            InlineKeyboardButton("🖼️ Show All 7 Designs at Once", callback_data="send_all_designs"),
         ],
         [
             InlineKeyboardButton("✨ Quick Create: Style 7 (50 TK)", callback_data="gen_quick:7:50tk"),
-            InlineKeyboardButton("✨ Quick Create: Style 6 (99 TK)", callback_data="gen_quick:6:99tk"),
+            InlineKeyboardButton("✨ Quick Create: Style 1 (25 TK)", callback_data="gen_quick:1:25tk"),
         ],
         [
             InlineKeyboardButton("🎨 Custom Create Menu", callback_data="menu_create"),
@@ -361,52 +359,39 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_designs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles /designs command: displays single carousel or sends all 7 sequentially."""
+    """Handles /designs command: immediately sends all 7 designs at a time."""
     if not check_auth(update):
         return
-
-    args = context.args
-    if args and args[0].lower() in ["all", "list"]:
-        await send_all_designs(update.effective_chat.id, context)
-        return
-
-    # Default: Show Design 1 with interactive navigation
-    await show_design_card(update.effective_chat.id, context, 0, is_new=True)
+    await send_all_designs(update.effective_chat.id, context)
 
 
-async def show_design_card(chat_id: int, context: ContextTypes.DEFAULT_TYPE, index: int, message_id: int = None, is_new: bool = False):
-    """Renders one design card with previous/next buttons."""
-    d = DESIGNS[index]
-    total = len(DESIGNS)
-
-    caption = (
-        f"🎨 *[{index + 1}/{total}] {d['name']}*\n\n"
-        f"✨ *DNA:* {d['dna']}\n"
-        f"📐 *Layout Geometry:* {d['geometry']}\n"
-        f"🎯 *Best For:* {d['triggers']}\n"
-        f"📁 *Reference Folder:* `{d['folder']}`"
+async def send_all_designs(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
+    """Sends all 7 design references sequentially into the chat with full posters and details."""
+    status_msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text="📤 *Loading all 7 Design References from archive...*",
+        parse_mode="Markdown",
     )
 
-    prev_idx = (index - 1) % total
-    next_idx = (index + 1) % total
+    total = len(DESIGNS)
+    for i, d in enumerate(DESIGNS):
+        img_path = WORKSPACE_DIR / d["image"]
+        caption = (
+            f"🎨 *Design {i + 1} of {total}: {d['name']}*\n"
+            f"────────────────────────\n"
+            f"🌟 *Concept:* {d['headline']}\n"
+            f"✨ *Visual DNA:* {d['dna']}\n"
+            f"📐 *Geometry:* {d['geometry']}\n"
+            f"🎯 *Best For:* {d['triggers']}\n"
+            f"📂 *Archive Folder:* `{d['folder']}`"
+        )
+        keyboard = [
+            [
+                InlineKeyboardButton(f"🎨 Create in Style {d['id']}", callback_data=f"select_style:{d['id']}"),
+                InlineKeyboardButton(f"⚡ Quick {d['id']} (50 TK)", callback_data=f"gen_quick:{d['id']}:50tk"),
+            ]
+        ]
 
-    keyboard = [
-        [
-            InlineKeyboardButton("◀️ Prev", callback_data=f"nav_design:{prev_idx}"),
-            InlineKeyboardButton(f"📌 {index + 1} / {total}", callback_data="noop"),
-            InlineKeyboardButton("Next ▶️", callback_data=f"nav_design:{next_idx}"),
-        ],
-        [
-            InlineKeyboardButton(f"🎨 Generate in Style {d['id']}", callback_data=f"select_style:{d['id']}"),
-        ],
-        [
-            InlineKeyboardButton("📚 Send All 7 to Chat", callback_data="send_all_designs"),
-        ],
-    ]
-
-    img_path = WORKSPACE_DIR / d["image"]
-
-    if is_new or not message_id:
         if img_path.exists():
             with open(img_path, "rb") as photo:
                 await context.bot.send_photo(
@@ -423,53 +408,43 @@ async def show_design_card(chat_id: int, context: ContextTypes.DEFAULT_TYPE, ind
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup(keyboard),
             )
-    else:
-        # Edit existing photo message
-        if img_path.exists():
-            with open(img_path, "rb") as photo:
-                media = InputMediaPhoto(media=photo, caption=caption, parse_mode="Markdown")
-                await context.bot.edit_message_media(
-                    chat_id=chat_id,
-                    message_id=message_id,
-                    media=media,
-                    reply_markup=InlineKeyboardMarkup(keyboard),
-                )
+        await asyncio.sleep(0.4)
 
-
-async def send_all_designs(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
-    """Sends all 7 design references sequentially into the chat."""
-    status_msg = await context.bot.send_message(
+    # Final summary message with quick action prompt
+    summary_text = (
+        "✅ *All 7 Design References Displayed Above!*\n\n"
+        "💡 *How to generate:*\n"
+        "• Tap **[ Create in Style X ]** under any poster above\n"
+        "• Or send: `/create <style_number> <price>`\n"
+        "  *(Example: `/create 7 50tk` or `/create 1 25tk`)*"
+    )
+    await context.bot.send_message(
         chat_id=chat_id,
-        text="📤 *Sending all 7 design reference archetypes sequentially...*",
+        text=summary_text,
         parse_mode="Markdown",
     )
 
-    for i, d in enumerate(DESIGNS):
-        img_path = WORKSPACE_DIR / d["image"]
-        caption = (
-            f"🎨 *Design #{d['id']}: {d['name']}*\n"
-            f"──────────────────────\n"
-            f"✨ *Visual DNA:* {d['dna']}\n"
-            f"📐 *Geometry:* {d['geometry']}\n"
-            f"🎯 *Context:* {d['triggers']}\n"
-            f"📂 *Archive:* `{d['folder']}`"
-        )
-        keyboard = [
-            [InlineKeyboardButton(f"🎨 Create Poster in Style {d['id']}", callback_data=f"select_style:{d['id']}")]
-        ]
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg.message_id)
+    except Exception:
+        pass
 
-        if img_path.exists():
-            with open(img_path, "rb") as photo:
-                await context.bot.send_photo(
-                    chat_id=chat_id,
-                    photo=photo,
-                    caption=caption,
-                    parse_mode="Markdown",
-                    reply_markup=InlineKeyboardMarkup(keyboard),
-                )
-        await asyncio.sleep(0.5)
 
-    await context.bot.delete_message(chat_id=chat_id, message_id=status_msg.message_id)
+async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles natural language messages like 'show designs' or 'designs'."""
+    if not check_auth(update):
+        return
+
+    text = update.message.text.lower().strip()
+    if any(k in text for k in ["show design", "show all design", "all design", "designs", "design list"]):
+        await send_all_designs(update.effective_chat.id, context)
+    elif text.startswith("create ") or text.startswith("/create"):
+        # pass to create command
+        parts = update.message.text.split()[1:]
+        context.args = parts
+        await cmd_create(update, context)
+    else:
+        await cmd_start(update, context)
 
 
 # =====================================================================
@@ -495,7 +470,7 @@ async def cmd_create(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Parse arguments: e.g. /create 7 50tk or /create 6 canva 99tk
+    # Parse arguments: e.g. /create 7 50tk or /create 1 25tk
     style_num = 7
     price = "50 TK / 3 MONTHS"
     topic = "Canva Pro Subscription"
@@ -516,7 +491,7 @@ async def execute_generation(chat_id: int, context: ContextTypes.DEFAULT_TYPE, s
         chat_id=chat_id,
         text=f"⏳ *Preparing Style {style_id} Poster Generation...*\n"
              f"• Package: `{price}`\n"
-             f"• Model: `Google Imagen 3 (imagen-3.0-generate-002)`\n"
+             f"• Model: `Google Imagen 3 (gemini-2.5-flash-image)`\n"
              f"• Layout: 4:5 Facebook Portrait (1080x1350)",
         parse_mode="Markdown",
     )
@@ -524,7 +499,6 @@ async def execute_generation(chat_id: int, context: ContextTypes.DEFAULT_TYPE, s
     prompt = craft_prompt_for_style(style_id, topic, price)
     logger.info(f"Crafted prompt for Style {style_id}: {prompt[:150]}...")
 
-    # Attempt generation via Gemini Image API
     if not GEMINI_API_KEY:
         await context.bot.edit_message_text(
             chat_id=chat_id,
@@ -534,7 +508,6 @@ async def execute_generation(chat_id: int, context: ContextTypes.DEFAULT_TYPE, s
         )
         return
 
-    # Call Google API
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={GEMINI_API_KEY}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -553,7 +526,6 @@ async def execute_generation(chat_id: int, context: ContextTypes.DEFAULT_TYPE, s
 
         if res.status_code == 200:
             data = res.json()
-            # Extract image bytes
             candidate = data.get("candidates", [{}])[0]
             parts = candidate.get("content", {}).get("parts", [])
             img_b64 = None
@@ -580,7 +552,6 @@ async def execute_generation(chat_id: int, context: ContextTypes.DEFAULT_TYPE, s
 
                 post_process_poster(raw_path, final_path, style_id)
 
-                # Send finished poster
                 caption = (
                     f"🎉 *Poster Generated Successfully!*\n"
                     f"• *Style Archetype:* Style {style_id}\n"
@@ -596,7 +567,7 @@ async def execute_generation(chat_id: int, context: ContextTypes.DEFAULT_TYPE, s
                     ],
                     [
                         InlineKeyboardButton("🔄 Re-generate", callback_data=f"gen_quick:{style_id}:{price}"),
-                        InlineKeyboardButton("🖼️ View Other Styles", callback_data="nav_design:0"),
+                        InlineKeyboardButton("🖼️ View All Designs", callback_data="send_all_designs"),
                     ]
                 ]
 
@@ -615,10 +586,6 @@ async def execute_generation(chat_id: int, context: ContextTypes.DEFAULT_TYPE, s
                 raise Exception("No image data found in Google API response.")
 
         elif res.status_code == 429:
-            # Quota notice with clear instructions
-            error_data = res.json()
-            error_msg = error_data.get("error", {}).get("message", "Quota exceeded.")
-            
             help_text = (
                 "⚠️ *Google AI Studio Quota Notice (429)*\n\n"
                 "Google requires a linked Pay-as-you-go billing account to generate images via the API.\n\n"
@@ -667,14 +634,19 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = query.data
     chat_id = query.message.chat.id
-    message_id = query.message.message_id
 
-    if data.startswith("nav_design:"):
-        idx = int(data.split(":")[1])
-        await show_design_card(chat_id, context, idx, message_id=message_id, is_new=False)
-
-    elif data == "send_all_designs":
+    if data == "send_all_designs":
         await send_all_designs(chat_id, context)
+
+    elif data == "menu_create":
+        keyboard = []
+        for d in DESIGNS:
+            keyboard.append([InlineKeyboardButton(f"Style {d['id']}: {d['headline']}", callback_data=f"select_style:{d['id']}")])
+        await query.message.reply_text(
+            "🎨 *Choose a Design Style to Generate:*",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
 
     elif data.startswith("select_style:"):
         style_id = int(data.split(":")[1])
@@ -688,7 +660,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("🏷️ 150 TK (1 Year)", callback_data=f"gen_quick:{style_id}:150tk"),
             ],
             [
-                InlineKeyboardButton("⬅️ Back to Designs", callback_data=f"nav_design:{style_id - 1}"),
+                InlineKeyboardButton("🖼️ Back to All Designs", callback_data="send_all_designs"),
             ]
         ]
         await query.message.reply_text(
@@ -711,7 +683,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await query.message.reply_text("⏳ Generating AI caption and publishing to Facebook Page...")
         
-        # Call publish_poster.py logic
         try:
             from publish_poster import publish_poster, generate_caption_for_poster
             caption = generate_caption_for_poster(str(target_file), "Official Canva Pro promo from Studio Bot")
@@ -735,7 +706,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def post_init(application):
     """Sets bot menu commands."""
     commands = [
-        BotCommand("designs", "Browse all 7 design reference archetypes"),
+        BotCommand("designs", "Show all 7 design references at once"),
         BotCommand("create", "Generate a new promotional poster"),
         BotCommand("start", "Open Studio dashboard"),
     ]
@@ -756,6 +727,7 @@ def main():
     app.add_handler(CommandHandler("designs", cmd_designs))
     app.add_handler(CommandHandler("create", cmd_create))
     app.add_handler(CallbackQueryHandler(handle_callback))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
     app.run_polling()
 
