@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Design Hub — Subscriber & Revenue Command Center</title>
+    <title>Design Hub — Subscriber & Multi-Team Command Center</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -32,6 +32,8 @@
             --cyan: #00C4CC;
             --purple-badge: #A78BFA;
             --purple-badge-bg: rgba(125, 42, 232, 0.14);
+            --team-badge-bg: rgba(56, 189, 248, 0.12);
+            --team-badge-color: #38BDF8;
         }
 
         * {
@@ -50,11 +52,11 @@
             background-attachment: fixed;
             color: var(--text-main);
             min-height: 100vh;
-            padding: 1.5rem 1rem;
+            padding: 1.25rem 1rem 3rem;
         }
 
         .container {
-            max-width: 1240px;
+            max-width: 1280px;
             margin: 0 auto;
         }
 
@@ -65,7 +67,7 @@
             justify-content: space-between;
             padding-bottom: 1.25rem;
             border-bottom: 1px solid var(--border);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.25rem;
             flex-wrap: wrap;
             gap: 1rem;
         }
@@ -94,9 +96,6 @@
             font-size: 1.25rem;
             font-weight: 800;
             letter-spacing: -0.02em;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
         }
 
         .brand-title p {
@@ -109,28 +108,6 @@
             align-items: center;
             gap: 0.65rem;
             flex-wrap: wrap;
-        }
-
-        /* Team Name Badge */
-        .team-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            background: rgba(125, 42, 232, 0.12);
-            border: 1px solid rgba(125, 42, 232, 0.3);
-            color: #C4B5FD;
-            padding: 0.35rem 0.75rem;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .team-pill:hover {
-            background: rgba(125, 42, 232, 0.22);
-            border-color: rgba(125, 42, 232, 0.5);
-            transform: translateY(-1px);
         }
 
         /* Live Sync Badge */
@@ -193,7 +170,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 0.85rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.25rem;
         }
 
         .stat-card {
@@ -202,8 +179,6 @@
             border-radius: 14px;
             padding: 1.15rem;
             transition: all 0.2s ease;
-            position: relative;
-            overflow: hidden;
         }
 
         .stat-card:hover {
@@ -242,6 +217,75 @@
             font-size: 0.74rem;
             color: var(--text-faint);
             margin-top: 0.35rem;
+        }
+
+        /* Multi-Team Filtering Bar */
+        .team-filter-bar {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.65rem 0.85rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .team-pills-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .team-filter-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-right: 0.35rem;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .team-pill-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .team-pill-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+        }
+
+        .team-pill-btn.active {
+            background: rgba(125, 42, 232, 0.2);
+            border-color: rgba(125, 42, 232, 0.5);
+            color: #C4B5FD;
+            font-weight: 700;
+        }
+
+        .team-pill-btn .count {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 1px 6px;
+            border-radius: 9999px;
+            font-size: 0.72rem;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         /* Minimal Tabs Navigation */
@@ -365,6 +409,40 @@
             background: rgba(255, 255, 255, 0.09);
         }
 
+        .btn-save {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-save:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+
+        /* Toggle Button */
+        .toggle-edit-mode {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-edit-mode.active {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.4);
+            color: var(--amber);
+        }
+
         /* Minimal Tables */
         .card-table {
             background: var(--bg-surface);
@@ -392,12 +470,12 @@
             font-size: 0.74rem;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            padding: 0.85rem 1rem;
+            padding: 0.85rem 0.95rem;
             border-bottom: 1px solid var(--border);
         }
 
         td {
-            padding: 0.85rem 1rem;
+            padding: 0.8rem 0.95rem;
             border-bottom: 1px solid var(--border-subtle);
             color: var(--text-main);
             vertical-align: middle;
@@ -411,7 +489,29 @@
             background: rgba(255, 255, 255, 0.02);
         }
 
-        /* Customer & Badges */
+        tr.row-dirty {
+            background: rgba(245, 158, 11, 0.05) !important;
+            border-left: 3px solid var(--amber);
+        }
+
+        /* Inline Input Styling */
+        .cell-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 6px;
+            padding: 0.35rem 0.5rem;
+            color: var(--text-main);
+            font-size: 0.82rem;
+            outline: none;
+        }
+
+        .cell-input:focus {
+            border-color: var(--border-focus);
+            background: rgba(255, 255, 255, 0.09);
+        }
+
+        /* Badges */
         .cid-badge {
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
@@ -422,6 +522,19 @@
             font-size: 0.8rem;
             border: 1px solid rgba(167, 139, 250, 0.25);
             display: inline-block;
+        }
+
+        .team-tag {
+            font-size: 0.74rem;
+            font-weight: 600;
+            color: var(--team-badge-color);
+            background: var(--team-badge-bg);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            padding: 2px 7px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
         }
 
         .customer-info {
@@ -491,6 +604,17 @@
             color: var(--text-main);
         }
 
+        .btn-action-edit {
+            color: #38BDF8;
+            border-color: rgba(56, 189, 248, 0.25);
+            background: rgba(56, 189, 248, 0.08);
+        }
+
+        .btn-action-edit:hover {
+            background: rgba(56, 189, 248, 0.18);
+            color: #7DD3FC;
+        }
+
         .btn-action-paid {
             color: var(--emerald);
             border-color: var(--emerald-border);
@@ -509,6 +633,17 @@
 
         .btn-action-kick:hover {
             background: var(--rose-bg);
+        }
+
+        .btn-action-save-row {
+            background: var(--emerald);
+            color: white;
+            font-weight: 700;
+            border: 1px solid var(--emerald);
+        }
+
+        .btn-action-save-row:hover {
+            background: #059669;
         }
 
         /* Modals */
@@ -537,7 +672,9 @@
             border-radius: 16px;
             padding: 1.5rem;
             width: 100%;
-            max-width: 440px;
+            max-width: 480px;
+            max-height: 90vh;
+            overflow-y: auto;
             box-shadow: 0 20px 40px rgba(0,0,0,0.7);
         }
 
@@ -549,8 +686,11 @@
         }
 
         .modal-title {
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
         }
 
         .modal-close {
@@ -561,13 +701,19 @@
             cursor: pointer;
         }
 
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
         .form-group {
-            margin-bottom: 1rem;
+            margin-bottom: 0.95rem;
         }
 
         .form-label {
             display: block;
-            font-size: 0.78rem;
+            font-size: 0.76rem;
             color: var(--text-muted);
             font-weight: 600;
             margin-bottom: 0.35rem;
@@ -650,25 +796,21 @@
                 <div class="brand-logo">DH</div>
                 <div class="brand-title">
                     <h1>Design Hub</h1>
-                    <p>Subscribers, Payments & Automation Control</p>
+                    <p>Multi-Team Subscribers & Revenue Management</p>
                 </div>
             </div>
             <div class="header-actions">
-                <!-- Canva Team Pill (Click to Edit) -->
-                <div class="team-pill" onclick="openTeamModal()" title="Click to change active Canva Team">
-                    🎨 Team: <strong id="headerTeamName">Carmella Elan</strong>
-                    <span style="font-size: 0.7rem; opacity: 0.7;">✏️</span>
-                </div>
-
                 <!-- Live Auto-Sync Status Badge -->
                 <div class="badge-sync" id="syncBadge">
                     <span class="pulse-dot"></span>
                     <span id="syncText">Live Sync Active</span>
                 </div>
 
-                <!-- Refresh & Lock Buttons -->
                 <button class="btn-icon" id="btnRefresh" onclick="triggerManualRefresh()" title="Sync Now">
                     <span id="refreshIcon">🔄</span> Sync
+                </button>
+                <button class="btn-icon" onclick="openAddTeamModal()" title="Add New Canva Team">
+                    ➕ New Team
                 </button>
                 <button class="btn-icon" onclick="logout()" title="Lock Screen">🔒 Lock</button>
             </div>
@@ -678,15 +820,15 @@
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-header">
-                    <span class="stat-label">Total Revenue Earned</span>
+                    <span class="stat-label">Total Revenue</span>
                     <span class="stat-icon" style="color: var(--emerald);">💵</span>
                 </div>
                 <div class="stat-value" style="color: var(--emerald);" id="statEarnings">৳0.00</div>
-                <div class="stat-sub"><span id="statTransCount">0</span> verified payments collected</div>
+                <div class="stat-sub"><span id="statTransCount">0</span> payments (<span id="statScopeLabel">All Teams</span>)</div>
             </div>
             <div class="stat-card">
                 <div class="stat-header">
-                    <span class="stat-label">Active Paid Members</span>
+                    <span class="stat-label">Active Members</span>
                     <span class="stat-icon" style="color: #38BDF8;">👥</span>
                 </div>
                 <div class="stat-value" id="statPaid">--</div>
@@ -694,28 +836,44 @@
             </div>
             <div class="stat-card">
                 <div class="stat-header">
-                    <span class="stat-label">Pending Verification</span>
+                    <span class="stat-label">Pending Review</span>
                     <span class="stat-icon" style="color: var(--amber);">⏳</span>
                 </div>
                 <div class="stat-value" style="color: var(--amber);" id="statPending">--</div>
-                <div class="stat-sub">Awaiting TrxID or approval</div>
+                <div class="stat-sub">Awaiting verification</div>
             </div>
             <div class="stat-card">
                 <div class="stat-header">
-                    <span class="stat-label">Active Canva Team</span>
+                    <span class="stat-label">Canva Seat Roster</span>
                     <span class="stat-icon" style="color: #C4B5FD;">🎨</span>
                 </div>
-                <div class="stat-value" style="font-size: 1.35rem; color: #E0E7FF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="statTeamName">Carmella Elan</div>
+                <div class="stat-value" style="font-size: 1.3rem; color: #E0E7FF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="statTeamName">Carmella Elan</div>
                 <div class="stat-sub">
-                    <a href="https://www.canva.com/settings/team-members" target="_blank" style="color: var(--cyan); text-decoration: none;">Seat Roster ↗</a> • <span style="cursor: pointer; text-decoration: underline;" onclick="openTeamModal()">Change</span>
+                    <a href="https://www.canva.com/settings/team-members" target="_blank" style="color: var(--cyan); text-decoration: none; font-weight: 600;">Open Canva Team Settings ↗</a>
                 </div>
             </div>
         </div>
 
-        <!-- Minimal Navigation Tabs -->
+        <!-- MULTI-TEAM FILTERING BAR -->
+        <div class="team-filter-bar">
+            <div class="team-pills-wrap">
+                <span class="team-filter-label">🎨 Team Filter:</span>
+                <button class="team-pill-btn active" id="pillTeamAll" onclick="setTeamFilter('all')">
+                    All Teams <span class="count" id="countAllTeamSubs">0</span>
+                </button>
+                <div id="dynamicTeamPills" style="display: inline-flex; gap: 0.45rem; flex-wrap: wrap;"></div>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button class="btn-icon" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;" onclick="openAddTeamModal()">
+                    ➕ Add Team
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs Bar -->
         <div class="tabs-bar">
             <button class="tab-btn active" id="tabSubscribersBtn" onclick="switchTab('subscribers')">
-                👥 Subscribers <span class="tab-count" id="countSubscribers">0</span>
+                👥 Subscribers / Students <span class="tab-count" id="countSubscribers">0</span>
             </button>
             <button class="tab-btn" id="tabPaymentsBtn" onclick="switchTab('payments')">
                 💳 Payment History & Ledger <span class="tab-count" id="countPayments">0</span>
@@ -727,9 +885,12 @@
             <div class="controls-bar">
                 <div class="search-box">
                     <span class="search-icon">🔍</span>
-                    <input type="text" class="search-input" id="searchSubInput" placeholder="Search by ID #800, email, name, or TrxID..." onkeyup="filterSubscribers()">
+                    <input type="text" class="search-input" id="searchSubInput" placeholder="Search by #800, email, name, team, or TrxID..." onkeyup="filterSubscribers()">
                 </div>
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button class="toggle-edit-mode" id="btnToggleSubEdit" onclick="toggleSubQuickEdit()">
+                        ✏️ Quick Edit Mode
+                    </button>
                     <button class="btn btn-primary" onclick="openAddModal()">➕ Add Subscriber</button>
                 </div>
             </div>
@@ -741,15 +902,16 @@
                             <tr>
                                 <th style="width: 75px;">ID</th>
                                 <th>Customer</th>
+                                <th>Team</th>
                                 <th>Package</th>
                                 <th>Expires On</th>
                                 <th>Payment</th>
                                 <th>TrxID</th>
-                                <th style="text-align: right;">Actions</th>
+                                <th style="text-align: right; min-width: 170px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="subscribersTbody">
-                            <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Loading live subscribers...</td></tr>
+                            <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Loading live subscribers...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -761,9 +923,12 @@
             <div class="controls-bar">
                 <div class="search-box">
                     <span class="search-icon">🔍</span>
-                    <input type="text" class="search-input" id="searchPayInput" placeholder="Search transactions by TrxID, ID, email, or provider..." onkeyup="filterPayments()">
+                    <input type="text" class="search-input" id="searchPayInput" placeholder="Search transactions by TrxID, ID, email, team, or provider..." onkeyup="filterPayments()">
                 </div>
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button class="toggle-edit-mode" id="btnTogglePayEdit" onclick="togglePayQuickEdit()">
+                        ✏️ Quick Edit Mode
+                    </button>
                     <button class="btn btn-primary" onclick="openRecordPaymentModal()">➕ Record Payment</button>
                 </div>
             </div>
@@ -773,18 +938,20 @@
                     <table>
                         <thead>
                             <tr>
-                                <th style="width: 140px;">Date & Time</th>
-                                <th style="width: 75px;">ID</th>
+                                <th style="width: 130px;">Date & Time</th>
+                                <th style="width: 70px;">ID</th>
                                 <th>Customer</th>
+                                <th>Team</th>
                                 <th>Package</th>
                                 <th>Provider</th>
                                 <th>TrxID</th>
                                 <th>Amount</th>
                                 <th>Notes</th>
+                                <th style="text-align: right; width: 110px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="paymentsTbody">
-                            <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Loading payment ledger...</td></tr>
+                            <tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Loading payment ledger...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -793,7 +960,175 @@
 
     </div>
 
-    <!-- MODAL: ADD SUBSCRIBER -->
+    <!-- MODAL 1: EDIT CUSTOMER / SUBSCRIBER -->
+    <div class="modal-overlay" id="editCustomerModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">✏️ Edit Customer Profile <span id="editCidBadge" class="cid-badge">#800</span></h3>
+                <button class="modal-close" onclick="closeModal('editCustomerModal')">&times;</button>
+            </div>
+            <form onsubmit="handleSaveCustomerEdit(event)">
+                <input type="hidden" id="editOrigEmail">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Customer Name</label>
+                        <input type="text" id="editName" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email Address *</label>
+                        <input type="email" id="editEmail" class="form-input" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Canva Team *</label>
+                        <select id="editTeam" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Package</label>
+                        <select id="editPackage" class="form-select">
+                            <option value="1 Month">1 Month</option>
+                            <option value="3 Months">3 Months</option>
+                            <option value="12 Months">1 Year</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Payment Status</label>
+                        <select id="editPaymentStatus" class="form-select">
+                            <option value="PAID">🟢 PAID (Active)</option>
+                            <option value="PENDING">🟡 PENDING (Unverified)</option>
+                            <option value="REVOKED">🔴 REVOKED</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Member Status</label>
+                        <select id="editStatus" class="form-select">
+                            <option value="active">Active</option>
+                            <option value="kicked">Kicked / Revoked</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Expires On (YYYY-MM-DD)</label>
+                        <input type="date" id="editExpiresAt" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Transaction ID (TrxID)</label>
+                        <input type="text" id="editTrxId" class="form-input">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 0.65rem; justify-content: space-between; align-items: center; margin-top: 1.25rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                    <div style="display: flex; gap: 0.45rem;">
+                        <button type="button" class="btn btn-action-kick" onclick="actionModalKick()">🚨 Kick</button>
+                        <button type="button" class="btn btn-action" style="color: var(--rose);" onclick="actionModalDelete()">🗑️ Delete</button>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('editCustomerModal')">Cancel</button>
+                        <button type="submit" class="btn btn-save">💾 Save Changes</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: EDIT PAYMENT TRANSACTION -->
+    <div class="modal-overlay" id="editPaymentModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">✏️ Edit Payment Transaction <span id="editPayIdBadge" class="cid-badge">#--</span></h3>
+                <button class="modal-close" onclick="closeModal('editPaymentModal')">&times;</button>
+            </div>
+            <form onsubmit="handleSavePaymentEdit(event)">
+                <input type="hidden" id="editPayId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Amount (৳ BDT) *</label>
+                        <input type="number" step="0.01" id="editPayAmount" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Provider *</label>
+                        <select id="editPayProvider" class="form-select">
+                            <option value="bKash">bKash</option>
+                            <option value="Nagad">Nagad</option>
+                            <option value="Rocket">Rocket</option>
+                            <option value="Bank">Bank / Card</option>
+                            <option value="Manual">Manual / Cash</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Canva Team *</label>
+                        <select id="editPayTeam" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Package</label>
+                        <select id="editPayPackage" class="form-select">
+                            <option value="1 Month">1 Month</option>
+                            <option value="3 Months">3 Months</option>
+                            <option value="12 Months">1 Year</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Transaction ID (TrxID)</label>
+                    <input type="text" id="editPayTrxId" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Payment Date & Time</label>
+                    <input type="text" id="editPayPaidAt" class="form-input" placeholder="YYYY-MM-DD HH:MM:SS">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <input type="text" id="editPayNotes" class="form-input" placeholder="e.g. bKash verified">
+                </div>
+
+                <div style="display: flex; gap: 0.65rem; justify-content: space-between; align-items: center; margin-top: 1.25rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                    <button type="button" class="btn btn-action" style="color: var(--rose);" onclick="actionDeletePaymentRecord(document.getElementById('editPayId').value)">🗑️ Delete Transaction</button>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('editPaymentModal')">Cancel</button>
+                        <button type="submit" class="btn btn-save">💾 Save Payment</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: ADD NEW CANVA TEAM -->
+    <div class="modal-overlay" id="addTeamModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">🎨 Add New Canva Team</h3>
+                <button class="modal-close" onclick="closeModal('addTeamModal')">&times;</button>
+            </div>
+            <form onsubmit="handleAddTeam(event)">
+                <div class="form-group">
+                    <label class="form-label">Team Name *</label>
+                    <input type="text" id="newTeamInput" class="form-input" placeholder="e.g. Carmella Elan 2 or Pro Team B" required>
+                    <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.35rem;">
+                        This team will be available for assigning customers and filtering students & earnings.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 0.65rem; justify-content: flex-end; margin-top: 1.25rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addTeamModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">➕ Create Team</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: ENROLL NEW SUBSCRIBER -->
     <div class="modal-overlay" id="addModal">
         <div class="modal">
             <div class="modal-header">
@@ -809,15 +1144,21 @@
                     <label class="form-label">Full Name</label>
                     <input type="text" id="addName" class="form-input" placeholder="Tanvir Sunny">
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Subscription Package</label>
-                    <select id="addPackage" class="form-select">
-                        <option value="1m">1 Month (25 Tk)</option>
-                        <option value="3m" selected>3 Months (50 Tk)</option>
-                        <option value="12m">1 Year (150 Tk)</option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Canva Team *</label>
+                        <select id="addTeamSelect" class="form-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Package</label>
+                        <select id="addPackage" class="form-select">
+                            <option value="1m">1 Month (25 Tk)</option>
+                            <option value="3m" selected>3 Months (50 Tk)</option>
+                            <option value="12m">1 Year (150 Tk)</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem;">
+                <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
                     <input type="checkbox" id="addIsPaid" onchange="toggleAddPaidFields()" style="accent-color: var(--emerald);">
                     <label for="addIsPaid" style="font-size: 0.82rem; cursor: pointer; color: var(--text-main); font-weight: 600;">Payment Already Received & Confirmed</label>
                 </div>
@@ -844,7 +1185,65 @@
         </div>
     </div>
 
-    <!-- MODAL: EXTEND SUBSCRIPTION -->
+    <!-- MODAL 5: RECORD MANUAL PAYMENT -->
+    <div class="modal-overlay" id="recordPayModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">💳 Record Payment</h3>
+                <button class="modal-close" onclick="closeModal('recordPayModal')">&times;</button>
+            </div>
+            <form onsubmit="handleRecordManualPayment(event)">
+                <div class="form-group">
+                    <label class="form-label">Customer Email or ID *</label>
+                    <input type="text" id="payEmail" class="form-input" placeholder="user@gmail.com or #800" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Amount (৳ BDT) *</label>
+                        <input type="number" step="0.01" id="payAmount" class="form-input" placeholder="50.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Canva Team *</label>
+                        <select id="payTeamSelect" class="form-select"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Provider</label>
+                        <select id="payProvider" class="form-select">
+                            <option value="bKash" selected>bKash</option>
+                            <option value="Nagad">Nagad</option>
+                            <option value="Rocket">Rocket</option>
+                            <option value="Bank">Bank / Card</option>
+                            <option value="Manual">Manual / Direct</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Package</label>
+                        <select id="payPackage" class="form-select">
+                            <option value="3 Months" selected>3 Months</option>
+                            <option value="1 Month">1 Month</option>
+                            <option value="12 Months">1 Year</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Transaction ID (TrxID)</label>
+                    <input type="text" id="payTrxId" class="form-input" placeholder="e.g. DJF22CP78S">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <input type="text" id="payNotes" class="form-input" placeholder="e.g. bKash payment">
+                </div>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('recordPayModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Log Payment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 6: EXTEND SUBSCRIPTION -->
     <div class="modal-overlay" id="extendModal">
         <div class="modal">
             <div class="modal-header">
@@ -873,87 +1272,21 @@
         </div>
     </div>
 
-    <!-- MODAL: EDIT CANVA TEAM NAME -->
-    <div class="modal-overlay" id="teamModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">🎨 Change Canva Team Name</h3>
-                <button class="modal-close" onclick="closeModal('teamModal')">&times;</button>
-            </div>
-            <form onsubmit="handleUpdateTeamName(event)">
-                <div class="form-group">
-                    <label class="form-label">Active Canva Team Name *</label>
-                    <input type="text" id="inputTeamName" class="form-input" placeholder="e.g. Carmella Elan" required>
-                    <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.35rem;">
-                        This name is displayed across your dashboard, Telegram alerts, and sales messages.
-                    </p>
-                </div>
-                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem;">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('teamModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Team Name</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL: RECORD MANUAL PAYMENT -->
-    <div class="modal-overlay" id="recordPayModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">💳 Record Payment</h3>
-                <button class="modal-close" onclick="closeModal('recordPayModal')">&times;</button>
-            </div>
-            <form onsubmit="handleRecordManualPayment(event)">
-                <div class="form-group">
-                    <label class="form-label">Customer Email or ID *</label>
-                    <input type="text" id="payEmail" class="form-input" placeholder="user@gmail.com or #800" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Amount (৳ BDT) *</label>
-                    <input type="number" step="0.01" id="payAmount" class="form-input" placeholder="50.00" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Provider</label>
-                    <select id="payProvider" class="form-select">
-                        <option value="bKash" selected>bKash</option>
-                        <option value="Nagad">Nagad</option>
-                        <option value="Rocket">Rocket</option>
-                        <option value="Bank">Bank / Card</option>
-                        <option value="Manual">Manual / Direct</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Transaction ID (TrxID)</label>
-                    <input type="text" id="payTrxId" class="form-input" placeholder="e.g. DJF22CP78S">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Package</label>
-                    <select id="payPackage" class="form-select">
-                        <option value="3 Months" selected>3 Months</option>
-                        <option value="1 Month">1 Month</option>
-                        <option value="12 Months">1 Year</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Notes</label>
-                    <input type="text" id="payNotes" class="form-input" placeholder="e.g. bKash Personal send money">
-                </div>
-                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem;">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('recordPayModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Log Payment</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <script>
         const DEFAULT_PIN = "1809";
         let allSubscribers = [];
         let allPayments = [];
+        let allTeams = ["Carmella Elan"];
+        let currentTeamFilter = "all";
         let activeTab = "subscribers";
         let lastSyncTimestamp = Date.now();
         let autoSyncTimer = null;
         let relativeTimeTimer = null;
+
+        let subQuickEditActive = false;
+        let payQuickEditActive = false;
+        let dirtySubRows = new Set();
+        let dirtyPayRows = new Set();
 
         // Security PIN verification
         function verifyPin() {
@@ -983,15 +1316,14 @@
 
         function initDashboard() {
             loadDashboardData();
-            // Live background sync every 3.5 seconds
             if (!autoSyncTimer) {
                 autoSyncTimer = setInterval(() => {
-                    if (!document.hidden) {
+                    const isModalOpen = !!document.querySelector(".modal-overlay.active");
+                    if (!document.hidden && !isModalOpen && !subQuickEditActive && !payQuickEditActive) {
                         loadDashboardData(true);
                     }
                 }, 3500);
             }
-            // Update relative time ("just now", "3s ago") every second
             if (!relativeTimeTimer) {
                 relativeTimeTimer = setInterval(updateRelativeSyncTime, 1000);
             }
@@ -1025,66 +1357,118 @@
             document.getElementById("viewPayments").style.display = (tab === "payments") ? "block" : "none";
         }
 
+        function setTeamFilter(team) {
+            currentTeamFilter = team;
+            renderTeamPills();
+            loadDashboardData(false);
+        }
+
+        function renderTeamPills() {
+            document.getElementById("pillTeamAll").classList.toggle("active", currentTeamFilter === "all");
+            document.getElementById("statScopeLabel").textContent = currentTeamFilter === "all" ? "All Teams" : currentTeamFilter;
+
+            const wrap = document.getElementById("dynamicTeamPills");
+            wrap.innerHTML = allTeams.map(t => {
+                const subCount = allSubscribers.filter(s => (s.team_name || "Carmella Elan") === t).length;
+                const isAct = (currentTeamFilter === t) ? 'active' : '';
+                return `
+                    <button class="team-pill-btn ${isAct}" onclick="setTeamFilter('${t.replace(/'/g, "\'")}')">
+                        ${t} <span class="count">${subCount}</span>
+                    </button>
+                `;
+            }).join('');
+
+            populateTeamSelects();
+        }
+
+        function populateTeamSelects() {
+            const selects = ["editTeam", "editPayTeam", "addTeamSelect", "payTeamSelect"];
+            selects.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const currVal = el.value;
+                el.innerHTML = allTeams.map(t => `<option value="${t}">${t}</option>`).join('');
+                if (currVal && allTeams.includes(currVal)) {
+                    el.value = currVal;
+                }
+            });
+        }
+
         async function loadDashboardData(isBackground = false) {
             try {
-                // Fetch subscribers and stats
-                const resSubs = await fetch("/api/subscribers");
+                const teamQuery = currentTeamFilter === "all" ? "" : `?team=${encodeURIComponent(currentTeamFilter)}`;
+
+                const resSubs = await fetch(`/api/subscribers${teamQuery}`);
                 const dataSubs = await resSubs.json();
 
-                // Fetch payment ledger
-                const resPay = await fetch("/api/payments");
+                const resPay = await fetch(`/api/payments${teamQuery}`);
                 const dataPay = await resPay.json();
 
                 allSubscribers = dataSubs.subscribers || [];
                 allPayments = dataPay.payments || [];
+                allTeams = dataSubs.teams || ["Carmella Elan"];
 
-                // Update Stats
                 const stats = dataSubs.stats || {};
                 const earnings = dataSubs.earnings || dataPay.earnings || { total_bdt: 0, total_count: 0 };
-                const teamName = dataSubs.team_name || "Carmella Elan";
+                const teamName = currentTeamFilter !== "all" ? currentTeamFilter : (dataSubs.team_name || "Carmella Elan");
 
-                // Revenue stat
                 document.getElementById("statEarnings").textContent = `৳${(earnings.total_bdt || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 document.getElementById("statTransCount").textContent = earnings.total_count || 0;
 
-                // Member counts
                 document.getElementById("statPaid").textContent = stats.active_paid || 0;
                 document.getElementById("statPending").textContent = stats.pending || 0;
-
-                // Team name
-                document.getElementById("headerTeamName").textContent = teamName;
                 document.getElementById("statTeamName").textContent = teamName;
 
-                // Tab counts
                 document.getElementById("countSubscribers").textContent = allSubscribers.length;
                 document.getElementById("countPayments").textContent = allPayments.length;
+                document.getElementById("countAllTeamSubs").textContent = stats.total || allSubscribers.length;
 
-                // Render views only if search box is not currently actively focused/modified by user
+                renderTeamPills();
+
                 const subSearchFocused = (document.activeElement === document.getElementById("searchSubInput"));
                 const paySearchFocused = (document.activeElement === document.getElementById("searchPayInput"));
 
-                if (!subSearchFocused || !isBackground) {
-                    filterSubscribers();
-                }
-                if (!paySearchFocused || !isBackground) {
-                    filterPayments();
-                }
+                if (!subSearchFocused || !isBackground) filterSubscribers();
+                if (!paySearchFocused || !isBackground) filterPayments();
 
                 lastSyncTimestamp = Date.now();
                 updateRelativeSyncTime();
             } catch (err) {
-                console.error("Sync error:", err);
+                console.error("Dashboard sync error:", err);
             }
+        }
+
+        // ==================== SUBSCRIBERS TABLE & ACTIONS ====================
+
+        function toggleSubQuickEdit() {
+            subQuickEditActive = !subQuickEditActive;
+            document.getElementById("btnToggleSubEdit").classList.toggle("active", subQuickEditActive);
+            document.getElementById("btnToggleSubEdit").textContent = subQuickEditActive ? "✓ Exit Quick Edit" : "✏️ Quick Edit Mode";
+            dirtySubRows.clear();
+            filterSubscribers();
+        }
+
+        function markSubRowDirty(email) {
+            dirtySubRows.add(email);
+            const row = document.getElementById(`subrow_${btoa(email).replace(/=/g, '')}`);
+            if (row) row.classList.add("row-dirty");
+            const saveBtn = document.getElementById(`subsave_${btoa(email).replace(/=/g, '')}`);
+            if (saveBtn) saveBtn.style.display = "inline-flex";
         }
 
         function renderSubscribersTable(list) {
             const tbody = document.getElementById("subscribersTbody");
             if (!list || list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No customers found. Click <b>Add Subscriber</b> to create one.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No subscribers found for this team filter.</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = list.map(sub => {
+                const rowKey = btoa(sub.email).replace(/=/g, '');
+                const cidBadge = `<span class="cid-badge">#${sub.customer_id || 800}</span>`;
+                const teamBadge = `<span class="team-tag">🎨 ${sub.team_name || 'Carmella Elan'}</span>`;
+                const expDate = (sub.expires_at || '').substring(0, 10);
+
                 let statusBadge = '';
                 if (sub.payment_status === 'PAID') {
                     statusBadge = `<span class="badge-status status-paid">🟢 PAID</span>`;
@@ -1095,11 +1479,51 @@
                 }
 
                 const trx = sub.trx_id ? `<span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${sub.trx_id}</span>` : `<span style="color: var(--text-faint); font-size: 0.78rem;">—</span>`;
-                const cidBadge = `<span class="cid-badge">#${sub.customer_id || 800}</span>`;
-                const expDate = (sub.expires_at || '').substring(0, 10);
+
+                if (subQuickEditActive) {
+                    const teamOpts = allTeams.map(t => `<option value="${t}" ${t === (sub.team_name || 'Carmella Elan') ? 'selected' : ''}>${t}</option>`).join('');
+                    const pkgOpts = ["1 Month", "3 Months", "12 Months"].map(p => `<option value="${p}" ${p.toLowerCase().includes((sub.package || '').toLowerCase()) ? 'selected' : ''}>${p}</option>`).join('');
+                    const payOpts = [
+                        {val: 'PAID', text: '🟢 PAID'},
+                        {val: 'PENDING', text: '🟡 PENDING'},
+                        {val: 'REVOKED', text: '🔴 REVOKED'}
+                    ].map(o => `<option value="${o.val}" ${sub.payment_status === o.val ? 'selected' : ''}>${o.text}</option>`).join('');
+
+                    return `
+                        <tr id="subrow_${rowKey}">
+                            <td>${cidBadge}</td>
+                            <td>
+                                <input type="text" class="cell-input" id="sub_name_${rowKey}" value="${sub.name || ''}" placeholder="Name" onchange="markSubRowDirty('${sub.email}')" style="margin-bottom: 2px;">
+                                <input type="email" class="cell-input" id="sub_email_${rowKey}" value="${sub.email}" onchange="markSubRowDirty('${sub.email}')">
+                            </td>
+                            <td>
+                                <select class="cell-input" id="sub_team_${rowKey}" onchange="markSubRowDirty('${sub.email}')">${teamOpts}</select>
+                            </td>
+                            <td>
+                                <select class="cell-input" id="sub_pkg_${rowKey}" onchange="markSubRowDirty('${sub.email}')">${pkgOpts}</select>
+                            </td>
+                            <td>
+                                <input type="date" class="cell-input" id="sub_exp_${rowKey}" value="${expDate}" onchange="markSubRowDirty('${sub.email}')">
+                            </td>
+                            <td>
+                                <select class="cell-input" id="sub_pay_${rowKey}" onchange="markSubRowDirty('${sub.email}')">${payOpts}</select>
+                            </td>
+                            <td>
+                                <input type="text" class="cell-input" id="sub_trx_${rowKey}" value="${sub.trx_id || ''}" placeholder="TrxID" onchange="markSubRowDirty('${sub.email}')">
+                            </td>
+                            <td style="text-align: right;">
+                                <div class="table-actions" style="justify-content: flex-end;">
+                                    <button class="btn-action btn-action-save-row" id="subsave_${rowKey}" onclick="saveInlineSubscriber('${sub.email}')" title="Click to Save Updates" style="display: ${dirtySubRows.has(sub.email) ? 'inline-flex' : 'none'};">💾 Save</button>
+                                    <button class="btn-action btn-action-edit" onclick="openEditCustomerModal('${sub.email}')" title="Full Edit Dialog">✏️ Full</button>
+                                    <button class="btn-action" onclick="actionDelete('${sub.email}')" title="Delete record" style="color: var(--text-faint);">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
 
                 return `
-                    <tr>
+                    <tr id="subrow_${rowKey}">
                         <td>${cidBadge}</td>
                         <td>
                             <div class="customer-info">
@@ -1107,12 +1531,14 @@
                                 <span class="customer-name">${sub.name || 'Personal Account'}</span>
                             </div>
                         </td>
+                        <td>${teamBadge}</td>
                         <td><span style="font-weight: 600;">${sub.package}</span></td>
                         <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted);">${expDate}</span></td>
                         <td>${statusBadge}</td>
                         <td>${trx}</td>
                         <td style="text-align: right;">
                             <div class="table-actions" style="justify-content: flex-end;">
+                                <button class="btn-action btn-action-edit" onclick="openEditCustomerModal('${sub.email}')" title="Edit Customer Details">✏️ Edit</button>
                                 ${sub.payment_status !== 'PAID' ? `
                                     <button class="btn-action btn-action-paid" onclick="actionMarkPaid('${sub.email}')" title="Confirm Payment">✅ Paid</button>
                                 ` : ''}
@@ -1136,16 +1562,158 @@
                 (s.customer_id && s.customer_id.toString().includes(cleanQuery)) ||
                 (s.email && s.email.toLowerCase().includes(query)) ||
                 (s.name && s.name.toLowerCase().includes(query)) ||
+                (s.team_name && s.team_name.toLowerCase().includes(query)) ||
                 (s.trx_id && s.trx_id.toLowerCase().includes(query)) ||
                 (s.package && s.package.toLowerCase().includes(query))
             );
             renderSubscribersTable(filtered);
         }
 
+        async function saveInlineSubscriber(origEmail) {
+            const rowKey = btoa(origEmail).replace(/=/g, '');
+            const name = document.getElementById(`sub_name_${rowKey}`).value.trim();
+            const email = document.getElementById(`sub_email_${rowKey}`).value.trim();
+            const team_name = document.getElementById(`sub_team_${rowKey}`).value;
+            const pkg = document.getElementById(`sub_pkg_${rowKey}`).value;
+            const expires_at = document.getElementById(`sub_exp_${rowKey}`).value;
+            const payment_status = document.getElementById(`sub_pay_${rowKey}`).value;
+            const trx_id = document.getElementById(`sub_trx_${rowKey}`).value.trim();
+
+            const saveBtn = document.getElementById(`subsave_${rowKey}`);
+            if (saveBtn) {
+                saveBtn.textContent = "Saving...";
+                saveBtn.disabled = true;
+            }
+
+            await fetch("/api/subscriber/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: origEmail,
+                    fields: {
+                        name,
+                        email,
+                        team_name,
+                        package: pkg,
+                        expires_at: expires_at ? `${expires_at} 23:59:59` : undefined,
+                        payment_status,
+                        status: payment_status === 'REVOKED' ? 'kicked' : 'active',
+                        trx_id
+                    }
+                })
+            });
+
+            dirtySubRows.delete(origEmail);
+            loadDashboardData();
+        }
+
+        // ==================== EDIT CUSTOMER MODAL ====================
+
+        function openEditCustomerModal(email) {
+            const sub = allSubscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
+            if (!sub) return;
+
+            document.getElementById("editOrigEmail").value = sub.email;
+            document.getElementById("editCidBadge").textContent = `#${sub.customer_id || 800}`;
+            document.getElementById("editName").value = sub.name || "";
+            document.getElementById("editEmail").value = sub.email;
+            document.getElementById("editTrxId").value = sub.trx_id || "";
+
+            populateTeamSelects();
+            document.getElementById("editTeam").value = sub.team_name || "Carmella Elan";
+            document.getElementById("editPackage").value = sub.package || "3 Months";
+            document.getElementById("editPaymentStatus").value = sub.payment_status || "PENDING";
+            document.getElementById("editStatus").value = sub.status || "active";
+            document.getElementById("editExpiresAt").value = (sub.expires_at || "").substring(0, 10);
+
+            document.getElementById("editCustomerModal").classList.add("active");
+        }
+
+        async function handleSaveCustomerEdit(e) {
+            e.preventDefault();
+            const origEmail = document.getElementById("editOrigEmail").value;
+            const name = document.getElementById("editName").value.trim();
+            const email = document.getElementById("editEmail").value.trim();
+            const team_name = document.getElementById("editTeam").value;
+            const pkg = document.getElementById("editPackage").value;
+            const payment_status = document.getElementById("editPaymentStatus").value;
+            const status = document.getElementById("editStatus").value;
+            const expVal = document.getElementById("editExpiresAt").value;
+            const trx_id = document.getElementById("editTrxId").value.trim();
+
+            const saveBtn = e.target.querySelector(".btn-save");
+            if (saveBtn) saveBtn.textContent = "Saving...";
+
+            await fetch("/api/subscriber/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: origEmail,
+                    fields: {
+                        name,
+                        email,
+                        team_name,
+                        package: pkg,
+                        payment_status,
+                        status,
+                        expires_at: expVal ? `${expVal} 23:59:59` : undefined,
+                        trx_id
+                    }
+                })
+            });
+
+            closeModal("editCustomerModal");
+            loadDashboardData();
+        }
+
+        async function actionModalKick() {
+            const email = document.getElementById("editOrigEmail").value;
+            if (confirm(`Kick ${email} and set status to Kicked / Revoked?`)) {
+                await fetch("/api/subscriber/kick", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email })
+                });
+                closeModal("editCustomerModal");
+                loadDashboardData();
+            }
+        }
+
+        async function actionModalDelete() {
+            const email = document.getElementById("editOrigEmail").value;
+            if (confirm(`Permanently delete ${email} from database?`)) {
+                await fetch("/api/subscriber/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email })
+                });
+                closeModal("editCustomerModal");
+                loadDashboardData();
+            }
+        }
+
+        // ==================== PAYMENTS TABLE & ACTIONS ====================
+
+        function togglePayQuickEdit() {
+            payQuickEditActive = !payQuickEditActive;
+            document.getElementById("btnTogglePayEdit").classList.toggle("active", payQuickEditActive);
+            document.getElementById("btnTogglePayEdit").textContent = payQuickEditActive ? "✓ Exit Quick Edit" : "✏️ Quick Edit Mode";
+            dirtyPayRows.clear();
+            filterPayments();
+        }
+
+        function markPayRowDirty(id) {
+            dirtyPayRows.add(id);
+            const row = document.getElementById(`payrow_${id}`);
+            if (row) row.classList.add("row-dirty");
+            const saveBtn = document.getElementById(`paysave_${id}`);
+            if (saveBtn) saveBtn.style.display = "inline-flex";
+        }
+
         function renderPaymentsTable(list) {
             const tbody = document.getElementById("paymentsTbody");
             if (!list || list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No payment transactions logged yet.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No payment transactions recorded for this team filter.</td></tr>`;
                 return;
             }
 
@@ -1153,9 +1721,41 @@
                 const cidBadge = `<span class="cid-badge">#${p.customer_id || 800}</span>`;
                 const dateStr = (p.paid_at || '').substring(0, 16);
                 const trxBadge = p.trx_id ? `<span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${p.trx_id}</span>` : `<span style="color: var(--text-faint); font-size: 0.78rem;">—</span>`;
+                const teamBadge = `<span class="team-tag">🎨 ${p.team_name || 'Carmella Elan'}</span>`;
+
+                if (payQuickEditActive) {
+                    const teamOpts = allTeams.map(t => `<option value="${t}" ${t === (p.team_name || 'Carmella Elan') ? 'selected' : ''}>${t}</option>`).join('');
+                    const provOpts = ["bKash", "Nagad", "Rocket", "Bank", "Manual"].map(pr => `<option value="${pr}" ${pr === p.provider ? 'selected' : ''}>${pr}</option>`).join('');
+
+                    return `
+                        <tr id="payrow_${p.id}">
+                            <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; color: var(--text-muted);">${dateStr}</span></td>
+                            <td>${cidBadge}</td>
+                            <td>
+                                <div class="customer-info">
+                                    <span class="customer-email">${p.email}</span>
+                                    <span class="customer-name">${p.name || 'Customer'}</span>
+                                </div>
+                            </td>
+                            <td><select class="cell-input" id="pay_team_${p.id}" onchange="markPayRowDirty(${p.id})">${teamOpts}</select></td>
+                            <td><input type="text" class="cell-input" id="pay_pkg_${p.id}" value="${p.package}" onchange="markPayRowDirty(${p.id})"></td>
+                            <td><select class="cell-input" id="pay_prov_${p.id}" onchange="markPayRowDirty(${p.id})">${provOpts}</select></td>
+                            <td><input type="text" class="cell-input" id="pay_trx_${p.id}" value="${p.trx_id || ''}" onchange="markPayRowDirty(${p.id})"></td>
+                            <td><input type="number" step="0.01" class="cell-input" id="pay_amt_${p.id}" value="${parseFloat(p.amount || 0).toFixed(2)}" style="font-weight: 700; color: var(--emerald);" onchange="markPayRowDirty(${p.id})"></td>
+                            <td><input type="text" class="cell-input" id="pay_notes_${p.id}" value="${p.notes || ''}" onchange="markPayRowDirty(${p.id})"></td>
+                            <td style="text-align: right;">
+                                <div class="table-actions" style="justify-content: flex-end;">
+                                    <button class="btn-action btn-action-save-row" id="paysave_${p.id}" onclick="saveInlinePayment(${p.id})" title="Save Payment" style="display: ${dirtyPayRows.has(p.id) ? 'inline-flex' : 'none'};">💾 Save</button>
+                                    <button class="btn-action btn-action-edit" onclick="openEditPaymentModal(${p.id})" title="Full Edit Dialog">✏️</button>
+                                    <button class="btn-action" onclick="actionDeletePaymentRecord(${p.id})" title="Delete Transaction" style="color: var(--rose);">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
 
                 return `
-                    <tr>
+                    <tr id="payrow_${p.id}">
                         <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-muted);">${dateStr}</span></td>
                         <td>${cidBadge}</td>
                         <td>
@@ -1164,11 +1764,18 @@
                                 <span class="customer-name">${p.name || 'Customer'}</span>
                             </div>
                         </td>
+                        <td>${teamBadge}</td>
                         <td><span style="font-weight: 600;">${p.package}</span></td>
                         <td><span style="font-size: 0.8rem; font-weight: 600; color: #38BDF8;">${p.provider || 'bKash'}</span></td>
                         <td>${trxBadge}</td>
                         <td><span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--emerald); font-size: 0.95rem;">৳${parseFloat(p.amount || 0).toFixed(2)}</span></td>
                         <td><span style="font-size: 0.78rem; color: var(--text-muted);">${p.notes || 'Verified'}</span></td>
+                        <td style="text-align: right;">
+                            <div class="table-actions" style="justify-content: flex-end;">
+                                <button class="btn-action btn-action-edit" onclick="openEditPaymentModal(${p.id})" title="Edit Transaction">✏️ Edit</button>
+                                <button class="btn-action" onclick="actionDeletePaymentRecord(${p.id})" title="Delete Transaction" style="color: var(--rose);">🗑️</button>
+                            </div>
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -1181,6 +1788,7 @@
                 (p.customer_id && p.customer_id.toString().includes(cleanQuery)) ||
                 (p.email && p.email.toLowerCase().includes(query)) ||
                 (p.name && p.name.toLowerCase().includes(query)) ||
+                (p.team_name && p.team_name.toLowerCase().includes(query)) ||
                 (p.trx_id && p.trx_id.toLowerCase().includes(query)) ||
                 (p.provider && p.provider.toLowerCase().includes(query)) ||
                 (p.package && p.package.toLowerCase().includes(query)) ||
@@ -1189,8 +1797,120 @@
             renderPaymentsTable(filtered);
         }
 
-        // Modal Controls
+        async function saveInlinePayment(payId) {
+            const amount = parseFloat(document.getElementById(`pay_amt_${payId}`).value);
+            const provider = document.getElementById(`pay_prov_${payId}`).value;
+            const team_name = document.getElementById(`pay_team_${payId}`).value;
+            const package = document.getElementById(`pay_pkg_${payId}`).value;
+            const trx_id = document.getElementById(`pay_trx_${payId}`).value.trim();
+            const notes = document.getElementById(`pay_notes_${payId}`).value.trim();
+
+            const saveBtn = document.getElementById(`paysave_${payId}`);
+            if (saveBtn) {
+                saveBtn.textContent = "Saving...";
+                saveBtn.disabled = true;
+            }
+
+            await fetch("/api/payment/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: payId,
+                    fields: { amount, provider, team_name, package, trx_id, notes }
+                })
+            });
+
+            dirtyPayRows.delete(payId);
+            loadDashboardData();
+        }
+
+        function openEditPaymentModal(payId) {
+            const p = allPayments.find(item => item.id == payId);
+            if (!p) return;
+
+            document.getElementById("editPayId").value = p.id;
+            document.getElementById("editPayIdBadge").textContent = `Trx #${p.id} (${p.email})`;
+            document.getElementById("editPayAmount").value = p.amount;
+            document.getElementById("editPayProvider").value = p.provider || "bKash";
+            document.getElementById("editPayPackage").value = p.package || "3 Months";
+            document.getElementById("editPayTrxId").value = p.trx_id || "";
+            document.getElementById("editPayPaidAt").value = p.paid_at || "";
+            document.getElementById("editPayNotes").value = p.notes || "";
+
+            populateTeamSelects();
+            document.getElementById("editPayTeam").value = p.team_name || "Carmella Elan";
+
+            document.getElementById("editPaymentModal").classList.add("active");
+        }
+
+        async function handleSavePaymentEdit(e) {
+            e.preventDefault();
+            const payId = parseInt(document.getElementById("editPayId").value);
+            const amount = parseFloat(document.getElementById("editPayAmount").value);
+            const provider = document.getElementById("editPayProvider").value;
+            const team_name = document.getElementById("editPayTeam").value;
+            const package = document.getElementById("editPayPackage").value;
+            const trx_id = document.getElementById("editPayTrxId").value.trim();
+            const paid_at = document.getElementById("editPayPaidAt").value.trim();
+            const notes = document.getElementById("editPayNotes").value.trim();
+
+            const saveBtn = e.target.querySelector(".btn-save");
+            if (saveBtn) saveBtn.textContent = "Saving...";
+
+            await fetch("/api/payment/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: payId,
+                    fields: { amount, provider, team_name, package, trx_id, paid_at, notes }
+                })
+            });
+
+            closeModal("editPaymentModal");
+            loadDashboardData();
+        }
+
+        async function actionDeletePaymentRecord(id) {
+            if (confirm(`Permanently delete transaction record #${id}?`)) {
+                await fetch("/api/payment/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: parseInt(id) })
+                });
+                closeModal("editPaymentModal");
+                loadDashboardData();
+            }
+        }
+
+        // ==================== TEAM MANAGEMENT ====================
+
+        function openAddTeamModal() {
+            document.getElementById("newTeamInput").value = "";
+            document.getElementById("addTeamModal").classList.add("active");
+        }
+
+        async function handleAddTeam(e) {
+            e.preventDefault();
+            const team_name = document.getElementById("newTeamInput").value.trim();
+            if (!team_name) return;
+
+            await fetch("/api/team/add", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ team_name })
+            });
+
+            closeModal("addTeamModal");
+            setTeamFilter(team_name);
+        }
+
+        // ==================== OTHER MODALS & ACTIONS ====================
+
         function openAddModal() {
+            populateTeamSelects();
+            if (currentTeamFilter !== "all") {
+                document.getElementById("addTeamSelect").value = currentTeamFilter;
+            }
             document.getElementById("addModal").classList.add("active");
         }
 
@@ -1200,13 +1920,11 @@
             document.getElementById("extendModal").classList.add("active");
         }
 
-        function openTeamModal() {
-            const curr = document.getElementById("headerTeamName").textContent.trim();
-            document.getElementById("inputTeamName").value = curr;
-            document.getElementById("teamModal").classList.add("active");
-        }
-
         function openRecordPaymentModal() {
+            populateTeamSelects();
+            if (currentTeamFilter !== "all") {
+                document.getElementById("payTeamSelect").value = currentTeamFilter;
+            }
             document.getElementById("recordPayModal").classList.add("active");
         }
 
@@ -1219,11 +1937,11 @@
             document.getElementById("addPaidFields").style.display = isPaid ? "block" : "none";
         }
 
-        // API Actions
         async function handleAddSubscriber(e) {
             e.preventDefault();
             const email = document.getElementById("addEmail").value.trim();
             const name = document.getElementById("addName").value.trim();
+            const team_name = document.getElementById("addTeamSelect").value;
             const pkg = document.getElementById("addPackage").value;
             const isPaid = document.getElementById("addIsPaid").checked;
             const provider = document.getElementById("addProvider").value;
@@ -1232,7 +1950,7 @@
             await fetch("/api/subscriber/add", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, name, package: pkg, is_paid: isPaid, provider, trx_id: trxId })
+                body: JSON.stringify({ email, name, package: pkg, is_paid: isPaid, provider, trx_id: trxId, team_name })
             });
 
             closeModal("addModal");
@@ -1259,25 +1977,11 @@
             loadDashboardData();
         }
 
-        async function handleUpdateTeamName(e) {
-            e.preventDefault();
-            const team_name = document.getElementById("inputTeamName").value.trim();
-            if (!team_name) return;
-
-            await fetch("/api/team/update", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ team_name })
-            });
-
-            closeModal("teamModal");
-            loadDashboardData();
-        }
-
         async function handleRecordManualPayment(e) {
             e.preventDefault();
             const email = document.getElementById("payEmail").value.trim();
             const amount = parseFloat(document.getElementById("payAmount").value);
+            const team_name = document.getElementById("payTeamSelect").value;
             const provider = document.getElementById("payProvider").value;
             const trx_id = document.getElementById("payTrxId").value.trim();
             const pkg = document.getElementById("payPackage").value;
@@ -1286,7 +1990,7 @@
             await fetch("/api/payment/add", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, amount, provider, trx_id, package: pkg, notes })
+                body: JSON.stringify({ email, amount, provider, trx_id, package: pkg, notes, team_name })
             });
 
             closeModal("recordPayModal");
@@ -1315,8 +2019,7 @@
             });
             const data = await res.json();
             if (data && data.link) {
-                prompt(`⚡ 10-Minute Single-User Canva Invite Link for ${email}:
-(Copy and send to customer)`, data.link);
+                prompt(`⚡ 10-Minute Single-User Canva Invite Link for ${email}:\n(Copy and send to customer)`, data.link);
             }
         }
 

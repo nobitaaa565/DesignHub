@@ -45,7 +45,13 @@ from subscription_manager import (
     get_all_payments,
     get_total_earnings,
     get_canva_team_name,
-    set_canva_team_name
+    set_canva_team_name,
+    update_subscriber,
+    update_payment,
+    delete_payment,
+    get_all_teams,
+    add_team,
+    delete_team
 )
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
@@ -1676,26 +1682,45 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Design Hub Bot is Active & Running 24/7!\n")
             return
 
-        if self.path == "/api/subscribers":
+        parsed_url = urllib.parse.urlparse(self.path)
+        path_only = parsed_url.path
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+        team_filter = query_params.get("team", ["all"])[0].strip()
+
+        if path_only == "/api/subscribers":
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
             data = {
-                "stats": get_db_stats(),
-                "subscribers": list_subscribers(),
+                "stats": get_db_stats(team_filter),
+                "subscribers": list_subscribers(team_filter=team_filter),
+                "teams": get_all_teams(),
                 "team_name": get_canva_team_name(),
-                "earnings": get_total_earnings()
+                "active_team": team_filter if team_filter.lower() != "all" else get_canva_team_name(),
+                "earnings": get_total_earnings(team_filter)
             }
             self.wfile.write(json.dumps(data).encode("utf-8"))
             return
 
-        if self.path == "/api/payments":
+        if path_only == "/api/payments":
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
             data = {
-                "payments": get_all_payments(),
-                "earnings": get_total_earnings()
+                "payments": get_all_payments(team_filter=team_filter),
+                "earnings": get_total_earnings(team_filter),
+                "teams": get_all_teams()
+            }
+            self.wfile.write(json.dumps(data).encode("utf-8"))
+            return
+
+        if path_only == "/api/teams":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            data = {
+                "teams": get_all_teams(),
+                "active_team": get_canva_team_name()
             }
             self.wfile.write(json.dumps(data).encode("utf-8"))
             return
@@ -1743,6 +1768,48 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             else:
                 res = {"status": "error", "message": "Team name cannot be empty"}
 
+        elif self.path == "/api/subscriber/update":
+            email = payload.get("email", "")
+            fields = payload.get("fields", {})
+            if email and fields:
+                sub = update_subscriber(email, fields)
+                res = {"status": "ok", "subscriber": sub}
+            else:
+                res = {"status": "error", "message": "Email and fields are required"}
+
+        elif self.path == "/api/payment/update":
+            pay_id = payload.get("id")
+            fields = payload.get("fields", {})
+            if pay_id is not None and fields:
+                p = update_payment(pay_id, fields)
+                res = {"status": "ok", "payment": p}
+            else:
+                res = {"status": "error", "message": "Payment ID and fields are required"}
+
+        elif self.path == "/api/payment/delete":
+            pay_id = payload.get("id")
+            if pay_id is not None:
+                delete_payment(pay_id)
+                res = {"status": "ok"}
+            else:
+                res = {"status": "error", "message": "Payment ID is required"}
+
+        elif self.path == "/api/team/add":
+            team_name = payload.get("team_name", "").strip()
+            if team_name:
+                add_team(team_name)
+                res = {"status": "ok", "teams": get_all_teams()}
+            else:
+                res = {"status": "error", "message": "Team name cannot be empty"}
+
+        elif self.path == "/api/team/delete":
+            team_name = payload.get("team_name", "").strip()
+            if team_name:
+                delete_team(team_name)
+                res = {"status": "ok", "teams": get_all_teams()}
+            else:
+                res = {"status": "error", "message": "Team name cannot be empty"}
+
         elif self.path == "/api/payment/add":
             email = payload.get("email", "").strip()
             amount = payload.get("amount")
@@ -1750,8 +1817,9 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             trx_id = payload.get("trx_id", "")
             pkg = payload.get("package", "1m")
             notes = payload.get("notes", "Manual Entry")
+            team_name = payload.get("team_name", None)
             if email:
-                rec = record_payment(email, amount=amount, provider=provider, trx_id=trx_id, package=pkg, notes=notes)
+                rec = record_payment(email, amount=amount, provider=provider, trx_id=trx_id, package=pkg, notes=notes, team_name=team_name)
                 res = {"status": "ok", "payment": rec}
             else:
                 res = {"status": "error", "message": "Email is required"}
@@ -1764,8 +1832,9 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             trx_id = payload.get("trx_id", "")
             amount = payload.get("amount")
             provider = payload.get("provider", "bKash")
+            team_name = payload.get("team_name", None)
             if email:
-                add_subscriber(email, pkg, name)
+                add_subscriber(email, pkg, name, team_name=team_name)
                 if is_paid:
                     mark_paid(email, trx_id=trx_id, amount=amount, provider=provider)
 

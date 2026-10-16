@@ -55,6 +55,13 @@ def init_db():
         if "pending_telegram_msg_id" not in cols:
             c.execute("ALTER TABLE subscriptions ADD COLUMN pending_telegram_msg_id INTEGER")
 
+        # Ensure team_name column in subscriptions
+        c.execute("PRAGMA table_info(subscriptions)")
+        sub_cols = [col[1] for col in c.fetchall()]
+        if "team_name" not in sub_cols:
+            c.execute("ALTER TABLE subscriptions ADD COLUMN team_name TEXT DEFAULT 'Carmella Elan'")
+        c.execute("UPDATE subscriptions SET team_name = 'Carmella Elan' WHERE team_name IS NULL OR team_name = ''")
+
         # Payments table for revenue tracking & ledger
         c.execute("""
             CREATE TABLE IF NOT EXISTS payments (
@@ -68,9 +75,25 @@ def init_db():
                 provider TEXT DEFAULT 'bKash',
                 trx_id TEXT DEFAULT '',
                 paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                notes TEXT DEFAULT ''
+                notes TEXT DEFAULT '',
+                team_name TEXT DEFAULT 'Carmella Elan'
             )
         """)
+        c.execute("PRAGMA table_info(payments)")
+        pay_cols = [col[1] for col in c.fetchall()]
+        if "team_name" not in pay_cols:
+            c.execute("ALTER TABLE payments ADD COLUMN team_name TEXT DEFAULT 'Carmella Elan'")
+        c.execute("UPDATE payments SET team_name = 'Carmella Elan' WHERE team_name IS NULL OR team_name = ''")
+
+        # Teams table
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS teams (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        c.execute("INSERT OR IGNORE INTO teams (name) VALUES ('Carmella Elan')")
 
         # Settings table for active team name and system config
         c.execute("""
@@ -170,7 +193,57 @@ def parse_package(pkg: str):
     return "1 Month", 30, 25
 
 
-def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id: str = "") -> dict:
+def get_all_teams() -> list:
+    """Returns a list of all distinct Canva teams."""
+    init_db()
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT name FROM teams ORDER BY name ASC")
+        db_teams = [r[0].strip() for r in c.fetchall() if r[0] and r[0].strip()]
+        
+        # Include any distinct team_name from subscriptions and payments
+        c.execute("SELECT DISTINCT team_name FROM subscriptions WHERE team_name IS NOT NULL AND team_name != ''")
+        for r in c.fetchall():
+            t = r[0].strip()
+            if t and t not in db_teams:
+                db_teams.append(t)
+                
+        c.execute("SELECT DISTINCT team_name FROM payments WHERE team_name IS NOT NULL AND team_name != ''")
+        for r in c.fetchall():
+            t = r[0].strip()
+            if t and t not in db_teams:
+                db_teams.append(t)
+                
+        if not db_teams:
+            db_teams = ["Carmella Elan"]
+        return sorted(list(set(db_teams)))
+
+
+def add_team(name: str) -> str:
+    """Adds a new Canva Team name to the database."""
+    init_db()
+    clean_name = str(name).strip()
+    if not clean_name:
+        return "Carmella Elan"
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("INSERT OR IGNORE INTO teams (name) VALUES (?)", (clean_name,))
+        conn.commit()
+    return clean_name
+
+
+def delete_team(name: str) -> bool:
+    """Deletes a Canva Team name from the teams table."""
+    init_db()
+    clean_name = str(name).strip()
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("DELETE FROM teams WHERE name = ?", (clean_name,))
+        conn.commit()
+        return c.rowcount > 0
+
+
+def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id: str = "", team_name: str = None) -> dict:
     init_db()
     pkg_name, days, price = parse_package(package)
     now = datetime.now()
@@ -179,24 +252,28 @@ def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id
     exp_str = exp.strftime("%Y-%m-%d %H:%M:%S")
     clean_email = email.lower().strip()
     clean_sender = str(fb_sender_id).strip() if fb_sender_id else ""
+    assigned_team = (team_name or get_canva_team_name() or "Carmella Elan").strip()
+    add_team(assigned_team)
 
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("SELECT customer_id, fb_sender_id FROM subscriptions WHERE email = ?", (clean_email,))
+        c.execute("SELECT customer_id, fb_sender_id, team_name FROM subscriptions WHERE email = ?", (clean_email,))
         existing = c.fetchone()
         if existing and existing[0]:
             assigned_id = existing[0]
             existing_sender = existing[1] or ""
             sender_to_save = clean_sender or existing_sender
+            final_team = assigned_team if team_name else (existing[2] or assigned_team)
         else:
             c.execute("SELECT MAX(customer_id) FROM subscriptions WHERE customer_id >= 800")
             max_row = c.fetchone()
             assigned_id = 800 if (not max_row or max_row[0] is None) else (max_row[0] + 1)
             sender_to_save = clean_sender
+            final_team = assigned_team
 
         c.execute("""
-            INSERT INTO subscriptions (email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id)
-            VALUES (?, ?, ?, ?, ?, ?, 'PENDING', 'active', ?, ?)
+            INSERT INTO subscriptions (email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, team_name)
+            VALUES (?, ?, ?, ?, ?, ?, 'PENDING', 'active', ?, ?, ?)
             ON CONFLICT(email) DO UPDATE SET
                 package=excluded.package,
                 days=excluded.days,
@@ -205,8 +282,9 @@ def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id
                 payment_status='PENDING',
                 status='active',
                 customer_id=COALESCE(subscriptions.customer_id, excluded.customer_id),
-                fb_sender_id=CASE WHEN excluded.fb_sender_id != '' THEN excluded.fb_sender_id ELSE subscriptions.fb_sender_id END
-        """, (clean_email, name.strip(), pkg_name, days, now_str, exp_str, assigned_id, sender_to_save))
+                fb_sender_id=CASE WHEN excluded.fb_sender_id != '' THEN excluded.fb_sender_id ELSE subscriptions.fb_sender_id END,
+                team_name=COALESCE(excluded.team_name, subscriptions.team_name)
+        """, (clean_email, name.strip(), pkg_name, days, now_str, exp_str, assigned_id, sender_to_save, final_team))
         conn.commit()
 
     return {
@@ -219,7 +297,8 @@ def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id
         "expires_at": exp_str,
         "payment_status": "PENDING",
         "status": "active",
-        "fb_sender_id": sender_to_save
+        "fb_sender_id": sender_to_save,
+        "team_name": final_team
     }
 
 
@@ -229,24 +308,30 @@ def record_payment(
     provider: str = "bKash",
     trx_id: str = "",
     package: str = None,
-    notes: str = ""
+    notes: str = "",
+    team_name: str = None
 ) -> dict:
     """Records a verified payment into the revenue ledger table."""
     init_db()
     clean_email = resolve_email(identifier)
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("SELECT customer_id, name, package, trx_id FROM subscriptions WHERE email = ?", (clean_email,))
+        c.execute("SELECT customer_id, name, package, trx_id, team_name FROM subscriptions WHERE email = ?", (clean_email,))
         row = c.fetchone()
         cid = 800
         name = "Customer"
         pkg_name = "1 Month"
         saved_trx = ""
+        sub_team = "Carmella Elan"
         if row:
             cid = row[0] or 800
             name = row[1] or "Customer"
             pkg_name = row[2] or "1 Month"
             saved_trx = row[3] or ""
+            sub_team = row[4] or "Carmella Elan"
+
+        final_team = (team_name or sub_team or get_canva_team_name() or "Carmella Elan").strip()
+        add_team(final_team)
 
         if package:
             pkg_name, _, resolved_price = parse_package(package)
@@ -259,9 +344,9 @@ def record_payment(
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         c.execute("""
-            INSERT INTO payments (customer_id, email, name, package, amount, currency, provider, trx_id, paid_at, notes)
-            VALUES (?, ?, ?, ?, ?, 'BDT', ?, ?, ?, ?)
-        """, (cid, clean_email, name, pkg_name, final_amount, final_provider, final_trx, now_str, notes))
+            INSERT INTO payments (customer_id, email, name, package, amount, currency, provider, trx_id, paid_at, notes, team_name)
+            VALUES (?, ?, ?, ?, ?, 'BDT', ?, ?, ?, ?, ?)
+        """, (cid, clean_email, name, pkg_name, final_amount, final_provider, final_trx, now_str, notes, final_team))
         pay_id = c.lastrowid
         conn.commit()
 
@@ -275,21 +360,98 @@ def record_payment(
             "provider": final_provider,
             "trx_id": final_trx,
             "paid_at": now_str,
-            "notes": notes
+            "notes": notes,
+            "team_name": final_team
         }
 
 
-def get_all_payments(limit: int = 200) -> list:
-    """Fetches the recent payment transaction history ledger."""
+def update_payment(payment_id: int, fields: dict) -> dict:
+    """Updates an existing payment transaction in the ledger."""
+    init_db()
+    allowed_fields = [
+        "amount", "provider", "trx_id", "package", 
+        "team_name", "paid_at", "notes", "email", "name"
+    ]
+    updates = {}
+    for k, v in fields.items():
+        if k in allowed_fields and v is not None:
+            if k == "amount":
+                try:
+                    updates[k] = float(v)
+                except Exception:
+                    pass
+            else:
+                updates[k] = v.strip() if isinstance(v, str) else v
+
+    if not updates:
+        return None
+
+    if "team_name" in updates and updates["team_name"]:
+        add_team(updates["team_name"])
+
+    set_clauses = [f"{k} = ?" for k in updates.keys()]
+    values = list(updates.values())
+    values.append(int(payment_id))
+
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute(f"UPDATE payments SET {', '.join(set_clauses)} WHERE id = ?", tuple(values))
+        conn.commit()
+        
+        c.execute("SELECT id, customer_id, email, name, package, amount, currency, provider, trx_id, paid_at, notes, team_name FROM payments WHERE id = ?", (int(payment_id),))
+        r = c.fetchone()
+        if r:
+            return {
+                "id": r[0],
+                "customer_id": r[1] or 800,
+                "email": r[2],
+                "name": r[3] or "",
+                "package": r[4],
+                "amount": float(r[5]),
+                "currency": r[6] or "BDT",
+                "provider": r[7] or "bKash",
+                "trx_id": r[8] or "",
+                "paid_at": r[9],
+                "notes": r[10] or "",
+                "team_name": r[11] or "Carmella Elan"
+            }
+    return None
+
+
+def delete_payment(payment_id: int) -> bool:
+    """Deletes a payment record from the payments ledger."""
     init_db()
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("""
-            SELECT id, customer_id, email, name, package, amount, currency, provider, trx_id, paid_at, notes
+        c.execute("DELETE FROM payments WHERE id = ?", (int(payment_id),))
+        conn.commit()
+        return c.rowcount > 0
+
+
+def get_all_payments(limit: int = 200, team_filter: str = None) -> list:
+    """Fetches the recent payment transaction history ledger, optionally filtered by team."""
+    init_db()
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        query = """
+            SELECT id, customer_id, email, name, package, amount, currency, provider, trx_id, paid_at, notes, COALESCE(team_name, 'Carmella Elan')
             FROM payments
-            ORDER BY paid_at DESC, id DESC
-            LIMIT ?
-        """, (limit,))
+        """
+        params = []
+        if team_filter and team_filter.lower() not in ("all", "all teams", ""):
+            if "," in team_filter:
+                teams = [t.strip() for t in team_filter.split(",") if t.strip()]
+                placeholders = ",".join("?" for _ in teams)
+                query += f" WHERE COALESCE(team_name, 'Carmella Elan') IN ({placeholders})"
+                params.extend(teams)
+            else:
+                query += " WHERE COALESCE(team_name, 'Carmella Elan') = ?"
+                params.append(team_filter.strip())
+
+        query += " ORDER BY paid_at DESC, id DESC LIMIT ?"
+        params.append(limit)
+
+        c.execute(query, tuple(params))
         rows = c.fetchall()
         return [
             {
@@ -303,18 +465,31 @@ def get_all_payments(limit: int = 200) -> list:
                 "provider": r[7] or "bKash",
                 "trx_id": r[8] or "",
                 "paid_at": r[9],
-                "notes": r[10] or ""
+                "notes": r[10] or "",
+                "team_name": r[11] or "Carmella Elan"
             }
             for r in rows
         ]
 
 
-def get_total_earnings() -> dict:
-    """Calculates total earnings in BDT and count of verified payments."""
+def get_total_earnings(team_filter: str = None) -> dict:
+    """Calculates total earnings in BDT and count of verified payments, optionally filtered by team."""
     init_db()
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM payments")
+        query = "SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM payments"
+        params = []
+        if team_filter and team_filter.lower() not in ("all", "all teams", ""):
+            if "," in team_filter:
+                teams = [t.strip() for t in team_filter.split(",") if t.strip()]
+                placeholders = ",".join("?" for _ in teams)
+                query += f" WHERE COALESCE(team_name, 'Carmella Elan') IN ({placeholders})"
+                params.extend(teams)
+            else:
+                query += " WHERE COALESCE(team_name, 'Carmella Elan') = ?"
+                params.append(team_filter.strip())
+
+        c.execute(query, tuple(params))
         row = c.fetchone()
         total_bdt = float(row[0] or 0.0)
         total_tx = int(row[1] or 0)
@@ -462,12 +637,12 @@ def get_subscriber(identifier: str) -> dict:
         c = conn.cursor()
         if clean.isdigit():
             c.execute("""
-                SELECT email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id 
+                SELECT email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan')
                 FROM subscriptions WHERE customer_id = ?
             """, (int(clean),))
         else:
             c.execute("""
-                SELECT email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id 
+                SELECT email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan')
                 FROM subscriptions WHERE email = ?
             """, (raw.lower(),))
         row = c.fetchone()
@@ -484,24 +659,83 @@ def get_subscriber(identifier: str) -> dict:
             "status": row[7],
             "customer_id": row[8] or 800,
             "fb_sender_id": row[9] or "",
-            "trx_id": row[10] or ""
+            "trx_id": row[10] or "",
+            "team_name": row[11] or "Carmella Elan"
         }
 
 
-def list_subscribers(status_filter: str = None) -> list:
+def update_subscriber(identifier: str, fields: dict) -> dict:
+    """
+    Updates any editable attributes for a customer (name, email, package, expires_at, payment_status, status, trx_id, team_name, notes).
+    """
+    init_db()
+    clean_email = resolve_email(identifier)
+    allowed_fields = [
+        "name", "email", "package", "expires_at", 
+        "payment_status", "status", "trx_id", "team_name", "notes"
+    ]
+    updates = {}
+    for k, v in fields.items():
+        if k in allowed_fields and v is not None:
+            updates[k] = v.strip() if isinstance(v, str) else v
+
+    if not updates:
+        return get_subscriber(clean_email)
+
+    if "team_name" in updates and updates["team_name"]:
+        add_team(updates["team_name"])
+
+    new_email = updates.get("email", "").lower().strip()
+    if new_email and new_email != clean_email:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id FROM subscriptions WHERE email = ?", (new_email,))
+            if c.fetchone():
+                del updates["email"]
+            else:
+                updates["email"] = new_email
+
+    set_clauses = [f"{k} = ?" for k in updates.keys()]
+    values = list(updates.values())
+    values.append(clean_email)
+
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute(f"UPDATE subscriptions SET {', '.join(set_clauses)} WHERE email = ?", tuple(values))
+        conn.commit()
+
+    target_email = updates.get("email", clean_email)
+    return get_subscriber(target_email)
+
+
+def list_subscribers(status_filter: str = None, team_filter: str = None) -> list:
     init_db()
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         query = """
-            SELECT email, name, package, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id 
+            SELECT email, name, package, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan')
             FROM subscriptions
         """
+        conditions = []
+        params = []
         if status_filter:
-            query += " WHERE status = ? ORDER BY customer_id DESC, id DESC LIMIT 50"
-            c.execute(query, (status_filter,))
-        else:
-            query += " ORDER BY customer_id DESC, id DESC LIMIT 50"
-            c.execute(query)
+            conditions.append("status = ?")
+            params.append(status_filter)
+        if team_filter and team_filter.lower() not in ("all", "all teams", ""):
+            if "," in team_filter:
+                teams = [t.strip() for t in team_filter.split(",") if t.strip()]
+                placeholders = ",".join("?" for _ in teams)
+                conditions.append(f"COALESCE(team_name, 'Carmella Elan') IN ({placeholders})")
+                params.extend(teams)
+            else:
+                conditions.append("COALESCE(team_name, 'Carmella Elan') = ?")
+                params.append(team_filter.strip())
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY customer_id DESC, id DESC LIMIT 100"
+
+        c.execute(query, tuple(params))
         rows = c.fetchall()
         return [
             {
@@ -513,41 +747,52 @@ def list_subscribers(status_filter: str = None) -> list:
                 "status": r[5],
                 "customer_id": r[6] or 800,
                 "fb_sender_id": r[7] or "",
-                "trx_id": r[8] or ""
+                "trx_id": r[8] or "",
+                "team_name": r[9] or "Carmella Elan"
             }
             for r in rows
         ]
 
 
-def get_db_stats() -> dict:
+def get_db_stats(team_filter: str = None) -> dict:
     init_db()
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM subscriptions")
+        cond = ""
+        params = []
+        if team_filter and team_filter.lower() not in ("all", "all teams", ""):
+            if "," in team_filter:
+                teams = [t.strip() for t in team_filter.split(",") if t.strip()]
+                placeholders = ",".join("?" for _ in teams)
+                cond = f" AND COALESCE(team_name, 'Carmella Elan') IN ({placeholders})"
+                params.extend(teams)
+            else:
+                cond = " AND COALESCE(team_name, 'Carmella Elan') = ?"
+                params.append(team_filter.strip())
+
+        c.execute(f"SELECT COUNT(*) FROM subscriptions WHERE 1=1 {cond}", tuple(params))
         total = c.fetchone()[0]
 
-        c.execute("SELECT COUNT(*) FROM subscriptions WHERE payment_status = 'PAID' AND status = 'active'")
+        c.execute(f"SELECT COUNT(*) FROM subscriptions WHERE payment_status = 'PAID' AND status = 'active' {cond}", tuple(params))
         active_paid = c.fetchone()[0]
 
-        c.execute("SELECT COUNT(*) FROM subscriptions WHERE payment_status = 'PENDING' AND status = 'active'")
+        c.execute(f"SELECT COUNT(*) FROM subscriptions WHERE payment_status = 'PENDING' AND status = 'active' {cond}", tuple(params))
         pending = c.fetchone()[0]
 
-        c.execute("SELECT COUNT(*) FROM subscriptions WHERE status = 'kicked'")
+        c.execute(f"SELECT COUNT(*) FROM subscriptions WHERE status = 'kicked' {cond}", tuple(params))
         kicked = c.fetchone()[0]
 
-        c.execute("SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM payments")
-        earn_row = c.fetchone()
-        total_earnings = earn_row[0] or 0.0
-        total_payments = earn_row[1] or 0
+        earnings_info = get_total_earnings(team_filter=team_filter)
 
         return {
             "total": total,
             "active_paid": active_paid,
             "pending": pending,
             "kicked": kicked,
-            "total_earnings": round(float(total_earnings), 2),
-            "total_payments": total_payments,
-            "canva_team_name": get_canva_team_name()
+            "total_earnings": earnings_info["total_bdt"],
+            "total_payments": earnings_info["total_count"],
+            "canva_team_name": get_canva_team_name(),
+            "all_teams": get_all_teams()
         }
 
 
