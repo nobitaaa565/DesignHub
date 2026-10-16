@@ -40,7 +40,12 @@ from subscription_manager import (
     make_subscriber_keyboard,
     format_subscriber_card,
     get_subscribers_expiring_soon,
-    clear_pending_telegram_msg
+    clear_pending_telegram_msg,
+    record_payment,
+    get_all_payments,
+    get_total_earnings,
+    get_canva_team_name,
+    set_canva_team_name
 )
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
@@ -579,24 +584,87 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     replied_ids = load_replied_ids()
 
     stats = get_db_stats()
+    earnings = get_total_earnings()
+    team_name = get_canva_team_name()
     status_msg = (
         f"📊 *Design Hub — System Status*\n"
         f"────────────────────────\n"
+        f"🎨 *Active Canva Team:* `{team_name}`\n"
+        f"💰 *Total Revenue Earned:* `৳{earnings['total_bdt']:,.2f}` BDT ({earnings['total_count']} payments)\n"
         f"🌐 *Facebook Page:* {fb_status}\n"
         f"🆔 *Page ID:* `{FB_PAGE_ID}`\n"
         f"💬 *Comment Auto-Responder:* 🟢 Active (Every 60s)\n"
         f"📬 *Comments Handled:* `{len(replied_ids)}`\n"
         f"🤖 *AI Vision & Engine:* 🟢 Gemini 3.8 Flash\n"
         f"────────────────────────\n"
-        f"👥 *Customer & Subscription Overview:*\n"
+        f"👥 *Customer Overview:*\n"
         f"• 👥 *Total Customers:* `{stats['total']}`\n"
         f"• 🟢 *Active Paid Members:* `{stats['active_paid']}`\n"
         f"• 🟡 *Pending Payments:* `{stats['pending']}`\n"
         f"• 🔴 *Kicked / Revoked:* `{stats['kicked']}`\n"
         f"────────────────────────\n"
-        f"💡 *Commands:* `/subs` to list members | `/add` to enroll"
+        f"💡 *Commands:* `/earnings` for ledger | `/team` for Canva team"
     )
     await update.message.reply_text(status_msg, parse_mode="Markdown")
+
+
+async def team_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+    args = context.args
+    if args:
+        new_name = " ".join(args).strip()
+        saved = set_canva_team_name(new_name)
+        await update.message.reply_text(
+            f"✅ *Canva Team Name Updated!*\n"
+            f"────────────────────────\n"
+            f"🎨 *Active Team:* `{saved}`\n"
+            f"🌐 Synced to Web Dashboard & Messenger Funnel\n"
+            f"🔗 [Open Canva Seat Roster](https://www.canva.com/settings/team-members)",
+            parse_mode="Markdown"
+        )
+    else:
+        curr = get_canva_team_name()
+        await update.message.reply_text(
+            f"🎨 *Design Hub — Active Canva Team*\n"
+            f"────────────────────────\n"
+            f"📌 *Current Team Name:* `{curr}`\n"
+            f"🔗 [Manage Seats in Canva Settings](https://www.canva.com/settings/team-members)\n\n"
+            f"✏️ *To change team name:*\n"
+            f"`/team <New Team Name>`\n"
+            f"Example: `/team Carmella Elan`",
+            parse_mode="Markdown"
+        )
+
+
+async def earnings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not check_auth(user.id):
+        return
+    earnings = get_total_earnings()
+    stats = get_db_stats()
+    payments = get_all_payments(limit=5)
+    
+    rec_lines = []
+    for p in payments:
+        trx_str = f" (`{p['trx_id']}`)" if p['trx_id'] else ""
+        rec_lines.append(f"• ৳{p['amount']:.2f} — #{p['customer_id']} ({p['package']}){trx_str}")
+    rec_str = "\n".join(rec_lines) if rec_lines else "No transactions recorded yet."
+
+    await update.message.reply_text(
+        f"💰 *Design Hub — Revenue & Earnings*\n"
+        f"────────────────────────\n"
+        f"💵 *Total Earned:* `৳{earnings['total_bdt']:,.2f}` BDT\n"
+        f"🧾 *Total Payments:* `{earnings['total_count']}` verified\n"
+        f"👥 *Active Paid Users:* `{stats['active_paid']}`\n"
+        f"🎨 *Canva Team:* `{get_canva_team_name()}`\n"
+        f"────────────────────────\n"
+        f"📜 *Recent Payments:*\n"
+        f"{rec_str}\n\n"
+        f"🌐 [Open Minimal Web Dashboard](https://designhub-1any.onrender.com)",
+        parse_mode="Markdown"
+    )
 
 
 async def scan_comments_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1614,7 +1682,20 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             self.end_headers()
             data = {
                 "stats": get_db_stats(),
-                "subscribers": list_subscribers()
+                "subscribers": list_subscribers(),
+                "team_name": get_canva_team_name(),
+                "earnings": get_total_earnings()
+            }
+            self.wfile.write(json.dumps(data).encode("utf-8"))
+            return
+
+        if self.path == "/api/payments":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            data = {
+                "payments": get_all_payments(),
+                "earnings": get_total_earnings()
             }
             self.wfile.write(json.dumps(data).encode("utf-8"))
             return
@@ -1654,18 +1735,47 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                 "expires_at": link_info["expires_at"]
             }
 
+        elif self.path == "/api/team/update":
+            team_name = payload.get("team_name", "").strip()
+            if team_name:
+                saved = set_canva_team_name(team_name)
+                res = {"status": "ok", "team_name": saved}
+            else:
+                res = {"status": "error", "message": "Team name cannot be empty"}
+
+        elif self.path == "/api/payment/add":
+            email = payload.get("email", "").strip()
+            amount = payload.get("amount")
+            provider = payload.get("provider", "bKash")
+            trx_id = payload.get("trx_id", "")
+            pkg = payload.get("package", "1m")
+            notes = payload.get("notes", "Manual Entry")
+            if email:
+                rec = record_payment(email, amount=amount, provider=provider, trx_id=trx_id, package=pkg, notes=notes)
+                res = {"status": "ok", "payment": rec}
+            else:
+                res = {"status": "error", "message": "Email is required"}
+
         elif self.path == "/api/subscriber/add":
             email = payload.get("email", "")
             pkg = payload.get("package", "3m")
             name = payload.get("name", "")
+            is_paid = payload.get("is_paid", False)
+            trx_id = payload.get("trx_id", "")
+            amount = payload.get("amount")
+            provider = payload.get("provider", "bKash")
             if email:
                 add_subscriber(email, pkg, name)
+                if is_paid:
+                    mark_paid(email, trx_id=trx_id, amount=amount, provider=provider)
 
         elif self.path == "/api/subscriber/paid":
             email = payload.get("email", "")
             trx_id = payload.get("trx_id", "")
+            amount = payload.get("amount")
+            provider = payload.get("provider", "bKash")
             if email:
-                mark_paid(email, trx_id=trx_id)
+                mark_paid(email, trx_id=trx_id, amount=amount, provider=provider)
 
         elif self.path == "/api/subscriber/extend":
             email = payload.get("email", "")
@@ -1707,6 +1817,8 @@ async def post_init(application):
     """Start background async tasks and register Telegram menu button commands."""
     commands = [
         BotCommand("status", "📊 System health & subscriber stats"),
+        BotCommand("earnings", "💰 View total revenue & payment history"),
+        BotCommand("team", "🎨 View & change active Canva Team"),
         BotCommand("subs", "👥 View active & pending subscribers"),
         BotCommand("add", "➕ Add subscriber: /add <email> [pkg]"),
         BotCommand("paid", "✅ Confirm payment: /paid <email>"),
@@ -1755,6 +1867,8 @@ def main():
     app.add_handler(CommandHandler("subscribers", list_subs_command))
     app.add_handler(CommandHandler("check", check_sub_command))
     app.add_handler(CommandHandler("remind", remind_command))
+    app.add_handler(CommandHandler("team", team_command))
+    app.add_handler(CommandHandler("earnings", earnings_command))
 
     # Messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))

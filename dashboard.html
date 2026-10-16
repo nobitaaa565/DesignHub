@@ -3,61 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Design Hub — Subscriber Command Center</title>
+    <title>Design Hub — Subscriber & Revenue Command Center</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-base: #090D16;
-            --bg-card: rgba(17, 24, 39, 0.7);
-            --bg-card-hover: rgba(30, 41, 59, 0.75);
+            --bg-base: #0B0F17;
+            --bg-surface: #111827;
+            --bg-surface-elevated: #162032;
+            --bg-card: rgba(17, 24, 39, 0.75);
+            --bg-card-hover: rgba(30, 41, 59, 0.65);
             --border: rgba(255, 255, 255, 0.08);
-            --border-focus: rgba(125, 42, 232, 0.5);
+            --border-subtle: rgba(255, 255, 255, 0.05);
+            --border-focus: rgba(125, 42, 232, 0.45);
             --primary: #7D2AE8;
             --primary-glow: rgba(125, 42, 232, 0.25);
             --text-main: #F8FAFC;
             --text-muted: #94A3B8;
+            --text-faint: #64748B;
             --emerald: #10B981;
             --emerald-bg: rgba(16, 185, 129, 0.12);
+            --emerald-border: rgba(16, 185, 129, 0.25);
             --amber: #F59E0B;
             --amber-bg: rgba(245, 158, 11, 0.12);
             --rose: #EF4444;
             --rose-bg: rgba(239, 68, 68, 0.12);
+            --cyan: #00C4CC;
+            --purple-badge: #A78BFA;
+            --purple-badge-bg: rgba(125, 42, 232, 0.14);
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
 
         body {
             background-color: var(--bg-base);
             background-image: 
-                radial-gradient(at 0% 0%, rgba(125, 42, 232, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+                radial-gradient(at 10% 10%, rgba(125, 42, 232, 0.08) 0px, transparent 40%),
+                radial-gradient(at 90% 90%, rgba(16, 185, 129, 0.05) 0px, transparent 40%);
             background-attachment: fixed;
             color: var(--text-main);
             min-height: 100vh;
-            padding: 1.5rem;
+            padding: 1.5rem 1rem;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1240px;
             margin: 0 auto;
         }
 
-        /* Top Navbar */
+        /* Top Header */
         header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding-bottom: 1.5rem;
+            padding-bottom: 1.25rem;
             border-bottom: 1px solid var(--border);
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
             flex-wrap: wrap;
             gap: 1rem;
         }
@@ -65,98 +73,153 @@
         .brand {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.85rem;
         }
 
         .brand-logo {
-            width: 42px;
-            height: 42px;
-            border-radius: 12px;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
             background: linear-gradient(135deg, #7D2AE8, #00C4CC);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 800;
-            font-size: 1.25rem;
+            font-size: 1.15rem;
             color: white;
-            box-shadow: 0 4px 20px var(--primary-glow);
+            box-shadow: 0 4px 16px var(--primary-glow);
         }
 
         .brand-title h1 {
-            font-size: 1.35rem;
+            font-size: 1.25rem;
             font-weight: 800;
             letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .brand-title p {
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             color: var(--text-muted);
         }
 
         .header-actions {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.65rem;
+            flex-wrap: wrap;
         }
 
-        .badge-live {
+        /* Team Name Badge */
+        .team-pill {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.25);
+            gap: 0.45rem;
+            background: rgba(125, 42, 232, 0.12);
+            border: 1px solid rgba(125, 42, 232, 0.3);
+            color: #C4B5FD;
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .team-pill:hover {
+            background: rgba(125, 42, 232, 0.22);
+            border-color: rgba(125, 42, 232, 0.5);
+            transform: translateY(-1px);
+        }
+
+        /* Live Sync Badge */
+        .badge-sync {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid var(--emerald-border);
             color: var(--emerald);
-            padding: 0.4rem 0.85rem;
-            border-radius: 9999px;
-            font-size: 0.78rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.76rem;
             font-weight: 600;
         }
 
         .pulse-dot {
-            width: 8px;
-            height: 8px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
             background: var(--emerald);
-            box-shadow: 0 0 10px var(--emerald);
+            box-shadow: 0 0 8px var(--emerald);
             animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
             0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(0.85); }
+            50% { opacity: 0.4; transform: scale(0.8); }
         }
 
-        /* Stats Grid */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(16px);
+        .btn-icon {
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 1.25rem;
+            color: var(--text-muted);
+            padding: 0.45rem 0.65rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
             transition: all 0.2s ease;
         }
 
+        .btn-icon:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+        }
+
+        .spinning {
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Stats Grid (Minimal Modern Cards) */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.15rem;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
         .stat-card:hover {
-            border-color: var(--border-focus);
-            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.15);
+            background: var(--bg-surface-elevated);
         }
 
         .stat-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.5rem;
         }
 
         .stat-label {
-            font-size: 0.82rem;
+            font-size: 0.75rem;
             color: var(--text-muted);
             font-weight: 600;
             text-transform: uppercase;
@@ -164,46 +227,81 @@
         }
 
         .stat-icon {
-            font-size: 1.25rem;
+            font-size: 1.15rem;
+            opacity: 0.8;
         }
 
         .stat-value {
-            font-size: 2rem;
+            font-size: 1.85rem;
             font-weight: 800;
             letter-spacing: -0.03em;
+            line-height: 1.1;
         }
 
-        /* Controls & Search */
+        .stat-sub {
+            font-size: 0.74rem;
+            color: var(--text-faint);
+            margin-top: 0.35rem;
+        }
+
+        /* Minimal Tabs Navigation */
+        .tabs-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.25rem;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .tab-btn.active {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.08);
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .tab-count {
+            font-size: 0.72rem;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 1px 6px;
+            border-radius: 9999px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Controls Bar */
         .controls-bar {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 1rem;
-            margin-bottom: 1.25rem;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
             flex-wrap: wrap;
         }
 
         .search-box {
             position: relative;
             flex: 1;
-            min-width: 260px;
-        }
-
-        .search-input {
-            width: 100%;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 0.75rem 1rem 0.75rem 2.5rem;
-            color: var(--text-main);
-            font-size: 0.9rem;
-            outline: none;
-            transition: all 0.2s ease;
-        }
-
-        .search-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-glow);
+            min-width: 240px;
         }
 
         .search-icon {
@@ -211,51 +309,67 @@
             left: 0.85rem;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--text-muted);
-            font-size: 0.95rem;
+            color: var(--text-faint);
+            font-size: 0.85rem;
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.65rem 0.85rem 0.65rem 2.25rem;
+            color: var(--text-main);
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--border-focus);
+            background: var(--bg-surface-elevated);
         }
 
         .btn {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.25rem;
-            border-radius: 12px;
-            font-size: 0.88rem;
-            font-weight: 700;
-            cursor: pointer;
+            gap: 0.45rem;
+            padding: 0.6rem 1rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
             border: none;
-            outline: none;
+            cursor: pointer;
             transition: all 0.2s ease;
+            text-decoration: none;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #7D2AE8, #9333EA);
+            background: linear-gradient(135deg, #7D2AE8 0%, #6D28D9 100%);
             color: white;
-            box-shadow: 0 4px 16px var(--primary-glow);
+            box-shadow: 0 4px 14px var(--primary-glow);
         }
 
         .btn-primary:hover {
-            opacity: 0.92;
             transform: translateY(-1px);
+            box-shadow: 0 6px 20px var(--primary-glow);
         }
 
         .btn-secondary {
-            background: var(--bg-card);
-            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--border);
+            color: var(--text-main);
         }
 
         .btn-secondary:hover {
-            background: var(--bg-card-hover);
+            background: rgba(255, 255, 255, 0.09);
         }
 
-        /* Table Card */
+        /* Minimal Tables */
         .card-table {
-            background: var(--bg-card);
-            backdrop-filter: blur(16px);
+            background: var(--bg-surface);
             border: 1px solid var(--border);
-            border-radius: 16px;
+            border-radius: 14px;
             overflow: hidden;
         }
 
@@ -268,63 +382,78 @@
             width: 100%;
             border-collapse: collapse;
             text-align: left;
+            font-size: 0.85rem;
         }
 
         th {
             background: rgba(255, 255, 255, 0.02);
-            padding: 1rem 1.25rem;
-            font-size: 0.78rem;
-            font-weight: 700;
             color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.74rem;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
+            padding: 0.85rem 1rem;
             border-bottom: 1px solid var(--border);
         }
 
         td {
-            padding: 1.1rem 1.25rem;
-            font-size: 0.88rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-main);
             vertical-align: middle;
         }
 
+        tr:last-child td {
+            border-bottom: none;
+        }
+
         tr:hover td {
-            background: rgba(255, 255, 255, 0.015);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Customer & Badges */
+        .cid-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--purple-badge);
+            background: var(--purple-badge-bg);
+            padding: 3px 7px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            border: 1px solid rgba(167, 139, 250, 0.25);
+            display: inline-block;
         }
 
         .customer-info {
             display: flex;
             flex-direction: column;
+            gap: 2px;
         }
 
         .customer-email {
-            font-weight: 700;
+            font-weight: 600;
             color: var(--text-main);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
         }
 
         .customer-name {
-            font-size: 0.78rem;
+            font-size: 0.74rem;
             color: var(--text-muted);
-            margin-top: 2px;
         }
 
         .badge-status {
             display: inline-flex;
             align-items: center;
-            gap: 0.35rem;
-            padding: 0.35rem 0.7rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
+            gap: 0.3rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.74rem;
             font-weight: 700;
-            letter-spacing: 0.02em;
         }
 
         .status-paid {
             background: var(--emerald-bg);
             color: var(--emerald);
-            border: 1px solid rgba(16, 185, 129, 0.25);
+            border: 1px solid var(--emerald-border);
         }
 
         .status-pending {
@@ -342,133 +471,122 @@
         .table-actions {
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.35rem;
         }
 
         .btn-action {
-            padding: 0.45rem 0.75rem;
-            border-radius: 8px;
-            font-size: 0.78rem;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.3rem 0.55rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
             font-weight: 600;
             cursor: pointer;
-            border: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.04);
-            color: var(--text-main);
             transition: all 0.15s ease;
         }
 
         .btn-action:hover {
             background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
         }
 
         .btn-action-paid {
             color: var(--emerald);
-            border-color: rgba(16, 185, 129, 0.3);
+            border-color: var(--emerald-border);
             background: var(--emerald-bg);
         }
 
         .btn-action-paid:hover {
-            background: rgba(16, 185, 129, 0.25);
+            background: rgba(16, 185, 129, 0.2);
+            color: #34D399;
         }
 
         .btn-action-kick {
             color: var(--rose);
-            border-color: rgba(239, 68, 68, 0.3);
-            background: var(--rose-bg);
+            border-color: rgba(239, 68, 68, 0.25);
         }
 
         .btn-action-kick:hover {
-            background: rgba(239, 68, 68, 0.25);
+            background: var(--rose-bg);
         }
 
-        /* Modal */
+        /* Modals */
         .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(8px);
-            display: flex;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(6px);
+            display: none;
             align-items: center;
             justify-content: center;
-            padding: 1.5rem;
             z-index: 1000;
-            opacity: 0;
-            pointer-events: none;
-            transition: all 0.2s ease;
+            padding: 1rem;
         }
 
         .modal-overlay.active {
-            opacity: 1;
-            pointer-events: auto;
+            display: flex;
         }
 
         .modal {
             background: #111827;
             border: 1px solid var(--border);
-            border-radius: 20px;
+            border-radius: 16px;
+            padding: 1.5rem;
             width: 100%;
-            max-width: 480px;
-            padding: 2rem;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
-            transform: scale(0.95);
-            transition: all 0.2s ease;
-        }
-
-        .modal-overlay.active .modal {
-            transform: scale(1);
+            max-width: 440px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.7);
         }
 
         .modal-header {
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            margin-bottom: 1.5rem;
+            align-items: center;
+            margin-bottom: 1.25rem;
         }
 
         .modal-title {
-            font-size: 1.2rem;
-            font-weight: 800;
+            font-size: 1.1rem;
+            font-weight: 700;
         }
 
         .modal-close {
             background: transparent;
             border: none;
             color: var(--text-muted);
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             cursor: pointer;
         }
 
         .form-group {
-            margin-bottom: 1.25rem;
+            margin-bottom: 1rem;
         }
 
         .form-label {
             display: block;
-            font-size: 0.8rem;
-            font-weight: 700;
+            font-size: 0.78rem;
             color: var(--text-muted);
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
+            font-weight: 600;
+            margin-bottom: 0.35rem;
         }
 
         .form-input, .form-select {
             width: 100%;
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.75rem 1rem;
-            color: var(--text-main);
-            font-size: 0.92rem;
+            border-radius: 8px;
+            padding: 0.65rem 0.85rem;
+            color: white;
+            font-size: 0.85rem;
             outline: none;
-            transition: border-color 0.2s ease;
         }
 
         .form-input:focus, .form-select:focus {
-            border-color: var(--primary);
+            border-color: var(--border-focus);
+            background: rgba(255, 255, 255, 0.07);
         }
 
         /* Lock Screen */
@@ -488,10 +606,10 @@
         .auth-card {
             background: #111827;
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 2.5rem;
+            border-radius: 18px;
+            padding: 2.25rem;
             text-align: center;
-            max-width: 400px;
+            max-width: 380px;
             width: 90%;
             box-shadow: 0 20px 40px rgba(0,0,0,0.6);
         }
@@ -500,13 +618,14 @@
             width: 100%;
             text-align: center;
             letter-spacing: 0.5em;
-            font-size: 1.5rem;
-            margin: 1.5rem 0;
+            font-size: 1.4rem;
+            margin: 1.25rem 0;
             background: rgba(255,255,255,0.05);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 0.75rem;
             color: white;
+            font-family: 'JetBrains Mono', monospace;
         }
     </style>
 </head>
@@ -516,9 +635,9 @@
     <div id="authScreen">
         <div class="auth-card">
             <div class="brand-logo" style="margin: 0 auto 1rem;">DH</div>
-            <h2 style="font-size: 1.3rem; margin-bottom: 0.5rem;">Admin Access</h2>
-            <p style="font-size: 0.85rem; color: var(--text-muted);">Enter PIN to access Design Hub Command Center</p>
-            <input type="password" id="pinInput" class="auth-pin-input" placeholder="••••" maxlength="10">
+            <h2 style="font-size: 1.25rem; margin-bottom: 0.4rem;">Admin Access</h2>
+            <p style="font-size: 0.82rem; color: var(--text-muted);">Enter PIN to access Design Hub Command Center</p>
+            <input type="password" id="pinInput" class="auth-pin-input" placeholder="••••" maxlength="10" onkeydown="if(event.key==='Enter') verifyPin()">
             <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="verifyPin()">Unlock Dashboard</button>
             <p id="pinError" style="color: var(--rose); font-size: 0.8rem; margin-top: 0.75rem; display: none;">Invalid PIN. Try again.</p>
         </div>
@@ -531,112 +650,193 @@
                 <div class="brand-logo">DH</div>
                 <div class="brand-title">
                     <h1>Design Hub</h1>
-                    <p>Subscriber & Automation Control Center</p>
+                    <p>Subscribers, Payments & Automation Control</p>
                 </div>
             </div>
             <div class="header-actions">
-                <div class="badge-live">
-                    <span class="pulse-dot"></span>
-                    24/7 Cloud Engine Active
+                <!-- Canva Team Pill (Click to Edit) -->
+                <div class="team-pill" onclick="openTeamModal()" title="Click to change active Canva Team">
+                    🎨 Team: <strong id="headerTeamName">Carmella Elan</strong>
+                    <span style="font-size: 0.7rem; opacity: 0.7;">✏️</span>
                 </div>
-                <button class="btn btn-secondary" onclick="logout()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">🔒 Lock</button>
+
+                <!-- Live Auto-Sync Status Badge -->
+                <div class="badge-sync" id="syncBadge">
+                    <span class="pulse-dot"></span>
+                    <span id="syncText">Live Sync Active</span>
+                </div>
+
+                <!-- Refresh & Lock Buttons -->
+                <button class="btn-icon" id="btnRefresh" onclick="triggerManualRefresh()" title="Sync Now">
+                    <span id="refreshIcon">🔄</span> Sync
+                </button>
+                <button class="btn-icon" onclick="logout()" title="Lock Screen">🔒 Lock</button>
             </div>
         </header>
 
-        <!-- Stats Overview -->
+        <!-- Stats Overview (Minimal 4 Cards) -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-header">
-                    <span class="stat-label">Total Customers</span>
-                    <span class="stat-icon">👥</span>
+                    <span class="stat-label">Total Revenue Earned</span>
+                    <span class="stat-icon" style="color: var(--emerald);">💵</span>
                 </div>
-                <div class="stat-value" id="statTotal">--</div>
+                <div class="stat-value" style="color: var(--emerald);" id="statEarnings">৳0.00</div>
+                <div class="stat-sub"><span id="statTransCount">0</span> verified payments collected</div>
             </div>
             <div class="stat-card">
                 <div class="stat-header">
-                    <span class="stat-label">Active Paid</span>
-                    <span class="stat-icon">🟢</span>
+                    <span class="stat-label">Active Paid Members</span>
+                    <span class="stat-icon" style="color: #38BDF8;">👥</span>
                 </div>
-                <div class="stat-value" style="color: var(--emerald);" id="statPaid">--</div>
+                <div class="stat-value" id="statPaid">--</div>
+                <div class="stat-sub">Enrolled & verified in team</div>
             </div>
             <div class="stat-card">
                 <div class="stat-header">
-                    <span class="stat-label">Pending Payments</span>
-                    <span class="stat-icon">🟡</span>
+                    <span class="stat-label">Pending Verification</span>
+                    <span class="stat-icon" style="color: var(--amber);">⏳</span>
                 </div>
                 <div class="stat-value" style="color: var(--amber);" id="statPending">--</div>
+                <div class="stat-sub">Awaiting TrxID or approval</div>
             </div>
             <div class="stat-card">
                 <div class="stat-header">
-                    <span class="stat-label">Kicked / Revoked</span>
-                    <span class="stat-icon">🔴</span>
+                    <span class="stat-label">Active Canva Team</span>
+                    <span class="stat-icon" style="color: #C4B5FD;">🎨</span>
                 </div>
-                <div class="stat-value" style="color: var(--rose);" id="statKicked">--</div>
+                <div class="stat-value" style="font-size: 1.35rem; color: #E0E7FF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="statTeamName">Carmella Elan</div>
+                <div class="stat-sub">
+                    <a href="https://www.canva.com/settings/team-members" target="_blank" style="color: var(--cyan); text-decoration: none;">Seat Roster ↗</a> • <span style="cursor: pointer; text-decoration: underline;" onclick="openTeamModal()">Change</span>
+                </div>
             </div>
         </div>
 
-        <!-- Controls Bar -->
-        <div class="controls-bar">
-            <div class="search-box">
-                <span class="search-icon">🔍</span>
-                <input type="text" class="search-input" id="searchInput" placeholder="Search email, name or TrxID..." onkeyup="filterSubscribers()">
+        <!-- Minimal Navigation Tabs -->
+        <div class="tabs-bar">
+            <button class="tab-btn active" id="tabSubscribersBtn" onclick="switchTab('subscribers')">
+                👥 Subscribers <span class="tab-count" id="countSubscribers">0</span>
+            </button>
+            <button class="tab-btn" id="tabPaymentsBtn" onclick="switchTab('payments')">
+                💳 Payment History & Ledger <span class="tab-count" id="countPayments">0</span>
+            </button>
+        </div>
+
+        <!-- VIEW 1: SUBSCRIBERS TABLE -->
+        <div id="viewSubscribers">
+            <div class="controls-bar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="searchSubInput" placeholder="Search by ID #800, email, name, or TrxID..." onkeyup="filterSubscribers()">
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-primary" onclick="openAddModal()">➕ Add Subscriber</button>
+                </div>
             </div>
-            <div style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-secondary" onclick="loadDashboardData()">🔄 Refresh</button>
-                <button class="btn btn-primary" onclick="openAddModal()">➕ Add Subscriber</button>
+
+            <div class="card-table">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 75px;">ID</th>
+                                <th>Customer</th>
+                                <th>Package</th>
+                                <th>Expires On</th>
+                                <th>Payment</th>
+                                <th>TrxID</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subscribersTbody">
+                            <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Loading live subscribers...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <!-- Subscribers Table -->
-        <div class="card-table">
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 80px;">ID</th>
-                            <th>Customer</th>
-                            <th>Package</th>
-                            <th>Expiry Date</th>
-                            <th>Payment Status</th>
-                            <th>TrxID</th>
-                            <th style="text-align: right;">Quick Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="subscribersTbody">
-                        <tr>
-                            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">Loading subscriber data...</td>
-                        </tr>
-                    </tbody>
-                </table>
+        <!-- VIEW 2: PAYMENT HISTORY TABLE -->
+        <div id="viewPayments" style="display: none;">
+            <div class="controls-bar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="searchPayInput" placeholder="Search transactions by TrxID, ID, email, or provider..." onkeyup="filterPayments()">
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-primary" onclick="openRecordPaymentModal()">➕ Record Payment</button>
+                </div>
+            </div>
+
+            <div class="card-table">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 140px;">Date & Time</th>
+                                <th style="width: 75px;">ID</th>
+                                <th>Customer</th>
+                                <th>Package</th>
+                                <th>Provider</th>
+                                <th>TrxID</th>
+                                <th>Amount</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paymentsTbody">
+                            <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">Loading payment ledger...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
+
     </div>
 
-    <!-- Modal: Add Subscriber -->
+    <!-- MODAL: ADD SUBSCRIBER -->
     <div class="modal-overlay" id="addModal">
         <div class="modal">
             <div class="modal-header">
-                <h3 class="modal-title">➕ Add New Subscriber</h3>
+                <h3 class="modal-title">➕ Enroll New Subscriber</h3>
                 <button class="modal-close" onclick="closeModal('addModal')">&times;</button>
             </div>
             <form onsubmit="handleAddSubscriber(event)">
                 <div class="form-group">
-                    <label class="form-label">Customer Email (Gmail)</label>
+                    <label class="form-label">Email Address *</label>
                     <input type="email" id="addEmail" class="form-input" placeholder="user@gmail.com" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Customer Name</label>
-                    <input type="text" id="addName" class="form-input" placeholder="e.g. Rahim Ahmed">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" id="addName" class="form-input" placeholder="Tanvir Sunny">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Subscription Package</label>
                     <select id="addPackage" class="form-select">
-                        <option value="1m">1 Month (25 TK)</option>
-                        <option value="3m" selected>3 Months (50 TK)</option>
-                        <option value="12m">12 Months / 1 Year (150 TK)</option>
+                        <option value="1m">1 Month (25 Tk)</option>
+                        <option value="3m" selected>3 Months (50 Tk)</option>
+                        <option value="12m">1 Year (150 Tk)</option>
                     </select>
                 </div>
-                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem;">
+                    <input type="checkbox" id="addIsPaid" onchange="toggleAddPaidFields()" style="accent-color: var(--emerald);">
+                    <label for="addIsPaid" style="font-size: 0.82rem; cursor: pointer; color: var(--text-main); font-weight: 600;">Payment Already Received & Confirmed</label>
+                </div>
+                <div id="addPaidFields" style="display: none; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin-top: 0.5rem;">
+                    <div class="form-group" style="margin-bottom: 0.5rem;">
+                        <label class="form-label">Payment Provider</label>
+                        <select id="addProvider" class="form-select">
+                            <option value="bKash" selected>bKash</option>
+                            <option value="Nagad">Nagad</option>
+                            <option value="Rocket">Rocket</option>
+                            <option value="Direct">Direct / Cash</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Transaction ID (TrxID)</label>
+                        <input type="text" id="addTrxId" class="form-input" placeholder="e.g. DJF22CP78S">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem;">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Enroll Customer</button>
                 </div>
@@ -644,7 +844,7 @@
         </div>
     </div>
 
-    <!-- Modal: Extend Plan -->
+    <!-- MODAL: EXTEND SUBSCRIPTION -->
     <div class="modal-overlay" id="extendModal">
         <div class="modal">
             <div class="modal-header">
@@ -654,20 +854,93 @@
             <form onsubmit="handleExtendSubscriber(event)">
                 <input type="hidden" id="extEmail">
                 <div class="form-group">
-                    <label class="form-label">Extending Subscriber</label>
+                    <label class="form-label">Extending Customer</label>
                     <input type="text" id="extEmailDisplay" class="form-input" disabled style="opacity: 0.8;">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Add Duration</label>
+                    <label class="form-label">Duration to Add</label>
                     <select id="extPackage" class="form-select">
-                        <option value="1m">+1 Month (+30 Days)</option>
-                        <option value="3m" selected>+3 Months (+90 Days)</option>
-                        <option value="12m">+12 Months (+365 Days)</option>
+                        <option value="1m">+1 Month (+30 Days — 25৳)</option>
+                        <option value="3m" selected>+3 Months (+90 Days — 50৳)</option>
+                        <option value="12m">+12 Months (+365 Days — 150৳)</option>
                     </select>
                 </div>
-                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem;">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('extendModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Apply Extension</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT CANVA TEAM NAME -->
+    <div class="modal-overlay" id="teamModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">🎨 Change Canva Team Name</h3>
+                <button class="modal-close" onclick="closeModal('teamModal')">&times;</button>
+            </div>
+            <form onsubmit="handleUpdateTeamName(event)">
+                <div class="form-group">
+                    <label class="form-label">Active Canva Team Name *</label>
+                    <input type="text" id="inputTeamName" class="form-input" placeholder="e.g. Carmella Elan" required>
+                    <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.35rem;">
+                        This name is displayed across your dashboard, Telegram alerts, and sales messages.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('teamModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Team Name</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: RECORD MANUAL PAYMENT -->
+    <div class="modal-overlay" id="recordPayModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">💳 Record Payment</h3>
+                <button class="modal-close" onclick="closeModal('recordPayModal')">&times;</button>
+            </div>
+            <form onsubmit="handleRecordManualPayment(event)">
+                <div class="form-group">
+                    <label class="form-label">Customer Email or ID *</label>
+                    <input type="text" id="payEmail" class="form-input" placeholder="user@gmail.com or #800" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount (৳ BDT) *</label>
+                    <input type="number" step="0.01" id="payAmount" class="form-input" placeholder="50.00" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Provider</label>
+                    <select id="payProvider" class="form-select">
+                        <option value="bKash" selected>bKash</option>
+                        <option value="Nagad">Nagad</option>
+                        <option value="Rocket">Rocket</option>
+                        <option value="Bank">Bank / Card</option>
+                        <option value="Manual">Manual / Direct</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Transaction ID (TrxID)</label>
+                    <input type="text" id="payTrxId" class="form-input" placeholder="e.g. DJF22CP78S">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Package</label>
+                    <select id="payPackage" class="form-select">
+                        <option value="3 Months" selected>3 Months</option>
+                        <option value="1 Month">1 Month</option>
+                        <option value="12 Months">1 Year</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <input type="text" id="payNotes" class="form-input" placeholder="e.g. bKash Personal send money">
+                </div>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('recordPayModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Log Payment</button>
                 </div>
             </form>
         </div>
@@ -676,14 +949,20 @@
     <script>
         const DEFAULT_PIN = "1809";
         let allSubscribers = [];
+        let allPayments = [];
+        let activeTab = "subscribers";
+        let lastSyncTimestamp = Date.now();
+        let autoSyncTimer = null;
+        let relativeTimeTimer = null;
 
+        // Security PIN verification
         function verifyPin() {
-            const input = document.getElementById("pinInput").value;
+            const input = document.getElementById("pinInput").value.trim();
             if (input === DEFAULT_PIN || input === "1809792261") {
                 sessionStorage.setItem("dh_auth", "true");
                 document.getElementById("authScreen").style.display = "none";
                 document.getElementById("mainDashboard").style.display = "block";
-                loadDashboardData();
+                initDashboard();
             } else {
                 document.getElementById("pinError").style.display = "block";
             }
@@ -698,32 +977,110 @@
             if (sessionStorage.getItem("dh_auth") === "true") {
                 document.getElementById("authScreen").style.display = "none";
                 document.getElementById("mainDashboard").style.display = "block";
-                loadDashboardData();
+                initDashboard();
             }
         };
 
-        async function loadDashboardData() {
-            try {
-                const res = await fetch("/api/subscribers");
-                const data = await res.json();
-                allSubscribers = data.subscribers || [];
-
-                // Update Stats
-                document.getElementById("statTotal").textContent = data.stats.total || 0;
-                document.getElementById("statPaid").textContent = data.stats.active_paid || 0;
-                document.getElementById("statPending").textContent = data.stats.pending || 0;
-                document.getElementById("statKicked").textContent = data.stats.kicked || 0;
-
-                renderTable(allSubscribers);
-            } catch (err) {
-                console.error("Error loading dashboard data:", err);
+        function initDashboard() {
+            loadDashboardData();
+            // Live background sync every 3.5 seconds
+            if (!autoSyncTimer) {
+                autoSyncTimer = setInterval(() => {
+                    if (!document.hidden) {
+                        loadDashboardData(true);
+                    }
+                }, 3500);
+            }
+            // Update relative time ("just now", "3s ago") every second
+            if (!relativeTimeTimer) {
+                relativeTimeTimer = setInterval(updateRelativeSyncTime, 1000);
             }
         }
 
-        function renderTable(list) {
+        function updateRelativeSyncTime() {
+            const diffSec = Math.floor((Date.now() - lastSyncTimestamp) / 1000);
+            const textEl = document.getElementById("syncText");
+            if (!textEl) return;
+            if (diffSec <= 1) {
+                textEl.textContent = "Live Sync: Active • just now";
+            } else {
+                textEl.textContent = `Live Sync: Active • ${diffSec}s ago`;
+            }
+        }
+
+        async function triggerManualRefresh() {
+            const icon = document.getElementById("refreshIcon");
+            if (icon) icon.classList.add("spinning");
+            await loadDashboardData(false);
+            setTimeout(() => {
+                if (icon) icon.classList.remove("spinning");
+            }, 600);
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            document.getElementById("tabSubscribersBtn").classList.toggle("active", tab === "subscribers");
+            document.getElementById("tabPaymentsBtn").classList.toggle("active", tab === "payments");
+            document.getElementById("viewSubscribers").style.display = (tab === "subscribers") ? "block" : "none";
+            document.getElementById("viewPayments").style.display = (tab === "payments") ? "block" : "none";
+        }
+
+        async function loadDashboardData(isBackground = false) {
+            try {
+                // Fetch subscribers and stats
+                const resSubs = await fetch("/api/subscribers");
+                const dataSubs = await resSubs.json();
+
+                // Fetch payment ledger
+                const resPay = await fetch("/api/payments");
+                const dataPay = await resPay.json();
+
+                allSubscribers = dataSubs.subscribers || [];
+                allPayments = dataPay.payments || [];
+
+                // Update Stats
+                const stats = dataSubs.stats || {};
+                const earnings = dataSubs.earnings || dataPay.earnings || { total_bdt: 0, total_count: 0 };
+                const teamName = dataSubs.team_name || "Carmella Elan";
+
+                // Revenue stat
+                document.getElementById("statEarnings").textContent = `৳${(earnings.total_bdt || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                document.getElementById("statTransCount").textContent = earnings.total_count || 0;
+
+                // Member counts
+                document.getElementById("statPaid").textContent = stats.active_paid || 0;
+                document.getElementById("statPending").textContent = stats.pending || 0;
+
+                // Team name
+                document.getElementById("headerTeamName").textContent = teamName;
+                document.getElementById("statTeamName").textContent = teamName;
+
+                // Tab counts
+                document.getElementById("countSubscribers").textContent = allSubscribers.length;
+                document.getElementById("countPayments").textContent = allPayments.length;
+
+                // Render views only if search box is not currently actively focused/modified by user
+                const subSearchFocused = (document.activeElement === document.getElementById("searchSubInput"));
+                const paySearchFocused = (document.activeElement === document.getElementById("searchPayInput"));
+
+                if (!subSearchFocused || !isBackground) {
+                    filterSubscribers();
+                }
+                if (!paySearchFocused || !isBackground) {
+                    filterPayments();
+                }
+
+                lastSyncTimestamp = Date.now();
+                updateRelativeSyncTime();
+            } catch (err) {
+                console.error("Sync error:", err);
+            }
+        }
+
+        function renderSubscribersTable(list) {
             const tbody = document.getElementById("subscribersTbody");
             if (!list || list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">No subscribers found. Click <b>Add Subscriber</b> to create one.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No customers found. Click <b>Add Subscriber</b> to create one.</td></tr>`;
                 return;
             }
 
@@ -737,9 +1094,9 @@
                     statusBadge = `<span class="badge-status status-pending">🟡 PENDING</span>`;
                 }
 
-                const trx = sub.trx_id ? `<span style="font-family: monospace; font-size: 0.8rem; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${sub.trx_id}</span>` : `<span style="color: var(--text-muted); font-size: 0.8rem;">—</span>`;
-
-                const cidBadge = `<span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #A78BFA; background: rgba(125, 42, 232, 0.15); padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; border: 1px solid rgba(167, 139, 250, 0.25);">#${sub.customer_id || 800}</span>`;
+                const trx = sub.trx_id ? `<span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${sub.trx_id}</span>` : `<span style="color: var(--text-faint); font-size: 0.78rem;">—</span>`;
+                const cidBadge = `<span class="cid-badge">#${sub.customer_id || 800}</span>`;
+                const expDate = (sub.expires_at || '').substring(0, 10);
 
                 return `
                     <tr>
@@ -751,7 +1108,7 @@
                             </div>
                         </td>
                         <td><span style="font-weight: 600;">${sub.package}</span></td>
-                        <td><span style="font-family: monospace; font-size: 0.85rem;">${(sub.expires_at || '').substring(0, 10)}</span></td>
+                        <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted);">${expDate}</span></td>
                         <td>${statusBadge}</td>
                         <td>${trx}</td>
                         <td style="text-align: right;">
@@ -759,12 +1116,12 @@
                                 ${sub.payment_status !== 'PAID' ? `
                                     <button class="btn-action btn-action-paid" onclick="actionMarkPaid('${sub.email}')" title="Confirm Payment">✅ Paid</button>
                                 ` : ''}
-                                <button class="btn-action" onclick="actionGenerateLink('${sub.email}')" title="Generate 10-Min Expiring Link">🔗 Link</button>
+                                <button class="btn-action" onclick="actionGenerateLink('${sub.email}')" title="Generate 10-Min Session Invite Link">🔗 Link</button>
                                 <button class="btn-action" onclick="openExtendModal('${sub.email}')" title="Extend Plan">⌛ Extend</button>
                                 ${sub.status !== 'kicked' ? `
                                     <button class="btn-action btn-action-kick" onclick="actionKick('${sub.email}')" title="Revoke Access">🚨 Kick</button>
                                 ` : ''}
-                                <button class="btn-action" onclick="actionDelete('${sub.email}')" title="Delete record" style="color: var(--text-muted);">🗑️</button>
+                                <button class="btn-action" onclick="actionDelete('${sub.email}')" title="Delete record" style="color: var(--text-faint);">🗑️</button>
                             </div>
                         </td>
                     </tr>
@@ -773,7 +1130,7 @@
         }
 
         function filterSubscribers() {
-            const query = document.getElementById("searchInput").value.toLowerCase().trim();
+            const query = (document.getElementById("searchSubInput").value || "").toLowerCase().trim();
             const cleanQuery = query.replace('#', '');
             const filtered = allSubscribers.filter(s => 
                 (s.customer_id && s.customer_id.toString().includes(cleanQuery)) ||
@@ -782,9 +1139,57 @@
                 (s.trx_id && s.trx_id.toLowerCase().includes(query)) ||
                 (s.package && s.package.toLowerCase().includes(query))
             );
-            renderTable(filtered);
+            renderSubscribersTable(filtered);
         }
 
+        function renderPaymentsTable(list) {
+            const tbody = document.getElementById("paymentsTbody");
+            if (!list || list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No payment transactions logged yet.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = list.map(p => {
+                const cidBadge = `<span class="cid-badge">#${p.customer_id || 800}</span>`;
+                const dateStr = (p.paid_at || '').substring(0, 16);
+                const trxBadge = p.trx_id ? `<span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${p.trx_id}</span>` : `<span style="color: var(--text-faint); font-size: 0.78rem;">—</span>`;
+
+                return `
+                    <tr>
+                        <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-muted);">${dateStr}</span></td>
+                        <td>${cidBadge}</td>
+                        <td>
+                            <div class="customer-info">
+                                <span class="customer-email">${p.email}</span>
+                                <span class="customer-name">${p.name || 'Customer'}</span>
+                            </div>
+                        </td>
+                        <td><span style="font-weight: 600;">${p.package}</span></td>
+                        <td><span style="font-size: 0.8rem; font-weight: 600; color: #38BDF8;">${p.provider || 'bKash'}</span></td>
+                        <td>${trxBadge}</td>
+                        <td><span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--emerald); font-size: 0.95rem;">৳${parseFloat(p.amount || 0).toFixed(2)}</span></td>
+                        <td><span style="font-size: 0.78rem; color: var(--text-muted);">${p.notes || 'Verified'}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterPayments() {
+            const query = (document.getElementById("searchPayInput").value || "").toLowerCase().trim();
+            const cleanQuery = query.replace('#', '');
+            const filtered = allPayments.filter(p => 
+                (p.customer_id && p.customer_id.toString().includes(cleanQuery)) ||
+                (p.email && p.email.toLowerCase().includes(query)) ||
+                (p.name && p.name.toLowerCase().includes(query)) ||
+                (p.trx_id && p.trx_id.toLowerCase().includes(query)) ||
+                (p.provider && p.provider.toLowerCase().includes(query)) ||
+                (p.package && p.package.toLowerCase().includes(query)) ||
+                (p.notes && p.notes.toLowerCase().includes(query))
+            );
+            renderPaymentsTable(filtered);
+        }
+
+        // Modal Controls
         function openAddModal() {
             document.getElementById("addModal").classList.add("active");
         }
@@ -795,25 +1200,47 @@
             document.getElementById("extendModal").classList.add("active");
         }
 
+        function openTeamModal() {
+            const curr = document.getElementById("headerTeamName").textContent.trim();
+            document.getElementById("inputTeamName").value = curr;
+            document.getElementById("teamModal").classList.add("active");
+        }
+
+        function openRecordPaymentModal() {
+            document.getElementById("recordPayModal").classList.add("active");
+        }
+
         function closeModal(id) {
             document.getElementById(id).classList.remove("active");
         }
 
+        function toggleAddPaidFields() {
+            const isPaid = document.getElementById("addIsPaid").checked;
+            document.getElementById("addPaidFields").style.display = isPaid ? "block" : "none";
+        }
+
+        // API Actions
         async function handleAddSubscriber(e) {
             e.preventDefault();
-            const email = document.getElementById("addEmail").value;
-            const name = document.getElementById("addName").value;
+            const email = document.getElementById("addEmail").value.trim();
+            const name = document.getElementById("addName").value.trim();
             const pkg = document.getElementById("addPackage").value;
+            const isPaid = document.getElementById("addIsPaid").checked;
+            const provider = document.getElementById("addProvider").value;
+            const trxId = document.getElementById("addTrxId").value.trim();
 
             await fetch("/api/subscriber/add", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, name, package: pkg })
+                body: JSON.stringify({ email, name, package: pkg, is_paid: isPaid, provider, trx_id: trxId })
             });
 
             closeModal("addModal");
             document.getElementById("addEmail").value = "";
             document.getElementById("addName").value = "";
+            document.getElementById("addTrxId").value = "";
+            document.getElementById("addIsPaid").checked = false;
+            toggleAddPaidFields();
             loadDashboardData();
         }
 
@@ -832,6 +1259,44 @@
             loadDashboardData();
         }
 
+        async function handleUpdateTeamName(e) {
+            e.preventDefault();
+            const team_name = document.getElementById("inputTeamName").value.trim();
+            if (!team_name) return;
+
+            await fetch("/api/team/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ team_name })
+            });
+
+            closeModal("teamModal");
+            loadDashboardData();
+        }
+
+        async function handleRecordManualPayment(e) {
+            e.preventDefault();
+            const email = document.getElementById("payEmail").value.trim();
+            const amount = parseFloat(document.getElementById("payAmount").value);
+            const provider = document.getElementById("payProvider").value;
+            const trx_id = document.getElementById("payTrxId").value.trim();
+            const pkg = document.getElementById("payPackage").value;
+            const notes = document.getElementById("payNotes").value.trim();
+
+            await fetch("/api/payment/add", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, amount, provider, trx_id, package: pkg, notes })
+            });
+
+            closeModal("recordPayModal");
+            document.getElementById("payEmail").value = "";
+            document.getElementById("payAmount").value = "";
+            document.getElementById("payTrxId").value = "";
+            document.getElementById("payNotes").value = "";
+            loadDashboardData();
+        }
+
         async function actionMarkPaid(email) {
             const trx = prompt(`Enter bKash/Nagad TrxID for ${email} (Optional):`) || "";
             await fetch("/api/subscriber/paid", {
@@ -840,6 +1305,19 @@
                 body: JSON.stringify({ email, trx_id: trx })
             });
             loadDashboardData();
+        }
+
+        async function actionGenerateLink(email) {
+            const res = await fetch("/api/invite/create", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, minutes: 10 })
+            });
+            const data = await res.json();
+            if (data && data.link) {
+                prompt(`⚡ 10-Minute Single-User Canva Invite Link for ${email}:
+(Copy and send to customer)`, data.link);
+            }
         }
 
         async function actionKick(email) {
@@ -854,7 +1332,7 @@
         }
 
         async function actionDelete(email) {
-            if (confirm(`Permanently delete ${email} from database?`)) {
+            if (confirm(`Permanently delete ${email} from subscribers database?`)) {
                 await fetch("/api/subscriber/delete", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },

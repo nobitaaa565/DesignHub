@@ -37,7 +37,7 @@ def init_db():
                 notes TEXT DEFAULT ''
             )
         """)
-        # Ensure all columns exist
+        # Ensure all columns exist in subscriptions
         c.execute("PRAGMA table_info(subscriptions)")
         cols = [col[1] for col in c.fetchall()]
         if "name" not in cols:
@@ -55,6 +55,32 @@ def init_db():
         if "pending_telegram_msg_id" not in cols:
             c.execute("ALTER TABLE subscriptions ADD COLUMN pending_telegram_msg_id INTEGER")
 
+        # Payments table for revenue tracking & ledger
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                customer_id INTEGER,
+                email TEXT NOT NULL,
+                name TEXT DEFAULT '',
+                package TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT DEFAULT 'BDT',
+                provider TEXT DEFAULT 'bKash',
+                trx_id TEXT DEFAULT '',
+                paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                notes TEXT DEFAULT ''
+            )
+        """)
+
+        # Settings table for active team name and system config
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
+        c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('canva_team_name', 'Carmella Elan')")
+
         # Backfill any subscriber with missing or low customer_id (< 800)
         c.execute("SELECT id FROM subscriptions WHERE customer_id IS NULL OR customer_id < 800 ORDER BY id ASC")
         unassigned = c.fetchall()
@@ -65,6 +91,19 @@ def init_db():
             for (row_id,) in unassigned:
                 c.execute("UPDATE subscriptions SET customer_id = ? WHERE id = ?", (curr, row_id))
                 curr += 1
+
+        # Backfill initial payment records for already PAID subscriptions if payments table is empty
+        c.execute("SELECT COUNT(*) FROM payments")
+        pay_count = c.fetchone()[0]
+        if pay_count == 0:
+            c.execute("SELECT email, name, package, customer_id, trx_id, added_at FROM subscriptions WHERE payment_status = 'PAID'")
+            paid_subs = c.fetchall()
+            for p_email, p_name, p_pkg, p_cid, p_trx, p_date in paid_subs:
+                _, _, p_price = parse_package(p_pkg or "1m")
+                c.execute("""
+                    INSERT INTO payments (customer_id, email, name, package, amount, currency, provider, trx_id, paid_at, notes)
+                    VALUES (?, ?, ?, ?, ?, 'BDT', 'bKash', ?, ?, 'Initial Enrollment')
+                """, (p_cid or 800, p_email, p_name or "Subscriber", p_pkg or "1 Month", float(p_price), p_trx or "VERIFIED", p_date or datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
         conn.commit()
 
 
@@ -123,11 +162,11 @@ def get_customer_id_by_sender(sender_id: str = "", sender_name: str = "", email:
 
 
 def parse_package(pkg: str):
-    p = pkg.lower().strip()
-    if p in ("3m", "3mo", "3months", "3", "3 month"):
-        return "3 Months", 90, 50
-    elif p in ("12m", "1y", "1year", "12", "12 month", "1 year"):
+    p = str(pkg).lower().strip()
+    if any(k in p for k in ("12m", "1y", "1year", "12 month", "12 months", "1 year", "১২")):
         return "12 Months", 365, 150
+    elif any(k in p for k in ("3m", "3mo", "3month", "3 months", "3 month", "৩")):
+        return "3 Months", 90, 50
     return "1 Month", 30, 25
 
 
@@ -184,7 +223,139 @@ def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id
     }
 
 
-def mark_paid(identifier: str, trx_id: str = "") -> bool:
+def record_payment(
+    identifier: str,
+    amount: float = None,
+    provider: str = "bKash",
+    trx_id: str = "",
+    package: str = None,
+    notes: str = ""
+) -> dict:
+    """Records a verified payment into the revenue ledger table."""
+    init_db()
+    clean_email = resolve_email(identifier)
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT customer_id, name, package, trx_id FROM subscriptions WHERE email = ?", (clean_email,))
+        row = c.fetchone()
+        cid = 800
+        name = "Customer"
+        pkg_name = "1 Month"
+        saved_trx = ""
+        if row:
+            cid = row[0] or 800
+            name = row[1] or "Customer"
+            pkg_name = row[2] or "1 Month"
+            saved_trx = row[3] or ""
+
+        if package:
+            pkg_name, _, resolved_price = parse_package(package)
+        else:
+            _, _, resolved_price = parse_package(pkg_name)
+
+        final_amount = float(amount) if (amount is not None and float(amount) > 0) else float(resolved_price)
+        final_trx = (trx_id or saved_trx or "VERIFIED").strip()
+        final_provider = (provider or "bKash").strip()
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        c.execute("""
+            INSERT INTO payments (customer_id, email, name, package, amount, currency, provider, trx_id, paid_at, notes)
+            VALUES (?, ?, ?, ?, ?, 'BDT', ?, ?, ?, ?)
+        """, (cid, clean_email, name, pkg_name, final_amount, final_provider, final_trx, now_str, notes))
+        pay_id = c.lastrowid
+        conn.commit()
+
+        return {
+            "id": pay_id,
+            "customer_id": cid,
+            "email": clean_email,
+            "name": name,
+            "package": pkg_name,
+            "amount": final_amount,
+            "provider": final_provider,
+            "trx_id": final_trx,
+            "paid_at": now_str,
+            "notes": notes
+        }
+
+
+def get_all_payments(limit: int = 200) -> list:
+    """Fetches the recent payment transaction history ledger."""
+    init_db()
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT id, customer_id, email, name, package, amount, currency, provider, trx_id, paid_at, notes
+            FROM payments
+            ORDER BY paid_at DESC, id DESC
+            LIMIT ?
+        """, (limit,))
+        rows = c.fetchall()
+        return [
+            {
+                "id": r[0],
+                "customer_id": r[1] or 800,
+                "email": r[2],
+                "name": r[3] or "",
+                "package": r[4],
+                "amount": float(r[5]),
+                "currency": r[6] or "BDT",
+                "provider": r[7] or "bKash",
+                "trx_id": r[8] or "",
+                "paid_at": r[9],
+                "notes": r[10] or ""
+            }
+            for r in rows
+        ]
+
+
+def get_total_earnings() -> dict:
+    """Calculates total earnings in BDT and count of verified payments."""
+    init_db()
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM payments")
+        row = c.fetchone()
+        total_bdt = float(row[0] or 0.0)
+        total_tx = int(row[1] or 0)
+        return {
+            "total_bdt": round(total_bdt, 2),
+            "total_count": total_tx
+        }
+
+
+def get_canva_team_name() -> str:
+    """Retrieves the current Canva Team Name."""
+    init_db()
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("SELECT value FROM settings WHERE key = 'canva_team_name'")
+            row = c.fetchone()
+            if row and row[0]:
+                return row[0].strip()
+    except Exception as e:
+        logger.error(f"Error fetching team name: {e}")
+    return os.getenv("CANVA_TEAM_NAME", "Carmella Elan")
+
+
+def set_canva_team_name(name: str) -> str:
+    """Updates the active Canva Team Name persistently."""
+    init_db()
+    clean_name = name.strip() if name else "Carmella Elan"
+    if not clean_name:
+        clean_name = "Carmella Elan"
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("INSERT INTO settings (key, value) VALUES ('canva_team_name', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", (clean_name,))
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error setting team name: {e}")
+    return clean_name
+
+
+def mark_paid(identifier: str, trx_id: str = "", amount: float = None, provider: str = "bKash") -> bool:
     init_db()
     clean_email = resolve_email(identifier)
     with sqlite3.connect(DB_FILE) as conn:
@@ -202,7 +373,24 @@ def mark_paid(identifier: str, trx_id: str = "") -> bool:
                 WHERE email = ?
             """, (clean_email,))
         conn.commit()
-        return c.rowcount > 0
+        ok = c.rowcount > 0
+
+    if ok:
+        try:
+            with sqlite3.connect(DB_FILE) as conn:
+                c = conn.cursor()
+                if trx_id and trx_id.strip():
+                    c.execute("SELECT id FROM payments WHERE email = ? AND trx_id = ?", (clean_email, trx_id.strip()))
+                    if not c.fetchone():
+                        record_payment(clean_email, amount=amount, provider=provider, trx_id=trx_id)
+                else:
+                    c.execute("SELECT id FROM payments WHERE email = ? AND datetime(paid_at) >= datetime('now', '-5 minutes')", (clean_email,))
+                    if not c.fetchone():
+                        record_payment(clean_email, amount=amount, provider=provider, trx_id=trx_id)
+        except Exception as e:
+            logger.error(f"Error in auto-recording payment for {clean_email}: {e}")
+
+    return ok
 
 
 def kick_subscriber(identifier: str) -> bool:
@@ -249,6 +437,11 @@ def extend_subscriber(identifier: str, package: str = "1m") -> dict:
             WHERE email = ?
         """, (new_exp_str, pkg_name, days, clean_email))
         conn.commit()
+
+    try:
+        record_payment(clean_email, amount=float(price), package=package, notes=f"Plan Extension (+{pkg_name})")
+    except Exception as e:
+        logger.error(f"Error logging payment for extension: {e}")
 
     return {
         "customer_id": cid,
@@ -342,11 +535,19 @@ def get_db_stats() -> dict:
         c.execute("SELECT COUNT(*) FROM subscriptions WHERE status = 'kicked'")
         kicked = c.fetchone()[0]
 
+        c.execute("SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM payments")
+        earn_row = c.fetchone()
+        total_earnings = earn_row[0] or 0.0
+        total_payments = earn_row[1] or 0
+
         return {
             "total": total,
             "active_paid": active_paid,
             "pending": pending,
-            "kicked": kicked
+            "kicked": kicked,
+            "total_earnings": round(float(total_earnings), 2),
+            "total_payments": total_payments,
+            "canva_team_name": get_canva_team_name()
         }
 
 

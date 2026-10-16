@@ -29,7 +29,8 @@ from subscription_manager import (
     mark_reminder_sent,
     set_pending_telegram_msg,
     get_pending_telegram_msg,
-    clear_pending_telegram_msg
+    clear_pending_telegram_msg,
+    get_canva_team_name
 )
 from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 
@@ -706,12 +707,14 @@ def notify_owner_user_joined_canva(email: str) -> bool:
     name = sub.get("name") or "Customer"
     pkg = sub.get("package") or "Canva Pro"
 
+    team = get_canva_team_name()
     text = (
-        f"🎨 *CUSTOMER JOINED CANVA TEAM!*\n"
+        f"🎨 *CUSTOMER JOINED CANVA TEAM ({team})!*\n"
         f"────────────────────────\n"
         f"👤 Customer: {name} (ID: `#{cid}`)\n"
         f"📧 Email: `{email}`\n"
         f"📦 Package: {pkg}\n"
+        f"🎨 Team: `{team}`\n"
         f"⏳ Status: 🟡 PENDING PAYMENT\n"
         f"────────────────────────\n"
         f"User has joined your Canva Team. Do you want to keep this user?"
