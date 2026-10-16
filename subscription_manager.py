@@ -19,10 +19,192 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 DB_FILE = Path(__file__).resolve().parent / "subscriptions.db"
 logger = logging.getLogger("SubscriptionManager")
 
+try:
+    import psycopg2
+    import psycopg2.extras
+except ImportError:
+    psycopg2 = None
+
+RAW_DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+if RAW_DATABASE_URL.startswith("postgres://"):
+    RAW_DATABASE_URL = RAW_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+DATABASE_URL = RAW_DATABASE_URL if RAW_DATABASE_URL else None
+IS_POSTGRES = bool(DATABASE_URL and psycopg2)
+
+if IS_POSTGRES:
+    logger.info("🐘 Using Cloud PostgreSQL database via DATABASE_URL.")
+elif DATABASE_URL and not psycopg2:
+    logger.warning("⚠️ DATABASE_URL is set but psycopg2 is not installed. Falling back to local SQLite.")
+else:
+    logger.info(f"💾 Using local SQLite database: {DB_FILE}")
+
+
+class DBCursor:
+    def __init__(self, raw_cursor, is_postgres=False):
+        self.cursor = raw_cursor
+        self.is_postgres = is_postgres
+        self._lastrowid = None
+
+    def execute(self, query, params=None):
+        if self.is_postgres:
+            sql = query.replace("?", "%s")
+            
+            # Auto-handle lastrowid for PostgreSQL on INSERT INTO payments
+            if sql.strip().upper().startswith("INSERT INTO PAYMENTS") and "RETURNING" not in sql.upper():
+                sql = sql.rstrip("; ") + " RETURNING id"
+                if params is None:
+                    self.cursor.execute(sql)
+                else:
+                    self.cursor.execute(sql, params)
+                res = self.cursor.fetchone()
+                self._lastrowid = res[0] if res else None
+                return
+
+            if params is None:
+                return self.cursor.execute(sql)
+            return self.cursor.execute(sql, params)
+        else:
+            if params is None:
+                return self.cursor.execute(query)
+            return self.cursor.execute(query, params)
+
+    def fetchone(self):
+        return self.cursor.fetchone()
+
+    def fetchall(self):
+        return self.cursor.fetchall()
+
+    def fetchmany(self, size):
+        return self.cursor.fetchmany(size)
+
+    @property
+    def rowcount(self):
+        return self.cursor.rowcount
+
+    @property
+    def lastrowid(self):
+        if self.is_postgres:
+            return self._lastrowid
+        return getattr(self.cursor, "lastrowid", None)
+
+
+class DBConnection:
+    def __init__(self, raw_conn, is_postgres=False):
+        self.raw_conn = raw_conn
+        self.is_postgres = is_postgres
+
+    def cursor(self):
+        return DBCursor(self.raw_conn.cursor(), self.is_postgres)
+
+    def commit(self):
+        self.raw_conn.commit()
+
+    def rollback(self):
+        self.raw_conn.rollback()
+
+    def close(self):
+        self.raw_conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            self.rollback()
+        else:
+            self.commit()
+        self.close()
+
+
+def get_db():
+    global IS_POSTGRES, DATABASE_URL
+    raw_url = os.environ.get("DATABASE_URL", "").strip()
+    if raw_url.startswith("postgres://"):
+        raw_url = raw_url.replace("postgres://", "postgresql://", 1)
+    if raw_url:
+        DATABASE_URL = raw_url
+        if psycopg2:
+            IS_POSTGRES = True
+
+    if IS_POSTGRES:
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+            return DBConnection(conn, is_postgres=True)
+        except Exception as e:
+            logger.error(f"Failed to connect to PostgreSQL: {e}. Falling back to SQLite.")
+            conn = sqlite3.connect(DB_FILE)
+            return DBConnection(conn, is_postgres=False)
+    else:
+        conn = sqlite3.connect(DB_FILE)
+        return DBConnection(conn, is_postgres=False)
+
 
 def init_db():
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
+        if conn.is_postgres:
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS subscriptions (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    name TEXT DEFAULT '',
+                    package TEXT NOT NULL,
+                    days INTEGER DEFAULT 30,
+                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP NOT NULL,
+                    payment_status TEXT DEFAULT 'PENDING',
+                    status TEXT DEFAULT 'active',
+                    notes TEXT DEFAULT '',
+                    trx_id TEXT DEFAULT '',
+                    customer_id INTEGER,
+                    fb_sender_id TEXT DEFAULT '',
+                    last_reminder_at TIMESTAMP,
+                    pending_telegram_msg_id INTEGER,
+                    team_name TEXT DEFAULT 'Carmella Elan'
+                );
+            """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS payments (
+                    id SERIAL PRIMARY KEY,
+                    customer_id INTEGER,
+                    email TEXT NOT NULL,
+                    name TEXT DEFAULT '',
+                    package TEXT NOT NULL,
+                    amount DOUBLE PRECISION NOT NULL,
+                    currency TEXT DEFAULT 'BDT',
+                    provider TEXT DEFAULT 'bKash',
+                    trx_id TEXT DEFAULT '',
+                    paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    notes TEXT DEFAULT '',
+                    team_name TEXT DEFAULT 'Carmella Elan'
+                );
+            """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS teams (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                );
+            """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS consumed_tokens (
+                    token TEXT PRIMARY KEY,
+                    email TEXT,
+                    consumed_at TEXT,
+                    access_count INTEGER DEFAULT 1
+                );
+            """)
+            c.execute("INSERT INTO teams (name) VALUES (?) ON CONFLICT (name) DO NOTHING", ('Carmella Elan',))
+            c.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ('canva_team_name', 'Carmella Elan'))
+            return
+
         c.execute("""
             CREATE TABLE IF NOT EXISTS subscriptions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,7 +284,7 @@ def init_db():
                 value TEXT
             )
         """)
-        c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('canva_team_name', 'Carmella Elan')")
+        c.execute("INSERT INTO settings (key, value) VALUES ('canva_team_name', 'Carmella Elan') ON CONFLICT (key) DO NOTHING")
 
         # Backfill any subscriber with missing or low customer_id (< 800)
         c.execute("SELECT id FROM subscriptions WHERE customer_id IS NULL OR customer_id < 800 ORDER BY id ASC")
@@ -135,7 +317,7 @@ def resolve_email(identifier: str) -> str:
     raw = str(identifier).strip()
     clean = raw.lstrip("#").strip()
     if clean.isdigit():
-        with sqlite3.connect(DB_FILE) as conn:
+        with get_db() as conn:
             c = conn.cursor()
             c.execute("SELECT email FROM subscriptions WHERE customer_id = ?", (int(clean),))
             row = c.fetchone()
@@ -153,7 +335,7 @@ def get_customer_id_by_sender(sender_id: str = "", sender_name: str = "", email:
     clean_email = email.lower().strip() if email else ""
     clean_sender = str(sender_id).strip() if sender_id else ""
 
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         # 1. By email
         if clean_email:
@@ -196,7 +378,7 @@ def parse_package(pkg: str):
 def get_all_teams() -> list:
     """Returns a list of all distinct Canva teams."""
     init_db()
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("SELECT name FROM teams ORDER BY name ASC")
         db_teams = [r[0].strip() for r in c.fetchall() if r[0] and r[0].strip()]
@@ -225,7 +407,7 @@ def add_team(name: str) -> str:
     clean_name = str(name).strip()
     if not clean_name:
         return "Carmella Elan"
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("INSERT OR IGNORE INTO teams (name) VALUES (?)", (clean_name,))
         conn.commit()
@@ -236,7 +418,7 @@ def delete_team(name: str) -> bool:
     """Deletes a Canva Team name from the teams table."""
     init_db()
     clean_name = str(name).strip()
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("DELETE FROM teams WHERE name = ?", (clean_name,))
         conn.commit()
@@ -255,7 +437,7 @@ def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id
     assigned_team = (team_name or get_canva_team_name() or "Carmella Elan").strip()
     add_team(assigned_team)
 
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("SELECT customer_id, fb_sender_id, team_name FROM subscriptions WHERE email = ?", (clean_email,))
         existing = c.fetchone()
@@ -314,7 +496,7 @@ def record_payment(
     """Records a verified payment into the revenue ledger table."""
     init_db()
     clean_email = resolve_email(identifier)
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("SELECT customer_id, name, package, trx_id, team_name FROM subscriptions WHERE email = ?", (clean_email,))
         row = c.fetchone()
@@ -393,7 +575,7 @@ def update_payment(payment_id: int, fields: dict) -> dict:
     values = list(updates.values())
     values.append(int(payment_id))
 
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute(f"UPDATE payments SET {', '.join(set_clauses)} WHERE id = ?", tuple(values))
         conn.commit()
@@ -421,7 +603,7 @@ def update_payment(payment_id: int, fields: dict) -> dict:
 def delete_payment(payment_id: int) -> bool:
     """Deletes a payment record from the payments ledger."""
     init_db()
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("DELETE FROM payments WHERE id = ?", (int(payment_id),))
         conn.commit()
@@ -431,7 +613,7 @@ def delete_payment(payment_id: int) -> bool:
 def get_all_payments(limit: int = 200, team_filter: str = None) -> list:
     """Fetches the recent payment transaction history ledger, optionally filtered by team."""
     init_db()
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         query = """
             SELECT id, customer_id, email, name, package, amount, currency, provider, trx_id, paid_at, notes, COALESCE(team_name, 'Carmella Elan')
@@ -475,7 +657,7 @@ def get_all_payments(limit: int = 200, team_filter: str = None) -> list:
 def get_total_earnings(team_filter: str = None) -> dict:
     """Calculates total earnings in BDT and count of verified payments, optionally filtered by team."""
     init_db()
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         query = "SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM payments"
         params = []
@@ -503,7 +685,7 @@ def get_canva_team_name() -> str:
     """Retrieves the current Canva Team Name."""
     init_db()
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with get_db() as conn:
             c = conn.cursor()
             c.execute("SELECT value FROM settings WHERE key = 'canva_team_name'")
             row = c.fetchone()
@@ -521,7 +703,7 @@ def set_canva_team_name(name: str) -> str:
     if not clean_name:
         clean_name = "Carmella Elan"
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with get_db() as conn:
             c = conn.cursor()
             c.execute("INSERT INTO settings (key, value) VALUES ('canva_team_name', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", (clean_name,))
             conn.commit()
@@ -533,7 +715,7 @@ def set_canva_team_name(name: str) -> str:
 def mark_paid(identifier: str, trx_id: str = "", amount: float = None, provider: str = "bKash") -> bool:
     init_db()
     clean_email = resolve_email(identifier)
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         if trx_id:
             c.execute("""
@@ -552,14 +734,15 @@ def mark_paid(identifier: str, trx_id: str = "", amount: float = None, provider:
 
     if ok:
         try:
-            with sqlite3.connect(DB_FILE) as conn:
+            with get_db() as conn:
                 c = conn.cursor()
                 if trx_id and trx_id.strip():
                     c.execute("SELECT id FROM payments WHERE email = ? AND trx_id = ?", (clean_email, trx_id.strip()))
                     if not c.fetchone():
                         record_payment(clean_email, amount=amount, provider=provider, trx_id=trx_id)
                 else:
-                    c.execute("SELECT id FROM payments WHERE email = ? AND datetime(paid_at) >= datetime('now', '-5 minutes')", (clean_email,))
+                    five_mins_ago = (datetime.now() - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+                    c.execute("SELECT id FROM payments WHERE email = ? AND paid_at >= ?", (clean_email, five_mins_ago))
                     if not c.fetchone():
                         record_payment(clean_email, amount=amount, provider=provider, trx_id=trx_id)
         except Exception as e:
@@ -571,7 +754,7 @@ def mark_paid(identifier: str, trx_id: str = "", amount: float = None, provider:
 def kick_subscriber(identifier: str) -> bool:
     init_db()
     clean_email = resolve_email(identifier)
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("""
             UPDATE subscriptions 
@@ -588,7 +771,7 @@ def extend_subscriber(identifier: str, package: str = "1m") -> dict:
     clean_email = resolve_email(identifier)
     now = datetime.now()
 
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("SELECT expires_at, package, customer_id FROM subscriptions WHERE email = ?", (clean_email,))
         row = c.fetchone()
@@ -633,7 +816,7 @@ def get_subscriber(identifier: str) -> dict:
         return None
     raw = str(identifier).strip()
     clean = raw.lstrip("#").strip()
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         if clean.isdigit():
             c.execute("""
@@ -687,7 +870,7 @@ def update_subscriber(identifier: str, fields: dict) -> dict:
 
     new_email = updates.get("email", "").lower().strip()
     if new_email and new_email != clean_email:
-        with sqlite3.connect(DB_FILE) as conn:
+        with get_db() as conn:
             c = conn.cursor()
             c.execute("SELECT id FROM subscriptions WHERE email = ?", (new_email,))
             if c.fetchone():
@@ -699,7 +882,7 @@ def update_subscriber(identifier: str, fields: dict) -> dict:
     values = list(updates.values())
     values.append(clean_email)
 
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute(f"UPDATE subscriptions SET {', '.join(set_clauses)} WHERE email = ?", tuple(values))
         conn.commit()
@@ -710,7 +893,7 @@ def update_subscriber(identifier: str, fields: dict) -> dict:
 
 def list_subscribers(status_filter: str = None, team_filter: str = None) -> list:
     init_db()
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         query = """
             SELECT email, name, package, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan')
@@ -756,7 +939,7 @@ def list_subscribers(status_filter: str = None, team_filter: str = None) -> list
 
 def get_db_stats(team_filter: str = None) -> dict:
     init_db()
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         cond = ""
         params = []
@@ -848,7 +1031,7 @@ if __name__ == "__main__":
 def delete_subscriber(email: str) -> bool:
     init_db()
     clean_email = email.lower().strip()
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("DELETE FROM subscriptions WHERE email = ?", (clean_email,))
         conn.commit()
@@ -860,21 +1043,25 @@ def get_subscribers_expiring_soon(days: int = 7) -> list:
     who haven't received a reminder in the last 7 days.
     """
     init_db()
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
+        now_dt = datetime.now()
+        now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+        exp_limit_str = (now_dt + timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+        reminder_limit_str = (now_dt - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
         c.execute("""
             SELECT id, customer_id, fb_sender_id, name, email, package, expires_at, last_reminder_at
             FROM subscriptions
             WHERE status = 'active'
               AND payment_status = 'PAID'
               AND expires_at IS NOT NULL
-              AND datetime(expires_at) >= datetime('now')
-              AND datetime(expires_at) <= datetime('now', '+' || ? || ' days')
+              AND expires_at >= ?
+              AND expires_at <= ?
               AND (
                   last_reminder_at IS NULL 
-                  OR datetime(last_reminder_at) < datetime('now', '-7 days')
+                  OR last_reminder_at < ?
               )
-        """, (days,))
+        """, (now_str, exp_limit_str, reminder_limit_str))
         rows = c.fetchall()
         result = []
         for r in rows:
@@ -895,7 +1082,7 @@ def mark_reminder_sent(email_or_id) -> bool:
     """Marks that an expiry reminder was sent to this customer."""
     init_db()
     clean_email = resolve_email(email_or_id)
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         c.execute("""
@@ -911,7 +1098,7 @@ def set_pending_telegram_msg(email_or_id, msg_id: int):
     """Stores the Telegram message ID of a pending notification for this subscriber."""
     init_db()
     clean_email = resolve_email(email_or_id)
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("UPDATE subscriptions SET pending_telegram_msg_id = ? WHERE email = ?", (int(msg_id) if msg_id else None, clean_email))
         conn.commit()
@@ -921,7 +1108,7 @@ def get_pending_telegram_msg(email_or_id) -> int:
     """Retrieves the Telegram message ID of a pending notification for this subscriber."""
     init_db()
     clean_email = resolve_email(email_or_id)
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("SELECT pending_telegram_msg_id FROM subscriptions WHERE email = ?", (clean_email,))
         row = c.fetchone()
@@ -946,7 +1133,7 @@ INVITE_HMAC_SECRET = b"designhub_permanent_hmac_secret_key_v1_2026"
 
 
 def init_consumed_tokens_table():
-    with sqlite3.connect(DB_FILE) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         c.execute("""
             CREATE TABLE IF NOT EXISTS consumed_tokens (
@@ -1031,7 +1218,7 @@ def consume_expiring_invite(token: str, is_bot_prefetch: bool = False) -> dict:
                 return {"valid": False, "reason": "expired", "email": email, "message": "This invitation session has expired."}
             
             # Session Management: Allow client reloads, app switching, and OAuth callbacks up to 20 accesses
-            with sqlite3.connect(DB_FILE) as conn:
+            with get_db() as conn:
                 c = conn.cursor()
                 c.execute("SELECT access_count FROM consumed_tokens WHERE token = ?", (token,))
                 row = c.fetchone()
