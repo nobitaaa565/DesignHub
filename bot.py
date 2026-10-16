@@ -134,21 +134,53 @@ def call_gemini(prompt: str, system_prompt: str = "") -> str:
     return ""
 
 
+def generate_image_via_gemini(prompt: str) -> bytes:
+    """Attempts to generate image directly via official Google Gemini Image API models."""
+    if not GEMINI_API_KEY:
+        return b""
+    models = ["gemini-2.5-flash-image", "gemini-3.1-flash-image", "gemini-3-pro-image", "gemini-3.1-flash-lite-image"]
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    for m in models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={GEMINI_API_KEY}"
+        try:
+            res = requests.post(url, json=payload, timeout=30)
+            if res.status_code == 200:
+                data = res.json()
+                for part in data.get("candidates", [{}])[0].get("content", {}).get("parts", []):
+                    if "inlineData" in part:
+                        import base64
+                        logger.info(f"✅ Successfully generated image via Google {m} API!")
+                        return base64.b64decode(part["inlineData"]["data"])
+        except Exception as e:
+            logger.debug(f"Gemini Image API attempt ({m}) skipped: {e}")
+    return b""
+
+
 def generate_image_bytes(prompt: str) -> bytes:
-    """Generate image using AI generation engine and composite official brand logo."""
-    clean_prompt = urllib.parse.quote(prompt.strip())
-    url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1080&height=1350&model=flux&nologo=true"
-    try:
-        res = requests.get(url, timeout=35)
-        if res.status_code == 200 and len(res.content) > 1000:
-            try:
-                from design_art_director import composite_brand_logo
-                return composite_brand_logo(res.content)
-            except Exception as ce:
-                logger.error(f"Error compositing logo: {ce}")
-                return res.content
-    except Exception as e:
-        logger.error(f"Image generation error: {e}")
+    """Generate image: Tries Gemini Image API first, auto-fallbacks to Flux, and composites brand logo."""
+    # 1. Try Google Gemini Image API
+    img_bytes = generate_image_via_gemini(prompt)
+
+    # 2. Fallback to Flux if Gemini image quota is exceeded (429 / billing required)
+    if not img_bytes:
+        clean_prompt = urllib.parse.quote(prompt.strip())
+        url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1080&height=1350&model=flux&nologo=true"
+        try:
+            res = requests.get(url, timeout=35)
+            if res.status_code == 200 and len(res.content) > 1000:
+                img_bytes = res.content
+        except Exception as e:
+            logger.error(f"Flux fallback generation error: {e}")
+
+    # 3. Composite official Design Hub logo (top-left, transparent)
+    if img_bytes:
+        try:
+            from design_art_director import composite_brand_logo
+            return composite_brand_logo(img_bytes)
+        except Exception as ce:
+            logger.error(f"Error compositing logo: {ce}")
+            return img_bytes
+
     return b""
 
 
