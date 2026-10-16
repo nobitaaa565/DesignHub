@@ -23,6 +23,19 @@ logger = logging.getLogger("CanvaFraudDetector")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 SESSION_FILE = Path(__file__).resolve().parent / "canva_session.json"
+RENDER_SECRET_FILE = Path("/etc/secrets/canva_session.json")
+if not SESSION_FILE.exists() and RENDER_SECRET_FILE.exists():
+    SESSION_FILE = RENDER_SECRET_FILE
+
+CANVA_SESSION_B64 = os.getenv("CANVA_SESSION_B64", "")
+if not SESSION_FILE.exists() and CANVA_SESSION_B64:
+    try:
+        import base64
+        SESSION_FILE.write_bytes(base64.b64decode(CANVA_SESSION_B64))
+        logger.info("Restored canva_session.json from CANVA_SESSION_B64 environment variable.")
+    except Exception as e:
+        logger.error(f"Error restoring canva session: {e}")
+
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_ALLOWED_USER_ID = os.getenv("TELEGRAM_ALLOWED_USER_ID")
 
@@ -47,26 +60,43 @@ def load_ignored_emails() -> set:
 
 def scan_canva_members() -> dict:
     """
-    Connects to Canva team settings via local Chrome with anti-detection flags
+    Connects to Canva team settings via local Chrome or cloud Chromium with anti-detection flags
     and returns a clean list of all live member emails currently occupying seats.
     """
     if not SESSION_FILE.exists():
-        return {"status": "error", "message": "canva_session.json not found on this machine."}
+        return {
+            "status": "error",
+            "message": (
+                "canva_session.json not found on this cloud server (Render).\n\n"
+                "💡 How to run Canva Audit:\n"
+                "1. Run directly from your Mac terminal (bypasses Cloudflare):\n"
+                "   python3 canva_fraud_detector.py --telegram\n\n"
+                "2. Or upload canva_session.json to Render Dashboard > Environment > Secret Files."
+            )
+        }
 
-    logger.info("🔍 Launching Chrome in headless background mode to scan Canva team roster...")
+    logger.info("🔍 Launching browser in background mode to scan Canva team roster...")
     try:
         with sync_playwright() as p:
             launch_args = [
                 "--disable-blink-features=AutomationControlled",
                 "--no-default-browser-check",
                 "--no-first-run",
-                "--disable-infobars"
+                "--disable-infobars",
+                "--no-sandbox",
+                "--disable-dev-shm-usage"
             ]
-            browser = p.chromium.launch(
-                channel="chrome",
-                headless=True,
-                args=launch_args
-            )
+            try:
+                browser = p.chromium.launch(
+                    channel="chrome",
+                    headless=True,
+                    args=launch_args
+                )
+            except Exception:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=launch_args
+                )
             context = browser.new_context(
                 storage_state=str(SESSION_FILE),
                 viewport={"width": 1280, "height": 850},
@@ -77,8 +107,20 @@ def scan_canva_members() -> dict:
             page.goto("https://www.canva.com/settings/team-members", wait_until="domcontentloaded", timeout=35000)
             time.sleep(5)
 
+            title = page.title()
             html = page.content()
             browser.close()
+
+            if "Just a moment..." in title or "Cloudflare" in title:
+                return {
+                    "status": "error",
+                    "message": (
+                        "🛡️ Canva Cloudflare Challenge intercepted the cloud server.\n\n"
+                        "Datacenter IPs on Render are challenged by Cloudflare Turnstile.\n"
+                        "Run the audit from your Mac to bypass Cloudflare in 4 seconds:\n"
+                        "👉 python3 canva_fraud_detector.py --telegram"
+                    )
+                }
 
             emails = re.findall(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", html)
             clean_emails = sorted(list(set(
