@@ -1,13 +1,13 @@
 ---
 name: poster-design
-version: 2.2.0
+version: 2.3.0
 description: |
   Master poster design and autonomous visual generation skill for Design Hub & Canva.
   Strictly locked to Facebook Portrait (4:5, 1080x1350 px) and Square (1:1, 1080x1080 px).
   Features dynamic text placement, freeform layout architectures, context-driven style selection, and strict brand logo integrity.
 ---
 
-# POSTER DESIGN MASTER SKILL (v2.2.0)
+# POSTER DESIGN MASTER SKILL (v2.3.0)
 
 ## 1. STRICT ASPECT RATIO LOCK (MANDATORY FOR ALL GENERATIONS)
 
@@ -85,6 +85,19 @@ description: |
    - **Center:** Three floating frosted glass pricing cards with elevated center hero card.
    - **Bottom-Center:** Clean floor area with centered Design Hub brand logo.
 
+7. **Geometry G: Real Model with Phone & Orbiting 3D Tiles (Ref: `design-6_reference`)**
+   - **Top:** Dual brand logos with neon portal ambient glow.
+   - **Center-Left:** Smartphone held forward with live Canva interface, surrounded by 4 tactile 3D squircle tiles.
+   - **Center-Right:** Charismatic photographic model engaging the viewer.
+   - **Bottom:** Glowing neon price pill badge and Messenger CTA.
+
+8. **Geometry H: Split-Bento Hero Card & Vertical Feature Stack (Ref: `design-7_reference`)**
+   - **Top:** Bold brand headline + Bengali subheadline with floating 3D spark/diamond token.
+   - **Center-Left (Hero Card):** Large vibrant gradient squircle card with 3D product token and massive perk typography (`UNLIMITED` / `100M+`).
+   - **Center-Left Unique Price Inset:** Stark white floating ticket/pill container with soft drop shadow and bold contrasting typography (`[ মাত্র ৫০ টাকা ]`), completely distinct from all body copy.
+   - **Center-Right (Feature Stack):** 5-6 sleek horizontal white cards with colored icons, English feature title, and Bengali description.
+   - **Bottom:** Full-width 4-badge security trust bar + Messenger CTA pill.
+
 ---
 
 ## 4. AUTONOMOUS CONTEXT-TO-STYLE DECISION MATRIX
@@ -99,12 +112,17 @@ When given a campaign topic or context, autonomously pick both the **Style Arche
 | **Beginners, Student Deals, High-Trust Offers ('Access First, Pay Later'), Friendly Walkthrough** | **Style 1: Clean & Bright Studio Character** | Geometry B (Reverse Split) OR Classic Split with varied character & prop | `design1.jpg` |
 | **Curiosity Campaigns, Secret Tools, Gift Bundles, Micro-World Reveals** | **Style 4: Hand Holding Miniature Glass Capsule** | Geometry E (Centered Hand & Capsule) with Bottom Floating Pill Offer | `DESIGN-4` |
 | **Direct Subscription Promo, Mobile App Checkout, All-in-One AI Suite, bKash Offers** | **Style 6: Real Model & Floating 3D Feature Badges** | Geometry G (Phone in Hand with Orbiting 3D Tiles & Hero Model) | `design-6_reference` |
+| **All-in-One Pro SaaS Perks, Multi-Feature Breakdown, High-Trust Bengali Audience** | **Style 7: Premium SaaS Split-Bento & Feature Stack Grid** | Geometry H (Split-Bento Hero Card & Vertical Feature Stack) | `design-7_reference` |
 
 ---
 
 ## 5. DYNAMIC PRICE HIGHLIGHTING & COPY RULES
 
-- **Highlight the Price:** Bangladeshi consumers respond strongly to clear pricing. Always visually highlight the price tag:
+- **Highlight the Price (CRITICAL RULE - SHOW PRICE UNIQUELY):**
+  Bangladeshi consumers respond strongly to clear, unmissable pricing. The price must NEVER blend into body copy or look like ordinary typography:
+  - **Unique Floating Container:** Frame the price inside a distinct ticket/pill element (e.g. crisp stark-white rounded pill with 3D soft drop shadow against rich gradients, or illuminated neon badge against dark backgrounds).
+  - **Color & Weight Separation:** Use high-contrast brand colors (deep royal violet `#7D2AE8`, electric blue `#0062FF`, or warm amber `#F59E0B`) in bold, prominent Bengali/English numerals (`[ মাত্র ৫০ টাকা ]` or `[ মাত্র ৯৯ টাকা ]`).
+  - **Instant Visual Hook:** The price pill should be the single most eye-catching badge on the card, immediately communicating unbeatable value.
   - Use high-contrast amber/gold pill badges (e.g. `[ 25tk ]` or `[ 50 TK / 3 MONTHS ]`).
   - Use warm amber `#F59E0B` or vibrant emerald `#10B981` accents against dark obsidian backgrounds.
   - In light backgrounds, use bold brand-colored pills or clean dashed coupon cutouts.
@@ -175,9 +193,17 @@ designs/
 │   ├── canva_conceptual_promo_1080x1350.jpg
 │   ├── var2_pill_badge.jpg
 │   └── README.md
-└── design5_national_observance/      # Non-commercial commemorative vector art for national days
-    ├── reference.png
-    ├── national_revolution_and_solidarity_day_celebration.jpg
+├── design5_national_observance/      # Non-commercial commemorative vector art for national days
+│   ├── reference.png
+│   ├── national_revolution_and_solidarity_day_celebration.jpg
+│   └── README.md
+├── design-6_reference/               # Real photographic model + smartphone + orbiting 3D tiles
+│   ├── reference.jpg
+│   ├── canva_pro_mobile_promo_1080x1350.jpg
+│   └── README.md
+└── design-7_reference/               # Premium SaaS Split-Bento & Feature Stack Grid
+    ├── reference.jpg
+    ├── canva_pro_bento_promo_1080x1350.jpg
     └── README.md
 ```
 
