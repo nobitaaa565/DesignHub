@@ -191,20 +191,19 @@ def save_replied_ids(ids: set):
 
 # High-converting automatic greeting and package templates (Bengali & English)
 GREETING_PACKAGE_BN = (
-    "হ্যালো {name}! 👋 Design Hub-এ আপনাকে স্বাগতম।\n\n"
-    "আপনার নিজস্ব পার্সোনাল জিমেইলেই (Gmail) পাচ্ছেন ১০০% অফিসিয়াল Canva Pro লাইসেন্স! "
-    "কোনো পাসওয়ার্ডের প্রয়োজন নেই—সম্পূর্ণ নিরাপদ ও প্রাইভেট। 🔒✨\n\n"
+    "হ্যালো {name}! 👋 Design Hub-এ আপনাকে স্বাগতম।\n"
+    "আপনার নিজস্ব পার্সোনাল জিমেইলেই (Gmail) পাচ্ছেন ১০০% অফিসিয়াল Canva Pro লাইসেন্স! কোনো পাসওয়ার্ডের প্রয়োজন নেই—সম্পূর্ণ নিরাপদ ও প্রাইভেট। 🔒✨\n\n"
     "🔥 আমাদের স্পেশাল প্যাকেজসমূহ:\n"
     "⭐ ১ মাস — মাত্র ২৫ টাকা\n"
     "⚡ ৩ মাস — মাত্র ৫০ টাকা (🔥 সর্বাধিক জনপ্রিয় • Access First, Pay Later)\n"
-    "🚀 ১২ মাস (১ বছর) — মাত্র ১৫০ টাকা (সেরা ভ্যালু)\n\n"
+    "🚀 ৬ মাস — মাত্র ৯৯ টাকা (সেরা ভ্যালু)\n\n"
     "✨ যে যে সুবিধাগুলো পাবেন:\n"
     "• ১০০M+ প্রিমিয়াম ফটো, ভিডিও, অডিও ও গ্রাফিক্স\n"
     "• ১-ক্লিকে AI ব্যাকগ্রাউন্ড রিমুভার ও ম্যাজিক টুলস\n"
     "• ৩,০০০+ প্রিমিয়াম ফন্ট ও ব্র্যান্ড কিট অ্যাক্সেস\n"
-    "• ২ মিনিটে ইনস্ট্যান্ট অ্যাক্টিভেশন গ্যারান্টি\n\n"
+    "• ২ মিনিটে ইনস্ট্যান্ট অ্যাক্টিভেশন গ্যারান্টি\n"
     "🛡️ আমাদের বিশেষ সুবিধা: \"আগে অ্যাক্সেস পেয়ে চেক করে নিন, তারপর নিশ্চিন্তে পেমেন্ট করুন!\"\n\n"
-    "👉 এখনই অ্যাক্টিভেশন নিতে আপনার জিমেইলটি আমাদের পেজের ইনবক্সে পাঠিয়ে দিন! 🎨📩"
+    "অনুগ্রহ করে আপনার পছন্দের প্যাকেজটি বাছাই করুন। অথবা ১, ২ বা ৩ লিখে জানিয়ে দিন:"
 )
 
 GREETING_PACKAGE_EN = (
@@ -213,31 +212,34 @@ GREETING_PACKAGE_EN = (
     "🔥 Special Package Deals:\n"
     "⭐ 1 Month  — 25 TK\n"
     "⚡ 3 Months — 50 TK (🔥 Most Popular • Access First, Pay Later)\n"
-    "🚀 12 Months — 150 TK (Best Value Deal)\n\n"
+    "🚀 6 Months — 99 TK (Best Value Deal)\n\n"
     "✨ What You Unlock:\n"
     "• 100M+ Premium Stock Photos, Videos, Audio & Graphics\n"
     "• 1-Click AI Magic Background Remover & Magic Eraser\n"
     "• 3,000+ Premium Fonts, Unlimited Folders & Brand Kit\n"
     "• Instant 2-Minute Activation Guarantee\n\n"
     "🛡️ Zero Risk Policy: Access First, Check Everything, Then Pay!\n\n"
-    "👉 Send your email address in our Page Inbox now to get your access right away! 🎨📩"
+    "👉 Please select your desired package or reply with 1, 2, or 3 in our Inbox! 🎨📩"
 )
 
 ORDER_DIRECT_BN = (
-    "হ্যালো {name}! 😊 Design Hub-এ যোগাযোগ করার জন্য ধন্যবাদ।\n\n"
+    "হ্যালো {name}! 😊 Design Hub-এ যোগাযোগ করার জন্য ধন্যবাদ।\n"
     "আপনার নিজস্ব জিমেইল অ্যাকাউন্টে অফিসিয়াল Canva Pro চালু করতে:\n"
-    "⚡ প্যাকেজ: ১ মাস (২৫ টাকা) | ৩ মাস (৫০ টাকা) | ১২ মাস (১৫০ টাকা)\n"
+    "🔥 আমাদের স্পেশাল প্যাকেজসমূহ:\n"
+    "⭐ ১ মাস — মাত্র ২৫ টাকা\n"
+    "⚡ ৩ মাস — মাত্র ৫০ টাকা (🔥 সর্বাধিক জনপ্রিয় • Access First, Pay Later)\n"
+    "🚀 ৬ মাস — মাত্র ৯৯ টাকা (সেরা ভ্যালু)\n\n"
     "🛡️ সুবিধা: আগে অ্যাক্সেস নিন, চেক করুন, তারপর পেমেন্ট করুন!\n\n"
-    "👉 অনুগ্রহ করে আপনার জিমেইল (Gmail) অ্যাড্রেসটি আমাদের পেজের ইনবক্সে পাঠিয়ে দিন। মাত্র ২ মিনিটেই অ্যাক্টিভেশন পেয়ে যাবেন!"
+    "অনুগ্রহ করে আপনার পছন্দের প্যাকেজটি বাছাই করুন। অথবা ১, ২ বা ৩ লিখে জানিয়ে দিন:"
 )
 
 ORDER_DIRECT_EN = (
     "Hi {name}! 😊 Thank you for your interest in Design Hub.\n\n"
     "We provide official Canva Pro on your own personal email address (Access First, Pay Later)!\n"
-    "⚡ Packages: 1 Mo (25 TK) | 3 Mo (50 TK) | 12 Mo (150 TK)\n\n"
-    "👉 Please send your email address in our page Inbox for instant activation within 2 minutes!"
+    "⚡ Packages: 1 Mo (25 TK) | 3 Mo (50 TK) | 6 Mo (99 TK)\n\n"
+    "🛡️ Benefit: Access First, Check Everything, Then Pay!\n\n"
+    "👉 Please select your desired package or reply with 1, 2, or 3 in our Inbox!"
 )
-
 
 def is_bengali(text: str) -> bool:
     """Check if the text contains Bengali script."""
@@ -910,7 +912,7 @@ async def add_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
             "💡 *Usage:* `/add <email> [package] [name]`\n"
-            "*Packages:* `1m` (25 TK), `3m` (50 TK), `12m` (150 TK)\n"
+            "*Packages:* `1m` (25 TK), `3m` (50 TK), `6m` (99 TK), `12m` (150 TK)\n"
             "*Example:* `/add rahim@gmail.com 1m Rahim`",
             parse_mode="Markdown"
         )

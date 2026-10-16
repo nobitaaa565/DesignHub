@@ -44,9 +44,10 @@ TELEGRAM_ALLOWED_USER_ID = int(os.getenv("TELEGRAM_ALLOWED_USER_ID", "0"))
 PACKAGES = {
     "1": {"key": "1m", "name": "১ মাস (২৫ টাকা)", "price": 25, "days": 30},
     "2": {"key": "3m", "name": "৩ মাস (৫০ টাকা)", "price": 50, "days": 90},
-    "3": {"key": "12m", "name": "১ বছর (১৫০ টাকা)", "price": 150, "days": 365},
+    "3": {"key": "6m", "name": "৬ মাস (৯৯ টাকা)", "price": 99, "days": 180},
     "pkg_1m": {"key": "1m", "name": "১ মাস (২৫ টাকা)", "price": 25, "days": 30},
     "pkg_3m": {"key": "3m", "name": "৩ মাস (৫০ টাকা)", "price": 50, "days": 90},
+    "pkg_6m": {"key": "6m", "name": "৬ মাস (৯৯ টাকা)", "price": 99, "days": 180},
     "pkg_12m": {"key": "12m", "name": "১ বছর (১৫০ টাকা)", "price": 150, "days": 365},
 }
 
@@ -182,7 +183,7 @@ def get_package_buttons():
     return [
         {"content_type": "text", "title": "1️⃣ ১ মাস (২৫৳)", "payload": "PKG_1M"},
         {"content_type": "text", "title": "2️⃣ ৩ মাস (৫০৳)", "payload": "PKG_3M"},
-        {"content_type": "text", "title": "3️⃣ ১ বছর (১৫০৳)", "payload": "PKG_12M"},
+        {"content_type": "text", "title": "3️⃣ ৬ মাস (৯৯৳)", "payload": "PKG_6M"},
         {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
     ]
 
@@ -193,7 +194,7 @@ def parse_package_choice(text: str):
         return PACKAGES["1"]
     if clean in ("2", "২", "3m", "pkg_3m") or "৩ মাস" in clean or "3 month" in clean:
         return PACKAGES["2"]
-    if clean in ("3", "৩", "12m", "pkg_12m", "1y") or "১ বছর" in clean or "1 year" in clean:
+    if clean in ("3", "৩", "6m", "pkg_6m", "12m", "pkg_12m", "1y") or "৬ মাস" in clean or "6 month" in clean or "১ বছর" in clean:
         return PACKAGES["3"]
     return None
 
@@ -243,7 +244,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 f"🔗 {join_url}\n\n"
                 f"⚠️ গুরুত্বপূর্ণ: এই নতুন লিংকটি আগামী ৩০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
                 f"💳 পেমেন্ট তথ্য:\n"
-                f"• বিকাশ / নগদ (Personal): 01711-223344\n\n"
+                f"• বিকাশ / নগদ (Personal): 01571425035, 01798361516\n\n"
                 f"টিমে যুক্ত হয়ে পেমেন্ট সম্পন্ন করে TrxID বা স্ক্রিনশট পাঠিয়ে দিন। ধন্যবাদ! 🎨"
             )
             quick_btns = [
@@ -278,8 +279,8 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             f"📦 আপনি কোন প্যাকেজটি নিতে চান?\n"
             f"১. ১ মাস — ২৫ টাকা\n"
             f"২. ৩ মাস — ৫০ টাকা\n"
-            f"৩. ১ বছর — ১৫০ টাকা\n\n"
-            f"নিচের বাটনে ট্যাপ করুন অথবা ১, ২ বা ৩ লিখে পাঠিয়ে দিন:"
+            f"৩. ৬ মাস — ৯৯ টাকা\n\n"
+            f"অনুগ্রহ করে আপনার পছন্দের প্যাকেজটি বাছাই করুন। অথবা ১, ২ বা ৩ লিখে জানিয়ে দিন:"
         )
         send_fb_message(sender_id, text, page_token, quick_replies=get_package_buttons())
         return
@@ -292,8 +293,8 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             f"⌛ {sender_name}, আপনার Canva Pro মেয়াদ বাড়াতে (Extend) কোন প্যাকেজটি নিতে চান?\n\n"
             f"১. ১ মাস (+৩০ দিন) — ২৫ টাকা\n"
             f"২. ৩ মাস (+৯০ দিন) — ৫০ টাকা\n"
-            f"৩. ১ বছর (+৩৬৫ দিন) — ১৫০ টাকা\n\n"
-            f"নিচের বাটনে ট্যাপ করুন অথবা ১, ২ বা ৩ লিখে দিন:"
+            f"৩. ৬ মাস (+১৮০ দিন) — ৯৯ টাকা\n\n"
+            f"অনুগ্রহ করে আপনার পছন্দের প্যাকেজটি বাছাই করুন। অথবা ১, ২ বা ৩ লিখে জানিয়ে দিন:"
         )
         send_fb_message(sender_id, text, page_token, quick_replies=get_package_buttons())
         return
@@ -504,8 +505,8 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 f"📦 আপনি কোন প্যাকেজটি নিতে চান?\n"
                 f"১. ১ মাস — ২৫ টাকা\n"
                 f"২. ৩ মাস — ৫০ টাকা\n"
-                f"৩. ১ বছর — ১৫০ টাকা\n\n"
-                f"নিচের বাটনে চাপ দিন অথবা ১, ২ বা ৩ লিখে জানিয়ে দিন:"
+                f"৩. ৬ মাস — ৯৯ টাকা\n\n"
+                f"অনুগ্রহ করে আপনার পছন্দের প্যাকেজটি বাছাই করুন। অথবা ১, ২ বা ৩ লিখে জানিয়ে দিন:"
             )
             send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
             return
@@ -527,7 +528,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
                 f"📦 প্যাকেজ: **{pkg_name}**\n"
                 f"📧 জিমেইল: **{email}**\n\n"
-                f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন অথবা 'YES' / 'হ্যাঁ' লিখে কনফার্ম করুন:"
+                f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন :"
             )
             quick_btns = [
                 {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{email}"},
@@ -566,13 +567,12 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 
             # 3. Deliver Link + Request Payment
             reply = (
-                f"🎉 অভিনন্দন {sender_name}!\n\n"
-                f"আপনার Canva Pro টিম জয়েন লিংক নিচে দেওয়া হলো:\n"
+                f"আপনার Canva Pro টিম জয়েন লিংক নিচে দেওয়া হলো:\n\n"
                 f"🔗 {join_url}\n\n"
                 f"⚠️ গুরুত্বপূর্ণ: এই লিংকটি আগামী ৩০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
                 f"💳 পেমেন্ট তথ্য:\n"
                 f"• প্যাকেজ: {pkg_name}\n"
-                f"• বিকাশ / নগদ (Personal): 01711-223344\n\n"
+                f"• বিকাশ / নগদ (Personal): 01571425035, 01798361516\n\n"
                 f"টিমে জয়েন করার পর পেমেন্ট সম্পন্ন করে ট্রানজেকশন আইডি (TrxID) বা স্ক্রিনশট পাঠিয়ে দিন। ধন্যবাদ! 🎨"
             )
             quick_btns = [
@@ -618,10 +618,10 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             save_states(states)
 
         reply = (
-            f"ℹ️ {sender_name}, আপনার Canva Pro জয়েন লিংক:\n"
+            f"ℹ️ {sender_name}, আপনার Canva Pro জয়েন লিংক:\n\n"
             f"🔗 {join_url}\n\n"
             f"💳 পেমেন্ট তথ্য:\n"
-            f"• বিকাশ / নগদ (Personal): 01711-223344\n\n"
+            f"• বিকাশ / নগদ (Personal): 01571425035, 01798361516\n\n"
             f"টিমে জয়েন করা হয়ে গেলে পেমেন্টের TrxID বা স্ক্রিনশট পাঠিয়ে দিন।\n"
             f"নতুন লিংক প্রয়োজন হলে নিচের বাটনে ট্যাপ করুন:"
         )
