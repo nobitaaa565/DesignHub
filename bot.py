@@ -135,13 +135,18 @@ def call_gemini(prompt: str, system_prompt: str = "") -> str:
 
 
 def generate_image_bytes(prompt: str) -> bytes:
-    """Generate image using AI generation engine."""
+    """Generate image using AI generation engine and composite official brand logo."""
     clean_prompt = urllib.parse.quote(prompt.strip())
-    url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&nologo=true"
+    url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1080&height=1350&model=flux&nologo=true"
     try:
-        res = requests.get(url, timeout=30)
+        res = requests.get(url, timeout=35)
         if res.status_code == 200 and len(res.content) > 1000:
-            return res.content
+            try:
+                from design_art_director import composite_brand_logo
+                return composite_brand_logo(res.content)
+            except Exception as ce:
+                logger.error(f"Error compositing logo: {ce}")
+                return res.content
     except Exception as e:
         logger.error(f"Image generation error: {e}")
     return b""
@@ -765,18 +770,41 @@ async def image_gen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not context.args:
         await update.message.reply_text(
-            "💡 *Usage:* `/image <description>`\n*Example:* `/image Modern Canva Pro promotional banner, purple gradient, 4k`",
+            "💡 *Usage:* `/image <topic or offer>`\n\n"
+            "*Archive References:*
+"
+            "• `/image Canva Pro 25tk offer for students` (Design 1 Studio Character)
+"
+            "• `/image 50tk 3 months Canva Pro for designers` (Design 2 Dark Tech)
+"
+            "• `/image Package comparison 25tk, 50tk, 99tk` (Design 3 Glassmorphism)
+"
+            "• `/image Anyone can create, ideas to reality` (Design 4 Conceptual Art)
+"
+            "• `/image Independence day celebration` (Design 5 Vector Art)",
             parse_mode="Markdown"
         )
         return
 
     prompt = " ".join(context.args)
-    status_msg = await update.message.reply_text("🎨 *Generating AI image & caption...*", parse_mode="Markdown")
+    status_msg = await update.message.reply_text("🎨 *Analyzing context & selecting archive design style...*", parse_mode="Markdown")
 
-    caption_prompt = f"Write a 2-sentence engaging Facebook caption with 3 hashtags for a post showcasing: {prompt}"
-    caption = call_gemini(caption_prompt) or "✨ Transform your workflow with Design Hub!\n\n#DesignHub #CreativeTools #GraphicDesign"
+    from design_art_director import evaluate_and_enrich_prompt
+    direction = await asyncio.to_thread(evaluate_and_enrich_prompt, prompt)
 
-    img_bytes = generate_image_bytes(prompt)
+    arch_name = direction.get("archetype_name", "Design Hub Archive Reference")
+    reason = direction.get("reason", "Context-matched from design archive.")
+    enriched_prompt = direction.get("enriched_prompt", prompt)
+    caption = direction.get("caption", "✨ Transform your workflow with Design Hub!\n\n#DesignHub #CanvaPro #CreativeTools")
+
+    await status_msg.edit_text(
+        f"🎨 *Selected Style:* `{arch_name}`\n"
+        f"💡 *Rationale:* _{reason}_\n"
+        f"⏳ *Synthesizing 4:5 visual & applying Design Hub brand logo...*",
+        parse_mode="Markdown"
+    )
+
+    img_bytes = await asyncio.to_thread(generate_image_bytes, enriched_prompt)
     if not img_bytes:
         await status_msg.edit_text("❌ Failed to generate image. Please try a different prompt.")
         return
@@ -785,7 +813,8 @@ async def image_gen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "type": "photo",
         "image_bytes": img_bytes,
         "caption": caption,
-        "prompt": prompt
+        "prompt": enriched_prompt,
+        "raw_prompt": prompt
     }
 
     keyboard = [
@@ -800,8 +829,14 @@ async def image_gen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await status_msg.delete()
     await update.message.reply_photo(
         photo=img_bytes,
-        caption=f"📝 *Caption:*\n{caption}\n\nPublish to *Design Hub*?",
-        reply_markup=reply_markup
+        caption=(
+            f"🎨 *Style:* `{arch_name}`\n"
+            f"────────────────────────\n"
+            f"📝 *Caption:*\n{caption}\n\n"
+            f"Publish to *Design Hub* Facebook Page?"
+        ),
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
     )
 
 
