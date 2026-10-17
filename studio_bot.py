@@ -1,34 +1,31 @@
 #!/usr/bin/env python3
 """
-Design Hub - Dedicated Studio Poster Generator Bot
+Design Hub - Dedicated Studio Campaign Planner & Poster Bot
 Telegram Bot: @designposterbot
 Runs natively on macOS in the background to:
-1. Browse and showcase all 7 Design Reference Archetypes at once (/designs)
-2. Generate promotional posters using Google Imagen 3 / Gemini Image models (with Cloud FLUX fallback)
-3. Automatically format images to 4:5 Facebook Portrait (1080x1350)
-4. Programmatically composite the official transparent Design Hub brand logo
-5. 1-Tap Publish directly to Design Hub's Facebook Page
+1. Showcase all 7 Design References at once (/designs)
+2. Interactive Campaign Planning: takes rough idea -> refines into clean Short Prompt
+3. Flexible Prompt Editing: user can refine and tweak the prompt as much as needed
+4. Dual Reminder Alarm System: sounds alarms 2 hours & 1 hour before scheduled post
+5. Generates 1-tap copyable prompts ready to paste directly into Antigravity IDE
 """
 
 import os
 import sys
 import time
 import json
+import re
 import asyncio
 import logging
-import base64
-import urllib.parse
 import requests
 from pathlib import Path
-from datetime import datetime
-from PIL import Image, ImageDraw, ImageFilter
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    InputMediaPhoto,
     BotCommand,
 )
 from telegram.ext import (
@@ -47,15 +44,13 @@ load_dotenv(WORKSPACE_DIR / ".env")
 STUDIO_BOT_TOKEN = os.getenv("STUDIO_BOT_TOKEN") or "8948969587:AAFCqGJDH2qG_En5szzPAfqJ6jxl5pFpbow"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 ALLOWED_USER_ID = os.getenv("TELEGRAM_ALLOWED_USER_ID")
-LOGO_PATH = WORKSPACE_DIR / "designuhb-logo.png"
-GENERATED_DIR = WORKSPACE_DIR / "designs" / "generated"
-GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+CAMPAIGNS_FILE = WORKSPACE_DIR / "scheduled_campaigns.json"
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
-logger = logging.getLogger("StudioBot")
+logger = logging.getLogger("StudioPlannerBot")
 
 # All 7 Design Archetypes in folder sequence with master posters
 DESIGNS = [
@@ -64,44 +59,54 @@ DESIGNS = [
         "name": "Design 1",
         "title": "Style 1: Clean & Bright Studio Character",
         "image": "designs/design-1_reference/canva_pro_studio_promo_1080x1350.jpg",
+        "desc": "Daylight studio, 3D Pixar student creator, dashed coupon with unique [ মাত্র ২৫ টাকা ] price badge.",
     },
     {
         "id": 2,
         "name": "Design 2",
         "title": "Style 2: Atmospheric Dark Mode & Floating 3D Elements",
         "image": "designs/design-2_reference/dynamic_horizontal_promo_1080x1350.jpg",
+        "desc": "Cyber obsidian navy, neon rim lighting, floating 3D creative assets, frosted-glass bottom dock.",
     },
     {
         "id": 3,
         "name": "Design 3",
         "title": "Style 3: Ultra-Premium Glassmorphism Pricing Tiles",
         "image": "designs/design-3_reference/reference.jpg",
+        "desc": "Overhead dramatic spotlight, 3 floating frosted-glass cards with elevated center hero card.",
     },
     {
         "id": 4,
         "name": "Design 4",
         "title": "Style 4: Poetic Conceptual Art & Physical Metaphor",
         "image": "designs/design-4_reference/canva_conceptual_promo_1080x1350.jpg",
+        "desc": "Physical wooden pencil transforming into a sweeping luminous ribbon of frosted colored glass.",
     },
     {
         "id": 5,
         "name": "Design 5",
         "title": "Style 5: National & Observance Day Vector Art",
         "image": "designs/design-5_reference/national_revolution_and_solidarity_day_celebration.jpg",
+        "desc": "Patriotic vector art, national monument silhouettes, Bengali typography, zero commercial selling.",
     },
     {
         "id": 6,
         "name": "Design 6",
         "title": "Style 6: Real Model & Floating 3D Feature Badges",
         "image": "designs/design-6_reference/canva_pro_mobile_promo_1080x1350.jpg",
+        "desc": "Charismatic model holding smartphone with live UI, 4 orbiting 3D squircle tiles, neon aperture portal.",
     },
     {
         "id": 7,
         "name": "Design 7",
         "title": "Style 7: Premium SaaS Split-Bento & Feature Stack Grid",
         "image": "designs/design-7_reference/canva_pro_bento_promo_1080x1350.jpg",
+        "desc": "Split bento grid, rich gradient card, stark-white embossed [ মাত্র ৫০ টাকা ] ticket pill, 5 stacked feature cards.",
     },
 ]
+
+# User session state for interactive prompt building
+USER_SESSIONS = {}
 
 
 def check_auth(update: Update) -> bool:
@@ -115,179 +120,112 @@ def check_auth(update: Update) -> bool:
 
 
 # =====================================================================
-# MAC POST-PROCESSING: 1080x1350 & LOGO COMPOSITING
+# PERSISTENT CAMPAIGNS STORAGE
 # =====================================================================
 
-def post_process_poster(raw_image_path: Path, output_image_path: Path, style_id: int) -> Path:
-    """
-    Takes raw image from AI generator, scales cleanly to 1080x1350 (4:5 Facebook Portrait)
-    or 1080x1080 for Style 3, patches any AI placeholder, and composites designuhb-logo.png.
-    """
-    img = Image.open(raw_image_path).convert("RGB")
-    w, h = img.size
+def load_campaigns() -> list:
+    if not CAMPAIGNS_FILE.exists():
+        return []
+    try:
+        with open(CAMPAIGNS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Error loading campaigns: {e}")
+        return []
 
-    # Style 3 is square (1080x1080), all others are 4:5 Facebook Portrait (1080x1350)
-    target_w, target_h = (1080, 1080) if style_id == 3 else (1080, 1350)
 
-    # Clean top-left logo area (patch placeholder text like 'Logo Overlay' or generic artifact)
-    if style_id != 3:
-        draw = ImageDraw.Draw(img)
-        c_top = img.getpixel((min(w - 1, 100), 15))
-        c_bot = img.getpixel((min(w - 1, 100), min(h - 1, 115)))
-        for y in range(15, min(h - 1, 120)):
-            t = (y - 15) / max(1, 120 - 15)
-            r = int(c_top[0] * (1 - t) + c_bot[0] * t)
-            g = int(c_top[1] * (1 - t) + c_bot[1] * t)
-            b = int(c_top[2] * (1 - t) + c_bot[2] * t)
-            draw.line([(15, y), (min(w - 1, 200), y)], fill=(r, g, b))
-
-        mask = Image.new("L", (w, h), 0)
-        mdraw = ImageDraw.Draw(mask)
-        mdraw.rectangle([10, 10, min(w - 1, 205), min(h - 1, 125)], fill=255)
-        mask = mask.filter(ImageFilter.GaussianBlur(5))
-        blurred = img.filter(ImageFilter.GaussianBlur(3))
-        img.paste(blurred, mask=mask)
-
-    # Format to target_w, target_h
-    if style_id == 3:
-        min_dim = min(w, h)
-        left = (w - min_dim) // 2
-        top = (h - min_dim) // 2
-        cropped = img.crop((left, top, left + min_dim, top + min_dim))
-        canvas = cropped.resize((1080, 1080), Image.Resampling.LANCZOS)
-    else:
-        fit_h = 1310
-        scale = fit_h / h
-        fit_w = int(w * scale)
-        scaled = img.resize((fit_w, fit_h), Image.Resampling.LANCZOS)
-
-        canvas = Image.new("RGB", (target_w, target_h), (245, 248, 252))
-        offset_x = (target_w - fit_w) // 2
-        offset_y = (target_h - fit_h) // 2
-        canvas.paste(scaled, (offset_x, offset_y))
-
-        # Fill borders smoothly
-        cdraw = ImageDraw.Draw(canvas)
-        for y in range(target_h):
-            sy = min(max(0, y - offset_y), fit_h - 1)
-            left_col = scaled.getpixel((0, sy))
-            right_col = scaled.getpixel((fit_w - 1, sy))
-            cdraw.line([(0, y), (offset_x, y)], fill=left_col)
-            cdraw.line([(offset_x + fit_w, y), (target_w, y)], fill=right_col)
-
-        for x in range(target_w):
-            top_col = canvas.getpixel((x, offset_y))
-            bot_col = canvas.getpixel((x, offset_y + fit_h - 1))
-            cdraw.line([(x, 0), (x, offset_y)], fill=top_col)
-            cdraw.line([(x, offset_y + fit_h), (x, target_h - 1)], fill=bot_col)
-
-    # Programmatically composite official Design Hub logo (100% transparent, built-in white outline)
-    if LOGO_PATH.exists():
-        logo = Image.open(LOGO_PATH).convert("RGBA")
-        logo_w = 155
-        logo_h = int(logo.height * (logo_w / logo.width))
-        logo_resized = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
-
-        if style_id == 3:
-            lx = (target_w - logo_w) // 2
-            ly = target_h - logo_h - 40
-        else:
-            lx = 60
-            ly = 55
-        canvas.paste(logo_resized, (lx, ly), logo_resized)
-
-    canvas.save(output_image_path, "JPEG", quality=95)
-    return output_image_path
+def save_campaigns(campaigns: list):
+    try:
+        with open(CAMPAIGNS_FILE, "w", encoding="utf-8") as f:
+            json.dump(campaigns, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error(f"Error saving campaigns: {e}")
 
 
 # =====================================================================
-# PROMPT CRAFTER ACCORDING TO POSTER_DESIGN_SKILL.md
+# SHORT PROMPT REFINER (VIA GEMINI 3.8 FLASH)
 # =====================================================================
 
-def craft_prompt_for_style(style_id: int, topic: str, price: str) -> str:
-    """Builds a high-converting master prompt matching the chosen design archetype."""
-    price_tag = price or "50 TK / 3 MONTHS"
+def refine_short_prompt(style_id: int, user_idea: str) -> str:
+    """Refines a rough user idea into a concise 4-line structured campaign brief."""
+    d = next((item for item in DESIGNS if item["id"] == style_id), DESIGNS[0])
     
-    if style_id == 7:
-        return (
-            f"A premium modern SaaS promotional social media poster for {topic or 'Canva Pro subscription'}, "
-            "inspired by clean tech UI and split bento grid design. Aspect ratio 3:4 vertical. "
-            "Crisp light-mode aesthetic with soft off-white background and subtle ambient pastel glow in corners. "
-            "Top Header: Modern bold brand title 'Canva Pro' in cyan-to-purple gradient with Bengali subheadline "
-            "'স্মার্ট ডিজাইনের আল্টিমেট সলিউশন'. On the top right is a floating 3D sparkling colorful star icon. "
-            "Top-left area is clean and reserved for logo overlay. "
-            "Layout: Split bento grid. On the left: A large vibrant rounded hero card with deep Canva gradient "
-            "(cyan #00C4CC transitioning to royal purple #7D2AE8). Inside the card is a 3D golden crown and Canva token, "
-            "with bold prominent text 'UNLIMITED / Pro Features'. At the bottom of this hero card is a prominent, "
-            f"unique stark-white floating ticket pill badge with soft drop shadow and bold vibrant purple Bengali text '[ মাত্র {price_tag} ]' "
-            "that stands out uniquely from all other text on the poster. "
-            "On the right: A vertical stack of 5 sleek, rounded white micro-cards with soft shadows. "
-            "Each card features a colorful app icon (AI magic wand, scissors background remover, photo gallery, typography font, cloud storage) "
-            "with English feature names and Bengali descriptions (Magic Studio AI, BG Remover, 100M+ Assets, Brand Kit, 1TB Cloud). "
-            "Bottom: A horizontal rounded white trust card with 4 security icons (100% Safe, Instant Activation, Personal Gmail, Pay After Access), "
-            "and below it a vibrant rounded Messenger button 'অর্ডার করতে মেসেজ করুন'. Ultra-clean vector graphics, 3D clay elements, hyper-realistic UI design."
+    if GEMINI_API_KEY:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={GEMINI_API_KEY}"
+        system_instruction = (
+            f"You are a master social media ad planner for 'Design Hub' in Bangladesh. "
+            f"The chosen design archetype is: {d['title']} ({d['desc']}). "
+            f"Given the user's rough idea: '{user_idea}', summarize it into a clean, concise, 4-line Short Campaign Brief. "
+            f"Format strictly as:\n"
+            f"• Style: Design {style_id} ({d['name']})\n"
+            f"• Offer: [Package & Price, e.g. Canva Pro 50 TK / 3 Months]\n"
+            f"• Key Visuals: [Hero subject, colors, and unique price badge style]\n"
+            f"• Highlight Perks: [3-4 flagship features, e.g. Magic Studio, BG Remover, 100M+ Assets]\n"
+            f"Do NOT write long diffusion essays. Keep it punchy, structured, and easy for the user to edit."
         )
-    elif style_id == 6:
-        return (
-            f"A premium promotional advertising poster for {topic or 'Canva Pro subscription'}. "
-            "Aspect ratio 3:4 vertical. Dark cinematic futuristic studio background with glowing deep magenta-purple concentric circular aperture portals. "
-            "Foreground: A handsome, smiling Bangladeshi young male creator in a stylish maroon overshirt over a white t-shirt, "
-            "holding forward a modern black smartphone with thin bezels. The smartphone screen clearly shows the Canva Pro workspace. "
-            "Orbiting around the phone are 4 photorealistic white 3D squircle app tiles with rounded beveled edges: "
-            "1. Official Canva 3D logo with gradient, 2. Glowing AI magic wand for Magic Studio, 3. Golden crown for Pro Access, 4. Stock media gallery icon. "
-            f"At the top center is a glowing neon magenta pill badge highlighting bold Bengali text '[ {price_tag} ]'. "
-            "Top-left corner is clean and reserved for brand logo overlay. Photorealistic commercial advertising photography."
-        )
-    elif style_id == 2:
-        return (
-            f"A 1080x1350 portrait ultra-clean modern digital art poster for {topic or 'Canva Pro'}. "
-            "Background: Deep obsidian navy with subtle smooth vignette and soft cyan and purple rim lighting. "
-            "Top: Bold condensed headline 'CREATE WITHOUT LIMITS' in clean off-white lettering. Floating beside it is a tactile "
-            "3D squircle tile of the official Canva logo (cyan to purple-violet gradient with white script) with realistic beveled depth and soft glow. "
-            "Center: A stylish 3D character designer holding a glowing digital stylus, surrounded by floating 3D creative assets "
-            "(glowing typography 'Aa', color swatch deck, neon sparkles). "
-            f"Bottom: A sleek horizontal frosted-glass dock card with 1px glowing border containing bold amber text '{price_tag}', "
-            "secondary trust line 'ACCESS FIRST | PAY LATER', and a rounded glowing CTA button 'GET ACCESS'. "
-            "Top-left corner is completely clear and empty for direct brand logo overlay."
-        )
-    elif style_id == 1:
-        return (
-            f"A clean, bright, professional social media promotional poster for {topic or 'Canva Pro subscription'}, "
-            "inspired by Pixar 3D studio art. Aspect ratio 3:4 vertical. "
-            "Background: Warm morning ivory-white daylight studio gradient with soft diffused floor contact shadows. "
-            "Layout: Split screen. Left side: Official 3D Canva squircle tile with bold modern title 'CANVA PRO'. "
-            f"Dashed coupon box with a prominent, unique golden amber pill badge displaying '[ মাত্র {price_tag} ]' with subtle shadow. "
-            "3 bullet points with vibrant colored icons: 'Magic Studio AI', '1-Click Background Remover', '100M+ Premium Assets'. "
-            "Below is a solid rounded CTA button 'GET ACCESS NOW' and trust line 'Access First | Pay Later'. "
-            "Right side: A charming, friendly 3D Pixar-style young student creator with warm smile, wearing a casual denim jacket, "
-            "sitting relaxed on a glossy white pedestal, holding a digital tablet and gesturing enthusiastically toward the offer on the left. "
-            "Top-left corner is completely clear and empty for brand logo overlay."
-        )
-    elif style_id == 4:
-        return (
-            f"A 1080x1350 portrait museum-grade conceptual art poster celebrating creative empowerment for {topic or 'Canva Pro'}. "
-            "Background: Matte deep prussian-blue wall with soft directional studio shadows and warm ambient glow. "
-            "Bottom Surface: An ordinary wooden pencil lies beside a tactile physical 3D squircle token of the official Canva logo. "
-            "Metaphor: From the sharp pencil tip, a single continuous drawn line sweeps upward in a graceful S-curve, gradually morphing "
-            "into a fluid luminous ribbon of translucent frosted colored glass (glowing cyan and warm amber), ending at the top in an intricate "
-            "glowing origami prism gently guided by an adult hand. "
-            f"Below: Tall ivory condensed headline 'ANYONE CAN CREATE'. Centered amber pill badge with '[ {price_tag} ]'. "
-            "Top-left corner is reserved clean for direct Design Hub brand logo placement."
-        )
-    elif style_id == 3:
-        return (
-            f"A square promotional poster for {topic or 'Canva Pro Pricing Plans'}. "
-            "Cinematic dark studio floor with overhead dramatic spotlights. "
-            "Center features 3 floating frosted-glass pricing cards side-by-side with 1px luminous borders. "
-            f"Center hero card is elevated and glowing with a 3D Canva Pro badge, highlighting '{price_tag}'. "
-            "Left and right cards display starter and extended packages. Ultra-premium glassmorphism, clean typography."
-        )
-    else:  # Style 5
-        return (
-            f"A patriotic vector art commemorative poster for {topic or 'Bangladesh Observance Day'}. "
-            "Rich national colors, red and green geometric silhouettes of the National Monument (Jatiyo Smriti Soudho), "
-            "birds in flight, clean Bengali typography, modern minimalist cultural vector aesthetic."
-        )
+        try:
+            res = requests.post(
+                url,
+                json={"contents": [{"parts": [{"text": system_instruction}]}]},
+                timeout=15
+            )
+            if res.status_code == 200:
+                text = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+                return text
+        except Exception as e:
+            logger.warning(f"Could not call Gemini for brief refinement: {e}")
+
+    # Fallback clean structured brief
+    return (
+        f"• Style: Design {style_id} ({d['title']})\n"
+        f"• Offer: {user_idea}\n"
+        f"• Key Visuals: Modern 3D elements with uniquely styled high-contrast price badge\n"
+        f"• Highlight Perks: Canva Pro Official Access, Magic Studio AI, Instant Activation"
+    )
+
+
+# =====================================================================
+# DATE & TIME PARSER
+# =====================================================================
+
+def parse_target_datetime(text: str) -> datetime:
+    """Parses natural time strings like 'tomorrow 8pm', 'today 9:30pm', 'in 3 hours'."""
+    now = datetime.now()
+    text = text.strip().lower()
+
+    # 'in X hours'
+    m_in_h = re.search(r"in\s+(\d+)\s*h(?:our|ours)?", text)
+    if m_in_h:
+        hours = int(m_in_h.group(1))
+        return now + timedelta(hours=hours)
+
+    base_date = now.date()
+    if "tomorrow" in text:
+        base_date = now.date() + timedelta(days=1)
+        text = text.replace("tomorrow", "").strip()
+    elif "today" in text:
+        text = text.replace("today", "").strip()
+
+    # Time regex: '8pm', '8:30pm', '20:00', '8 am'
+    m_time = re.search(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", text)
+    if m_time:
+        hour = int(m_time.group(1))
+        minute = int(m_time.group(2)) if m_time.group(2) else 0
+        meridiem = m_time.group(3)
+        if meridiem == "pm" and hour < 12:
+            hour += 12
+        elif meridiem == "am" and hour == 12:
+            hour = 0
+        target = datetime.combine(base_date, datetime.min.time()).replace(hour=hour, minute=minute)
+        if "today" not in text and target < now:
+            target += timedelta(days=1)
+        return target
+
+    try:
+        return datetime.fromisoformat(text)
+    except Exception:
+        # Default: in 3 hours
+        return now + timedelta(hours=3)
 
 
 # =====================================================================
@@ -301,10 +239,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = (
-        "🎨 *Design Hub Studio Bot*\n\n"
+        "🚀 *Welcome to Design Hub Campaign Planner Bot!*\n\n"
+        "Plan your promotional posters, refine prompts, and schedule 2-hour & 1-hour alarms before posting.\n\n"
+        "📌 *Quick Actions:*\n"
         "• `/designs` — Show all 7 design references at once\n"
-        "• `/create <style_num> <price>` — e.g. `/create 7 50tk`\n"
-        "• `/create` — Open interactive picker"
+        "• `/schedules` — View active campaign reminders\n"
+        "• `/help` — How the workflow operates"
     )
 
     keyboard = [
@@ -312,8 +252,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🖼️ Show All 7 Designs", callback_data="send_all_designs"),
         ],
         [
-            InlineKeyboardButton("✨ Create Style 7 (50 TK)", callback_data="gen_quick:7:50tk"),
-            InlineKeyboardButton("✨ Create Style 1 (25 TK)", callback_data="gen_quick:1:25tk"),
+            InlineKeyboardButton("⏰ View Scheduled Reminders", callback_data="view_schedules"),
         ],
     ]
 
@@ -333,14 +272,13 @@ async def cmd_designs(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def send_all_designs(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
     """Sends all 7 design references with clean, minimalist caption: simply Design Number."""
-    total = len(DESIGNS)
     for i, d in enumerate(DESIGNS):
         img_path = WORKSPACE_DIR / d["image"]
         caption = f"🎨 *Design {d['id']}*"
 
         keyboard = [
             [
-                InlineKeyboardButton(f"🎨 Create in Style {d['id']}", callback_data=f"select_style:{d['id']}"),
+                InlineKeyboardButton(f"📋 Plan Campaign in Style {d['id']}", callback_data=f"plan_style:{d['id']}"),
             ]
         ]
 
@@ -356,181 +294,6 @@ async def send_all_designs(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
         await asyncio.sleep(0.3)
 
 
-async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles natural language messages like 'show designs' or 'designs'."""
-    if not check_auth(update):
-        return
-
-    text = update.message.text.lower().strip()
-    if any(k in text for k in ["show design", "show all design", "all design", "designs", "design"]):
-        await send_all_designs(update.effective_chat.id, context)
-    elif text.startswith("create ") or text.startswith("/create"):
-        parts = update.message.text.split()[1:]
-        context.args = parts
-        await cmd_create(update, context)
-    else:
-        await cmd_start(update, context)
-
-
-# =====================================================================
-# GENERATION ENGINE (WITH SEAMLESS CLOUD FLUX FALLBACK)
-# =====================================================================
-
-async def cmd_create(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles /create command."""
-    if not check_auth(update):
-        return
-
-    args = context.args
-    if not args:
-        keyboard = []
-        for d in DESIGNS:
-            keyboard.append([InlineKeyboardButton(f"Design {d['id']}: {d['title']}", callback_data=f"select_style:{d['id']}")])
-        await update.message.reply_text(
-            "🎨 *Choose a Design Style:*",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard),
-        )
-        return
-
-    style_num = 7
-    price = "50 TK / 3 MONTHS"
-    topic = "Canva Pro Subscription"
-
-    try:
-        style_num = int(args[0])
-        if len(args) > 1:
-            price = " ".join(args[1:])
-    except ValueError:
-        topic = " ".join(args)
-
-    await execute_generation(update.effective_chat.id, context, style_num, topic, price)
-
-
-async def execute_generation(chat_id: int, context: ContextTypes.DEFAULT_TYPE, style_id: int, topic: str, price: str):
-    """Executes AI generation (Google Imagen 3 with automatic Cloud FLUX fallback) and post-processing."""
-    status_msg = await context.bot.send_message(
-        chat_id=chat_id,
-        text=f"⏳ *Generating Style {style_id} Poster...*\n"
-             f"• Package: `{price}`\n"
-             f"• Ratio: 4:5 Facebook Portrait (1080x1350)",
-        parse_mode="Markdown",
-    )
-
-    prompt = craft_prompt_for_style(style_id, topic, price)
-    timestamp = int(time.time())
-    raw_path = GENERATED_DIR / f"raw_style_{style_id}_{timestamp}.jpg"
-    final_path = GENERATED_DIR / f"poster_style_{style_id}_{timestamp}.jpg"
-
-    raw_bytes = None
-    engine_name = "Google Imagen 3"
-
-    # Step 1: Attempt Google Gemini Image API
-    if GEMINI_API_KEY:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={GEMINI_API_KEY}"
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"responseModalities": ["IMAGE"]}
-        }
-        try:
-            res = requests.post(url, json=payload, timeout=40)
-            if res.status_code == 200:
-                data = res.json()
-                candidate = data.get("candidates", [{}])[0]
-                parts = candidate.get("content", {}).get("parts", [])
-                for p in parts:
-                    if "inlineData" in p:
-                        raw_bytes = base64.b64decode(p["inlineData"]["data"])
-                        break
-            elif res.status_code == 429:
-                logger.info("Google API returned 429 quota. Falling back to Cloud FLUX engine seamlessly...")
-        except Exception as e:
-            logger.warning(f"Google API request failed: {e}. Switching to Cloud FLUX engine...")
-
-    # Step 2: Seamless Cloud Fallback (FLUX Cloud - Free, Unlimited, High Quality)
-    if not raw_bytes:
-        try:
-            engine_name = "Cloud FLUX"
-            await context.bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=status_msg.message_id,
-                text="🎨 *Generating artwork via Cloud FLUX engine...*",
-                parse_mode="Markdown",
-            )
-            encoded_prompt = urllib.parse.quote(prompt)
-            # 768x1024 or 864x1152 matches ~3:4 / 4:5
-            flux_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=864&height=1152&nologo=true&model=flux"
-            flux_res = requests.get(flux_url, timeout=45)
-            if flux_res.status_code == 200 and len(flux_res.content) > 2000:
-                raw_bytes = flux_res.content
-        except Exception as e:
-            logger.error(f"Fallback engine failed: {e}")
-
-    if not raw_bytes:
-        await context.bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=status_msg.message_id,
-            text="❌ Image generation timed out. Please try again.",
-            parse_mode="Markdown",
-        )
-        return
-
-    # Step 3: Mac Post-Processing Pipeline
-    try:
-        with open(raw_path, "wb") as f:
-            f.write(raw_bytes)
-
-        await context.bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=status_msg.message_id,
-            text="📐 *Formatting to 1080x1350 & compositing Design Hub brand logo...*",
-            parse_mode="Markdown",
-        )
-
-        post_process_poster(raw_path, final_path, style_id)
-
-        caption = (
-            f"🎉 *Design {style_id} Poster Ready!*\n"
-            f"• *Price:* `{price}`\n"
-            f"• *Dimensions:* 1080×1350 (4:5 Facebook Portrait)\n"
-            f"• *Engine:* `{engine_name}`"
-        )
-
-        keyboard = [
-            [
-                InlineKeyboardButton("🚀 Publish to Facebook Page", callback_data=f"publish_fb:{final_path.name}"),
-            ],
-            [
-                InlineKeyboardButton("🔄 Re-generate", callback_data=f"gen_quick:{style_id}:{price}"),
-                InlineKeyboardButton("🖼️ All Designs", callback_data="send_all_designs"),
-            ]
-        ]
-
-        with open(final_path, "rb") as photo:
-            await context.bot.send_photo(
-                chat_id=chat_id,
-                photo=photo,
-                caption=caption,
-                parse_mode="Markdown",
-                reply_markup=InlineKeyboardMarkup(keyboard),
-            )
-
-        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg.message_id)
-
-    except Exception as e:
-        logger.error(f"Post processing error: {e}", exc_info=True)
-        await context.bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=status_msg.message_id,
-            text=f"❌ Error processing poster: {e}",
-            parse_mode="Markdown",
-        )
-
-
-# =====================================================================
-# CALLBACK QUERY HANDLER
-# =====================================================================
-
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles inline keyboard interactions."""
     query = update.callback_query
@@ -538,59 +301,347 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = query.data
     chat_id = query.message.chat.id
+    user_id = query.from_user.id
 
     if data == "send_all_designs":
         await send_all_designs(chat_id, context)
 
-    elif data.startswith("select_style:"):
+    elif data == "view_schedules":
+        await show_scheduled_campaigns(chat_id, context)
+
+    elif data.startswith("plan_style:"):
         style_id = int(data.split(":")[1])
+        USER_SESSIONS[user_id] = {
+            "step": "waiting_idea",
+            "style_id": style_id,
+        }
+        await query.message.reply_text(
+            f"🎯 *Design {style_id} Selected!*\n\n"
+            f"✍️ *Send me your rough idea or package for this poster:*\n"
+            f"_(e.g., 'Canva Pro 50 TK for 3 months with Magic Studio AI and student discount')_",
+            parse_mode="Markdown",
+        )
+
+    elif data == "edit_prompt":
+        session = USER_SESSIONS.get(user_id, {})
+        session["step"] = "waiting_edit"
+        USER_SESSIONS[user_id] = session
+        await query.message.reply_text(
+            "✏️ *Send your modifications or a new prompt text below:*",
+            parse_mode="Markdown",
+        )
+
+    elif data == "confirm_schedule":
+        session = USER_SESSIONS.get(user_id, {})
+        if not session or "prompt" not in session:
+            await query.message.reply_text("❌ No active prompt found. Please start with `/designs`.")
+            return
+
+        session["step"] = "waiting_time"
+        USER_SESSIONS[user_id] = session
+
+        # Quick time picker buttons
         keyboard = [
             [
-                InlineKeyboardButton("🏷️ 25 TK Package", callback_data=f"gen_quick:{style_id}:25tk"),
-                InlineKeyboardButton("🏷️ 50 TK Package", callback_data=f"gen_quick:{style_id}:50tk"),
+                InlineKeyboardButton("🕒 In 3 Hours", callback_data="set_time:in 3 hours"),
+                InlineKeyboardButton("🌙 Today 8:00 PM", callback_data="set_time:today 8pm"),
             ],
             [
-                InlineKeyboardButton("🏷️ 99 TK Package", callback_data=f"gen_quick:{style_id}:99tk"),
-                InlineKeyboardButton("🏷️ 150 TK (1 Year)", callback_data=f"gen_quick:{style_id}:150tk"),
+                InlineKeyboardButton("☀️ Tomorrow 10:00 AM", callback_data="set_time:tomorrow 10am"),
+                InlineKeyboardButton("🌆 Tomorrow 8:00 PM", callback_data="set_time:tomorrow 8pm"),
             ],
             [
-                InlineKeyboardButton("🖼️ Back to All Designs", callback_data="send_all_designs"),
+                InlineKeyboardButton("✍️ Type Custom Time", callback_data="prompt_custom_time"),
             ]
         ]
+
         await query.message.reply_text(
-            f"🎯 *Design {style_id} Selected!*\nPick a pricing package to generate:",
+            "⏰ *When do you plan to publish this post on Facebook?*\n\n"
+            "Choose a quick preset or type any custom time (e.g. `today 9:30pm` or `tomorrow 11am`).\n"
+            "🔔 *I will sound 2 reminder alarms before the post:* at **2 Hours** and **1 Hour** before!",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
-    elif data.startswith("gen_quick:"):
-        _, style_id_str, price = data.split(":")
-        style_id = int(style_id_str)
-        await execute_generation(chat_id, context, style_id, "Canva Pro Subscription", price)
+    elif data.startswith("set_time:"):
+        time_str = data.split(":", 1)[1]
+        await finalize_schedule(chat_id, user_id, context, time_str)
 
-    elif data.startswith("publish_fb:"):
-        filename = data.split(":")[1]
-        target_file = GENERATED_DIR / filename
-        if not target_file.exists():
-            await query.message.reply_text("❌ Poster file not found on disk.")
-            return
+    elif data == "prompt_custom_time":
+        session = USER_SESSIONS.get(user_id, {})
+        session["step"] = "waiting_time"
+        USER_SESSIONS[user_id] = session
+        await query.message.reply_text(
+            "✍️ *Type your scheduled time below:*\n"
+            "_(e.g. `tomorrow 8pm`, `today 10:30pm`, `in 4 hours`)_",
+            parse_mode="Markdown",
+        )
 
-        await query.message.reply_text("⏳ Generating AI caption and publishing to Facebook Page...")
+    elif data.startswith("cancel_camp:"):
+        camp_id = data.split(":")[1]
+        campaigns = load_campaigns()
+        campaigns = [c for c in campaigns if c["id"] != camp_id]
+        save_campaigns(campaigns)
+        await query.message.reply_text("🗑️ *Scheduled campaign removed successfully.*", parse_mode="Markdown")
+
+
+async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles text input during campaign planning and editing."""
+    if not check_auth(update):
+        return
+
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    text = update.message.text.strip()
+    session = USER_SESSIONS.get(user_id)
+
+    # 1. If user is in prompt creation / editing step
+    if session and session.get("step") == "waiting_idea":
+        style_id = session.get("style_id", 7)
+        await update.message.reply_text("⏳ *Refining into a short, structured prompt brief...*", parse_mode="Markdown")
         
+        short_prompt = refine_short_prompt(style_id, text)
+        session["prompt"] = short_prompt
+        session["step"] = "prompt_ready"
+        USER_SESSIONS[user_id] = session
+
+        await show_prompt_review(chat_id, context, style_id, short_prompt)
+        return
+
+    elif session and session.get("step") == "waiting_edit":
+        style_id = session.get("style_id", 7)
+        # Update prompt with user's exact modification
+        session["prompt"] = text
+        session["step"] = "prompt_ready"
+        USER_SESSIONS[user_id] = session
+
+        await update.message.reply_text("✅ *Prompt updated!*", parse_mode="Markdown")
+        await show_prompt_review(chat_id, context, style_id, text)
+        return
+
+    elif session and session.get("step") == "waiting_time":
+        await finalize_schedule(chat_id, user_id, context, text)
+        return
+
+    # 2. Natural language triggers
+    lower = text.lower()
+    if any(k in lower for k in ["show design", "show all design", "all design", "designs", "design"]):
+        await send_all_designs(chat_id, context)
+    elif "schedule" in lower or "reminder" in lower:
+        await show_scheduled_campaigns(chat_id, context)
+    else:
+        await cmd_start(update, context)
+
+
+async def show_prompt_review(chat_id: int, context: ContextTypes.DEFAULT_TYPE, style_id: int, short_prompt: str):
+    """Displays the short prompt with Edit and Confirm buttons."""
+    review_text = (
+        f"📋 *Refined Short Prompt for Design {style_id}:*\n"
+        f"──────────────────────────────\n"
+        f"{short_prompt}\n"
+        f"──────────────────────────────\n\n"
+        f"💡 *You can modify this prompt as much as you need.* When satisfied, tap **Confirm & Schedule** to set your 2-hour & 1-hour alarms!"
+    )
+
+    keyboard = [
+        [
+            InlineKeyboardButton("✏️ Edit / Modify Prompt", callback_data="edit_prompt"),
+            InlineKeyboardButton("✅ Confirm & Schedule", callback_data="confirm_schedule"),
+        ],
+        [
+            InlineKeyboardButton("🖼️ Back to Designs", callback_data="send_all_designs"),
+        ]
+    ]
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=review_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
+async def finalize_schedule(chat_id: int, user_id: int, context: ContextTypes.DEFAULT_TYPE, time_str: str):
+    """Calculates timestamps, saves to persistent storage, and confirms."""
+    session = USER_SESSIONS.get(user_id, {})
+    style_id = session.get("style_id", 7)
+    short_prompt = session.get("prompt", "")
+
+    target_dt = parse_target_datetime(time_str)
+    now = datetime.now()
+
+    if target_dt <= now:
+        target_dt = now + timedelta(hours=3)
+
+    target_ts = int(target_dt.timestamp())
+    remind_2h_ts = target_ts - 7200
+    remind_1h_ts = target_ts - 3600
+
+    camp_id = f"camp_{int(time.time())}"
+    campaign = {
+        "id": camp_id,
+        "user_id": user_id,
+        "chat_id": chat_id,
+        "style_id": style_id,
+        "short_prompt": short_prompt,
+        "target_time_str": target_dt.strftime("%Y-%m-%d %I:%M %p"),
+        "target_ts": target_ts,
+        "remind_2h_ts": remind_2h_ts,
+        "remind_1h_ts": remind_1h_ts,
+        "remind_2h_sent": False,
+        "remind_1h_sent": False,
+        "status": "active",
+    }
+
+    campaigns = load_campaigns()
+    campaigns.append(campaign)
+    save_campaigns(campaigns)
+
+    # Clear user session
+    USER_SESSIONS.pop(user_id, None)
+
+    remind_2h_str = datetime.fromtimestamp(remind_2h_ts).strftime("%I:%M %p")
+    remind_1h_str = datetime.fromtimestamp(remind_1h_ts).strftime("%I:%M %p")
+
+    confirm_text = (
+        f"🎉 *Campaign Scheduled & Alarms Set!*\n\n"
+        f"🗓️ *Target Post Time:* `{target_dt.strftime('%A, %d %b %Y - %I:%M %p')}`\n\n"
+        f"🔔 *Alarm Schedule:*\n"
+        f"1️⃣ **Alarm 1 (2 Hours before):** at `{remind_2h_str}`\n"
+        f"2️⃣ **Alarm 2 (1 Hour before):** at `{remind_1h_str}`\n\n"
+        f"📋 *Saved Prompt Brief:*\n"
+        f"```text\n{short_prompt}\n```\n"
+        f"When the alarm sounds, simply tap the code block to copy the prompt and paste it into Antigravity!"
+    )
+
+    keyboard = [
+        [
+            InlineKeyboardButton("⏰ View All Schedules", callback_data="view_schedules"),
+            InlineKeyboardButton("🖼️ Plan Another Design", callback_data="send_all_designs"),
+        ]
+    ]
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=confirm_text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
+async def show_scheduled_campaigns(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
+    """Displays all active scheduled campaigns with cancel buttons."""
+    campaigns = load_campaigns()
+    active = [c for c in campaigns if c.get("status") == "active" and c.get("target_ts", 0) > time.time()]
+
+    if not active:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="📭 *No active scheduled campaigns right now.*\n\nUse `/designs` to pick a style and plan a post!",
+            parse_mode="Markdown",
+        )
+        return
+
+    text = "⏰ *Active Scheduled Campaigns & Alarms:*\n──────────────────────────────\n"
+    keyboard = []
+
+    for c in active:
+        text += (
+            f"📌 *Design {c['style_id']} Promo*\n"
+            f"• Target Time: `{c['target_time_str']}`\n"
+            f"• 2h Alarm: `{'✅ Sent' if c.get('remind_2h_sent') else '⏳ Pending'}`\n"
+            f"• 1h Alarm: `{'✅ Sent' if c.get('remind_1h_sent') else '⏳ Pending'}`\n"
+            f"──────────────────────────────\n"
+        )
+        keyboard.append([InlineKeyboardButton(f"❌ Cancel {c['target_time_str']}", callback_data=f"cancel_camp:{c['id']}")])
+
+    keyboard.append([InlineKeyboardButton("➕ Plan New Campaign", callback_data="send_all_designs")])
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
+# =====================================================================
+# BACKGROUND ALARM & REMINDER ENGINE
+# =====================================================================
+
+async def reminder_daemon_loop(application):
+    """Continuously checks scheduled campaigns and delivers 2h and 1h proactive alarms."""
+    logger.info("Reminder Daemon started.")
+    while True:
         try:
-            from publish_poster import publish_poster, generate_caption_for_poster
-            caption = generate_caption_for_poster(str(target_file), "Official Canva Pro promo from Studio Bot")
-            success = publish_poster(str(target_file), caption)
-            if success:
-                await query.message.reply_text(
-                    f"✅ *Successfully Published to Facebook Page!*\n\n"
-                    f"📝 *Caption Used:*\n{caption}",
-                    parse_mode="Markdown",
-                )
-            else:
-                await query.message.reply_text("❌ Facebook publishing failed. Check FB_PAGE_ACCESS_TOKEN.")
+            now_ts = int(time.time())
+            campaigns = load_campaigns()
+            updated = False
+
+            for c in campaigns:
+                if c.get("status") != "active":
+                    continue
+
+                chat_id = c.get("chat_id")
+                style_id = c.get("style_id", 7)
+                short_prompt = c.get("short_prompt", "")
+                target_str = c.get("target_time_str", "")
+
+                # 1. Check 2-Hour Reminder
+                if not c.get("remind_2h_sent") and now_ts >= c.get("remind_2h_ts", 0):
+                    c["remind_2h_sent"] = True
+                    updated = True
+                    alarm_msg = (
+                        f"⏰ *[2-HOUR ALARM] Campaign Reminder!*\n\n"
+                        f"Your scheduled Facebook post is in **2 hours** (`{target_str}`).\n\n"
+                        f"📋 *Tap below to copy prompt for Antigravity:*\n"
+                        f"```text\nDesign {style_id}: {short_prompt}\n```\n\n"
+                        f"👉 Paste this prompt into Antigravity to synthesize your master poster and AI caption!"
+                    )
+                    try:
+                        await application.bot.send_message(chat_id=chat_id, text=alarm_msg, parse_mode="Markdown")
+                        logger.info(f"Delivered 2-hour alarm for campaign {c['id']}")
+                    except Exception as err:
+                        logger.error(f"Failed to send 2h alarm: {err}")
+
+                # 2. Check 1-Hour Reminder
+                if not c.get("remind_1h_sent") and now_ts >= c.get("remind_1h_ts", 0):
+                    c["remind_1h_sent"] = True
+                    updated = True
+                    alarm_msg = (
+                        f"🚨 *[FINAL 1-HOUR ALARM] Post Coming Up Soon!*\n\n"
+                        f"Your campaign is scheduled for **1 hour from now** (`{target_str}`).\n\n"
+                        f"📋 *Tap below to copy prompt for Antigravity:*\n"
+                        f"```text\nDesign {style_id}: {short_prompt}\n```\n\n"
+                        f"👉 Generate the poster now in Antigravity so it's ready to post on time!"
+                    )
+                    try:
+                        await application.bot.send_message(chat_id=chat_id, text=alarm_msg, parse_mode="Markdown")
+                        logger.info(f"Delivered 1-hour alarm for campaign {c['id']}")
+                    except Exception as err:
+                        logger.error(f"Failed to send 1h alarm: {err}")
+
+                # 3. Post Time Arrival
+                if now_ts >= c.get("target_ts", 0):
+                    c["status"] = "completed"
+                    updated = True
+                    post_due_msg = (
+                        f"🚀 *[POST TIME ARRIVED]* `{target_str}`\n\n"
+                        f"Your campaign for **Design {style_id}** is scheduled for right now!\n"
+                        f"If you've already generated the poster in Antigravity, publish it to Facebook Page now."
+                    )
+                    try:
+                        await application.bot.send_message(chat_id=chat_id, text=post_due_msg, parse_mode="Markdown")
+                    except Exception:
+                        pass
+
+            if updated:
+                save_campaigns(campaigns)
+
         except Exception as e:
-            await query.message.reply_text(f"❌ Error publishing to Facebook: {e}")
+            logger.error(f"Error in reminder loop: {e}", exc_info=True)
+
+        await asyncio.sleep(20)
 
 
 # =====================================================================
@@ -598,14 +649,16 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =====================================================================
 
 async def post_init(application):
-    """Sets bot menu commands."""
+    """Sets bot menu commands and launches reminder loop."""
     commands = [
-        BotCommand("designs", "Show all 7 designs"),
-        BotCommand("create", "Generate a new promotional poster"),
-        BotCommand("start", "Open Studio dashboard"),
+        BotCommand("designs", "Show all 7 design references"),
+        BotCommand("schedules", "View active campaign reminders"),
+        BotCommand("start", "Open campaign planner dashboard"),
     ]
     await application.bot.set_my_commands(commands)
-    logger.info("Studio Bot commands registered successfully.")
+    # Start background reminder daemon
+    asyncio.create_task(reminder_daemon_loop(application))
+    logger.info("Studio Bot commands registered & reminder daemon started.")
 
 
 def main():
@@ -613,13 +666,14 @@ def main():
         print("❌ Error: STUDIO_BOT_TOKEN not set.")
         sys.exit(1)
 
-    print(f"🚀 Starting Design Hub Studio Bot (@designposterbot)...")
+    print(f"🚀 Starting Design Hub Campaign Planner Bot (@designposterbot)...")
     app = ApplicationBuilder().token(STUDIO_BOT_TOKEN).post_init(post_init).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_start))
     app.add_handler(CommandHandler("designs", cmd_designs))
-    app.add_handler(CommandHandler("create", cmd_create))
+    app.add_handler(CommandHandler("schedules", lambda u, c: show_scheduled_campaigns(u.effective_chat.id, c)))
+    app.add_handler(CommandHandler("reminders", lambda u, c: show_scheduled_campaigns(u.effective_chat.id, c)))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
