@@ -109,14 +109,111 @@ DESIGNS = [
 USER_SESSIONS = {}
 
 
-def check_auth(update: Update) -> bool:
-    """Verifies that the caller is authorized."""
+def get_allowed_user_ids() -> set:
+    raw = os.getenv("TELEGRAM_ALLOWED_USER_ID", "")
+    ids = set()
+    for part in raw.replace(";", ",").split(","):
+        part = part.strip()
+        if part.isdigit():
+            ids.add(int(part))
+    return ids
+
+
+def save_allowed_user_ids(allowed_set: set):
+    ids_str = ",".join(str(i) for i in sorted(allowed_set))
+    env_path = WORKSPACE_DIR / ".env"
+    if env_path.exists():
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        new_lines = []
+        found = False
+        for line in lines:
+            if line.startswith("TELEGRAM_ALLOWED_USER_ID="):
+                new_lines.append(f"TELEGRAM_ALLOWED_USER_ID={ids_str}\n")
+                found = True
+            else:
+                new_lines.append(line)
+        if not found:
+            new_lines.append(f"\nTELEGRAM_ALLOWED_USER_ID={ids_str}\n")
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+    os.environ["TELEGRAM_ALLOWED_USER_ID"] = ids_str
+
+
+async def check_auth(update: Update) -> bool:
+    """Verifies caller is authorized; if not, shows their user ID for easy onboarding."""
     user = update.effective_user
     if not user:
         return False
-    if ALLOWED_USER_ID and str(user.id) != str(ALLOWED_USER_ID):
+    allowed = get_allowed_user_ids()
+    if not allowed:
+        return True
+    if user.id not in allowed:
+        if update.message:
+            msg = (
+                "⛔ *Unauthorized Access*\n\n"
+                f"Your Telegram User ID is: `{user.id}`\n\n"
+                "Please send this ID to the admin to add you:\n"
+                f"`/adduser {user.id}`"
+            )
+            await update.message.reply_text(msg, parse_mode="Markdown")
+        elif update.callback_query:
+            await update.callback_query.answer(f"⛔ Unauthorized. Your ID: {user.id}", show_alert=True)
         return False
     return True
+
+
+async def cmd_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command to grant access to another Telegram account."""
+    if not await check_auth(update):
+        return
+    args = context.args
+    if not args or not args[0].isdigit():
+        await update.message.reply_text(
+            "📌 *Usage:* `/adduser <telegram_user_id>`\n"
+            "Example: `/adduser 123456789`",
+            parse_mode="Markdown"
+        )
+        return
+    new_id = int(args[0])
+    allowed = get_allowed_user_ids()
+    allowed.add(new_id)
+    save_allowed_user_ids(allowed)
+    await update.message.reply_text(
+        f"✅ *Success!* User ID `{new_id}` has been granted access to @designposterbot.\n"
+        "They can now message the bot directly!",
+        parse_mode="Markdown"
+    )
+
+
+async def cmd_listusers(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Lists all authorized Telegram accounts."""
+    if not await check_auth(update):
+        return
+    allowed = get_allowed_user_ids()
+    text = "👥 *Authorized Telegram Accounts:*\n──────────────────────────────\n"
+    for uid in sorted(allowed):
+        text += f"• `{uid}`\n"
+    text += "\n💡 Use `/adduser <id>` or `/removeuser <id>` to manage accounts."
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+
+async def cmd_removeuser(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Removes an authorized account."""
+    if not await check_auth(update):
+        return
+    args = context.args
+    if not args or not args[0].isdigit():
+        await update.message.reply_text("📌 *Usage:* `/removeuser <telegram_user_id>`", parse_mode="Markdown")
+        return
+    rem_id = int(args[0])
+    allowed = get_allowed_user_ids()
+    if rem_id in allowed:
+        allowed.discard(rem_id)
+        save_allowed_user_ids(allowed)
+        await update.message.reply_text(f"🗑️ User ID `{rem_id}` has been removed.", parse_mode="Markdown")
+    else:
+        await update.message.reply_text(f"⚠️ User ID `{rem_id}` was not found in the allowed list.", parse_mode="Markdown")
 
 
 # =====================================================================
@@ -234,7 +331,7 @@ def parse_target_datetime(text: str) -> datetime:
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Studio Bot Welcome Menu."""
-    if not check_auth(update):
+    if not await check_auth(update):
         await update.message.reply_text("⛔ Unauthorized. This bot is dedicated to Design Hub administration.")
         return
 
@@ -265,7 +362,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_designs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles /designs command: immediately sends all 7 designs with minimalist captions."""
-    if not check_auth(update):
+    if not await check_auth(update):
         return
     await send_all_designs(update.effective_chat.id, context)
 
@@ -387,7 +484,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles text input during campaign planning and editing."""
-    if not check_auth(update):
+    if not await check_auth(update):
         return
 
     user_id = update.effective_user.id
@@ -674,6 +771,9 @@ def main():
     app.add_handler(CommandHandler("designs", cmd_designs))
     app.add_handler(CommandHandler("schedules", lambda u, c: show_scheduled_campaigns(u.effective_chat.id, c)))
     app.add_handler(CommandHandler("reminders", lambda u, c: show_scheduled_campaigns(u.effective_chat.id, c)))
+    app.add_handler(CommandHandler("adduser", cmd_adduser))
+    app.add_handler(CommandHandler("listusers", cmd_listusers))
+    app.add_handler(CommandHandler("removeuser", cmd_removeuser))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 
