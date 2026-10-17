@@ -612,7 +612,7 @@ def delete_payment(payment_id: int) -> bool:
         return c.rowcount > 0
 
 
-def get_all_payments(limit: int = 200, team_filter: str = None) -> list:
+def get_all_payments(limit: int = 2000, team_filter: str = None) -> list:
     """Fetches the recent payment transaction history ledger, optionally filtered by team."""
     init_db()
     with get_db() as conn:
@@ -890,6 +890,38 @@ def update_subscriber(identifier: str, fields: dict) -> dict:
         conn.commit()
 
     target_email = updates.get("email", clean_email)
+
+    # Sync email rename to payments ledger
+    if new_email and new_email != clean_email:
+        with get_db() as conn:
+            c = conn.cursor()
+            c.execute("UPDATE payments SET email = ? WHERE email = ?", (new_email, clean_email))
+            conn.commit()
+
+    # Sync amount or payment method changes
+    amount_val = fields.get("amount")
+    provider_val = fields.get("method") or fields.get("provider")
+    if amount_val is not None:
+        try:
+            amt = float(amount_val)
+            with get_db() as conn:
+                c = conn.cursor()
+                c.execute("SELECT id FROM payments WHERE email = ? ORDER BY id DESC LIMIT 1", (target_email,))
+                r = c.fetchone()
+                if r:
+                    p_updates = ["amount = ?"]
+                    p_vals = [amt]
+                    if provider_val:
+                        p_updates.append("provider = ?")
+                        p_vals.append(str(provider_val).strip())
+                    p_vals.append(r[0])
+                    c.execute(f"UPDATE payments SET {', '.join(p_updates)} WHERE id = ?", tuple(p_vals))
+                    conn.commit()
+                elif amt > 0:
+                    record_payment(target_email, amount=amt, provider=str(provider_val or "bKash"), package=updates.get("package"))
+        except Exception:
+            pass
+
     return get_subscriber(target_email)
 
 
@@ -898,7 +930,7 @@ def list_subscribers(status_filter: str = None, team_filter: str = None) -> list
     with get_db() as conn:
         c = conn.cursor()
         query = """
-            SELECT email, name, package, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan')
+            SELECT email, name, package, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan'), added_at
             FROM subscriptions
         """
         conditions = []
@@ -918,7 +950,7 @@ def list_subscribers(status_filter: str = None, team_filter: str = None) -> list
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-        query += " ORDER BY customer_id DESC, id DESC LIMIT 100"
+        query += " ORDER BY customer_id DESC, id DESC LIMIT 2000"
 
         c.execute(query, tuple(params))
         rows = c.fetchall()
@@ -933,7 +965,9 @@ def list_subscribers(status_filter: str = None, team_filter: str = None) -> list
                 "customer_id": r[6] or 800,
                 "fb_sender_id": r[7] or "",
                 "trx_id": r[8] or "",
-                "team_name": r[9] or "Carmella Elan"
+                "team_name": r[9] or "Carmella Elan",
+                "joined_at": r[10] or r[3] or "",
+                "added_at": r[10] or r[3] or ""
             }
             for r in rows
         ]

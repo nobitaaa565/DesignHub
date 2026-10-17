@@ -1788,6 +1788,17 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(data).encode("utf-8"))
             return
 
+        # Serve static PNG images (e.g. designuhb-logo.png)
+        if path_only.endswith(".png"):
+            png_file = Path(__file__).resolve().parent / path_only.lstrip("/")
+            if png_file.exists():
+                self.send_response(200)
+                self.send_header("Content-type", "image/png")
+                self.end_headers()
+                with open(png_file, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+
         # Serve Dashboard HTML for / and all other routes
         html_file = Path(__file__).resolve().parent / "dashboard.html"
         if html_file.exists():
