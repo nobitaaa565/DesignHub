@@ -10,3 +10,9 @@ canva_session_b64.txt
 subscriptions.db
 *.db
 *.command
+
+# Bot runtime states & cache
+conversation_states.json
+replied_comments.json
+replied_messages.json
+designs/generated/
