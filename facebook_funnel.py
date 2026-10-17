@@ -39,7 +39,16 @@ logger = logging.getLogger("FacebookFunnel")
 STATES_FILE = Path(__file__).resolve().parent / "conversation_states.json"
 REPLIED_FILE = Path(__file__).resolve().parent / "replied_messages.json"
 FB_PAGE_ID = os.getenv("FB_PAGE_ID", "1312971105242105")
-TELEGRAM_ALLOWED_USER_ID = int(os.getenv("TELEGRAM_ALLOWED_USER_ID", "0"))
+def get_allowed_owner_ids() -> list:
+    raw = os.getenv("TELEGRAM_ALLOWED_USER_ID", "0")
+    ids = []
+    for part in raw.replace(";", ",").split(","):
+        part = part.strip()
+        if part.isdigit():
+            ids.append(int(part))
+    return ids or [0]
+
+TELEGRAM_ALLOWED_USER_ID = get_allowed_owner_ids()[0]
 
 PACKAGES = {
     "1": {"key": "1m", "name": "১ মাস (২৫ টাকা)", "price": 25, "days": 30},

@@ -88,14 +88,43 @@ PENDING_POSTS = {}
 
 # ==================== AUTH & UTILS ====================
 
+def get_allowed_user_ids() -> set:
+    raw = os.getenv("TELEGRAM_ALLOWED_USER_ID", "")
+    ids = set()
+    for part in raw.replace(";", ",").split(","):
+        part = part.strip()
+        if part.isdigit():
+            ids.add(int(part))
+    return ids
+
+
+def save_allowed_user_ids(allowed_set: set):
+    ids_str = ",".join(str(i) for i in sorted(allowed_set))
+    env_path = Path(__file__).resolve().parent / ".env"
+    if env_path.exists():
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        new_lines = []
+        found = False
+        for line in lines:
+            if line.startswith("TELEGRAM_ALLOWED_USER_ID="):
+                new_lines.append(f"TELEGRAM_ALLOWED_USER_ID={ids_str}\n")
+                found = True
+            else:
+                new_lines.append(line)
+        if not found:
+            new_lines.append(f"\nTELEGRAM_ALLOWED_USER_ID={ids_str}\n")
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+    os.environ["TELEGRAM_ALLOWED_USER_ID"] = ids_str
+
+
 def check_auth(user_id: int) -> bool:
-    """Security check to ensure only the authorized owner can use the bot."""
-    if not ALLOWED_USER_ID:
+    """Security check to ensure only authorized owners/team can use the bot."""
+    allowed = get_allowed_user_ids()
+    if not allowed:
         return True
-    try:
-        return str(user_id) == str(ALLOWED_USER_ID)
-    except Exception:
-        return False
+    return user_id in allowed or str(user_id) in [str(i) for i in allowed]
 
 
 def get_fb_page_info():
@@ -249,7 +278,10 @@ def determine_reply(message: str, user_name: str) -> str:
 
 
 def send_telegram_alert_sync(user_name: str, comment_text: str, reply_text: str, post_id: str):
-    if not TELEGRAM_BOT_TOKEN or not ALLOWED_USER_ID:
+    if not TELEGRAM_BOT_TOKEN:
+        return
+    allowed = get_allowed_user_ids()
+    if not allowed:
         return
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     text = (
@@ -259,15 +291,11 @@ def send_telegram_alert_sync(user_name: str, comment_text: str, reply_text: str,
         f"🤖 *Auto-Reply Sent:*\n_{reply_text}_\n\n"
         f"🔗 Post: https://facebook.com/{post_id}"
     )
-    payload = {
-        "chat_id": ALLOWED_USER_ID,
-        "text": text,
-        "parse_mode": "Markdown"
-    }
-    try:
-        requests.post(url, json=payload, timeout=10)
-    except Exception as e:
-        logger.error(f"Error sending Telegram alert: {e}")
+    for cid in allowed:
+        try:
+            requests.post(url, json={"chat_id": cid, "text": text, "parse_mode": "Markdown"}, timeout=10)
+        except Exception as e:
+            logger.error(f"Error sending Telegram alert to {cid}: {e}")
 
 
 def post_fb_comment_reply(comment_id: str, reply_text: str) -> bool:
@@ -711,7 +739,13 @@ async def ai_draft_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not context.args:
         await update.message.reply_text(
-            "💡 *Usage:* `/ai <topic>`\n*Example:* `/ai 5 reasons to upgrade to Canva Pro today for freelancers`",
+            "💡 *Usage:* `/image <topic or offer>`\n\n"
+            "*Archive References:*\n"
+            "• `/image Canva Pro 25tk offer for students` (Design 1)\n"
+            "• `/image 50tk 3 months Canva Pro for designers` (Design 2)\n"
+            "• `/image Package comparison 25tk, 50tk, 99tk` (Design 3)\n"
+            "• `/image Anyone can create, ideas to reality` (Design 4)\n"
+            "• `/image Independence day celebration` (Design 5)",
             parse_mode="Markdown"
         )
         return
@@ -753,17 +787,12 @@ async def image_gen_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
             "💡 *Usage:* `/image <topic or offer>`\n\n"
-            "*Archive References:*
-"
-            "• `/image Canva Pro 25tk offer for students` (Design 1 Studio Character)
-"
-            "• `/image 50tk 3 months Canva Pro for designers` (Design 2 Dark Tech)
-"
-            "• `/image Package comparison 25tk, 50tk, 99tk` (Design 3 Glassmorphism)
-"
-            "• `/image Anyone can create, ideas to reality` (Design 4 Conceptual Art)
-"
-            "• `/image Independence day celebration` (Design 5 Vector Art)",
+            "*Archive References:*\n"
+            "• `/image Canva Pro 25tk offer for students` (Design 1)\n"
+            "• `/image 50tk 3 months Canva Pro for designers` (Design 2)\n"
+            "• `/image Package comparison 25tk, 50tk, 99tk` (Design 3)\n"
+            "• `/image Anyone can create, ideas to reality` (Design 4)\n"
+            "• `/image Independence day celebration` (Design 5)",
             parse_mode="Markdown"
         )
         return
@@ -953,9 +982,13 @@ async def add_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if not context.args:
         await update.message.reply_text(
-            "💡 *Usage:* `/add <email> [package] [name]`\n"
-            "*Packages:* `1m` (25 TK), `3m` (50 TK), `6m` (99 TK), `12m` (150 TK)\n"
-            "*Example:* `/add rahim@gmail.com 1m Rahim`",
+            "💡 *Usage:* `/image <topic or offer>`\n\n"
+            "*Archive References:*\n"
+            "• `/image Canva Pro 25tk offer for students` (Design 1)\n"
+            "• `/image 50tk 3 months Canva Pro for designers` (Design 2)\n"
+            "• `/image Package comparison 25tk, 50tk, 99tk` (Design 3)\n"
+            "• `/image Anyone can create, ideas to reality` (Design 4)\n"
+            "• `/image Independence day celebration` (Design 5)",
             parse_mode="Markdown"
         )
         return
@@ -1053,9 +1086,13 @@ async def extend_sub_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     if not context.args:
         await update.message.reply_text(
-            "💡 *Usage:* `/extend <email> [package]`\n"
-            "*Packages:* `1m` (+30 days), `3m` (+90 days), `12m` (+365 days)\n"
-            "*Example:* `/extend rahim@gmail.com 1m`",
+            "💡 *Usage:* `/image <topic or offer>`\n\n"
+            "*Archive References:*\n"
+            "• `/image Canva Pro 25tk offer for students` (Design 1)\n"
+            "• `/image 50tk 3 months Canva Pro for designers` (Design 2)\n"
+            "• `/image Package comparison 25tk, 50tk, 99tk` (Design 3)\n"
+            "• `/image Anyone can create, ideas to reality` (Design 4)\n"
+            "• `/image Independence day celebration` (Design 5)",
             parse_mode="Markdown"
         )
         return
@@ -1935,6 +1972,52 @@ async def post_init(application):
     asyncio.create_task(expiry_reminder_loop(application.bot))
 
 
+async def cmd_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command to grant access to another Telegram account."""
+    if not check_auth(update.effective_user.id):
+        await update.message.reply_text("⛔ Unauthorized.")
+        return
+    args = context.args
+    if not args or not args[0].isdigit():
+        await update.message.reply_text("📌 *Usage:* `/adduser <telegram_user_id>`", parse_mode="Markdown")
+        return
+    new_id = int(args[0])
+    allowed = get_allowed_user_ids()
+    allowed.add(new_id)
+    save_allowed_user_ids(allowed)
+    await update.message.reply_text(
+        f"✅ *Success!* User ID `{new_id}` has been granted access to @designhub_poster_bot.",
+        parse_mode="Markdown"
+    )
+
+async def cmd_listusers(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Lists all authorized Telegram accounts."""
+    if not check_auth(update.effective_user.id):
+        return
+    allowed = get_allowed_user_ids()
+    text = "👥 *Authorized Telegram Accounts (@designhub_poster_bot):*\n──────────────────────────────\n"
+    for uid in sorted(allowed):
+        text += f"• `{uid}`\n"
+    text += "\n💡 Use `/adduser <id>` or `/removeuser <id>` to manage accounts."
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+async def cmd_removeuser(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Removes an authorized account."""
+    if not check_auth(update.effective_user.id):
+        return
+    args = context.args
+    if not args or not args[0].isdigit():
+        await update.message.reply_text("📌 *Usage:* `/removeuser <telegram_user_id>`", parse_mode="Markdown")
+        return
+    rem_id = int(args[0])
+    allowed = get_allowed_user_ids()
+    if rem_id in allowed:
+        allowed.discard(rem_id)
+        save_allowed_user_ids(allowed)
+        await update.message.reply_text(f"🗑️ User ID `{rem_id}` has been removed.", parse_mode="Markdown")
+    else:
+        await update.message.reply_text(f"⚠️ User ID `{rem_id}` not found.", parse_mode="Markdown")
+
 def main():
     if not TELEGRAM_BOT_TOKEN:
         print("❌ Error: TELEGRAM_BOT_TOKEN is not set in .env")
@@ -1948,6 +2031,9 @@ def main():
     # Commands
     app.add_handler(CommandHandler("link", link_command))
     app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("adduser", cmd_adduser))
+    app.add_handler(CommandHandler("listusers", cmd_listusers))
+    app.add_handler(CommandHandler("removeuser", cmd_removeuser))
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("ai", ai_draft_command))
     app.add_handler(CommandHandler("post", quick_post_command))
