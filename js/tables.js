@@ -213,7 +213,7 @@
 
                 if (subQuickEditActive) {
                     const teamOpts = allTeams.map(t => `<option value="${t}" ${t === (sub.team_name || 'Carmella Elan') ? 'selected' : ''}>${t}</option>`).join('');
-                    const pkgOpts = ["1 Month", "3 Months", "6 Months", "12 Months"].map(p => `<option value="${p}" ${p.toLowerCase().includes((sub.package || '').toLowerCase()) ? 'selected' : ''}>${p}</option>`).join('');
+                    const pkgOpts = ["1 Month", "3 Months", "6 Months"].map(p => `<option value="${p}" ${p.toLowerCase().includes((sub.package || '').toLowerCase()) ? 'selected' : ''}>${p}</option>`).join('');
                     const provOpts = ["bkash", "nagad", "rocket", "bank", "other"].map(pr => `<option value="${pr}" ${pr === methRaw ? 'selected' : ''}>${pr.toUpperCase()}</option>`).join('');
                     const payOpts = [
                         {val: 'PAID', text: 'PAID'},

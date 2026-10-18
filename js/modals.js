@@ -1637,7 +1637,7 @@
             const pkg = document.getElementById("addPackage")?.value || "";
             const amtInput = document.getElementById("addAmount");
             if (!amtInput) return;
-            if (pkg.includes("12") || pkg.includes("6")) {
+            if (pkg.includes("6")) {
                 amtInput.value = "99";
             } else if (pkg.includes("3")) {
                 amtInput.value = "50";
@@ -1655,7 +1655,7 @@
             const pkg = document.getElementById("payPackage")?.value || "";
             const amtInput = document.getElementById("payAmount");
             if (!amtInput) return;
-            if (pkg.includes("12") || pkg.includes("6")) {
+            if (pkg.includes("6")) {
                 amtInput.value = "99.00";
             } else if (pkg.includes("3")) {
                 amtInput.value = "50.00";
@@ -1673,7 +1673,7 @@
             const pkg = document.getElementById("editPayPackage")?.value || "";
             const amtInput = document.getElementById("editPayAmount");
             if (!amtInput) return;
-            if (pkg.includes("12") || pkg.includes("6")) {
+            if (pkg.includes("6")) {
                 amtInput.value = "99.00";
             } else if (pkg.includes("3")) {
                 amtInput.value = "50.00";
@@ -1692,11 +1692,10 @@
             const provider = document.getElementById("addProvider").value;
             const trxId = document.getElementById("addTrxId").value.trim();
             const amountInput = document.getElementById("addAmount");
-            const amount = parseFloat(amountInput ? amountInput.value : 0) || ((pkg.includes("12") || pkg.includes("6")) ? 99 : pkg.includes("3") ? 50 : 25);
+            const amount = parseFloat(amountInput ? amountInput.value : 0) || (pkg.includes("6") ? 99 : pkg.includes("3") ? 50 : 25);
 
             let days = 30;
-            if (pkg.includes("12")) days = 365;
-            else if (pkg.includes("6")) days = 180;
+            if (pkg.includes("6")) days = 180;
             else if (pkg.includes("3")) days = 90;
 
             const now = new Date();
@@ -1784,8 +1783,7 @@
 
             let addDays = 30;
             let addRate = 25;
-            if (pkg.includes("12")) { addDays = 365; addRate = 99; }
-            else if (pkg.includes("6")) { addDays = 180; addRate = 99; }
+            if (pkg.includes("6")) { addDays = 180; addRate = 99; }
             else if (pkg.includes("3")) { addDays = 90; addRate = 50; }
 
             const sub = allSubscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
@@ -1895,7 +1893,7 @@
                 const sub = allSubscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
                 const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
                 const pkg = sub ? (sub.package || "3 Months") : "3 Months";
-                const amount = sub && sub.amount ? sub.amount : ((pkg.includes("12") || pkg.includes("6")) ? 99 : pkg.includes("3") ? 50 : 25);
+                const amount = sub && sub.amount ? sub.amount : (pkg.includes("6") ? 99 : pkg.includes("3") ? 50 : 25);
                 const team_name = sub ? (sub.team_name || "Carmella Elan") : "Carmella Elan";
                 const prov = sub ? (sub.provider || sub.method || "bKash") : "bKash";
 

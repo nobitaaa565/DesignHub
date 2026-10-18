@@ -905,7 +905,7 @@ CANVA_PRO_PROMO_EN = (
     "🏷️ Exclusive Rates:\n"
     "⭐ 1 Month  — 25 TK\n"
     "⚡ 3 Months — 50 TK (🔥 Most Popular • Access First, Pay Later)\n"
-    "🚀 12 Months — 150 TK (Best Value Deal)\n\n"
+    "🚀 6 Months — 99 TK (Best Value Deal)\n\n"
     "🛡️ Zero Risk Policy: Access First, Check Everything, Then Pay!\n\n"
     "👉 Drop a message in our Page Inbox with your Gmail to get instant access right now! 📩✨\n\n"
     "#DesignHub #CanvaPro #DesignTools #ContentCreators #FreelancerLife #GraphicDesigners #DigitalTools"

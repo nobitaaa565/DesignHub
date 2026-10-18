@@ -368,10 +368,8 @@ def get_customer_id_by_sender(sender_id: str = "", sender_name: str = "", email:
 
 def parse_package(pkg: str):
     p = str(pkg).lower().strip()
-    if any(k in p for k in ("6m", "6mo", "6month", "6 months", "6 month", "৬")):
+    if any(k in p for k in ("6m", "6mo", "6month", "6 months", "6 month", "৬", "12m", "1y", "1year", "12 month", "12 months", "1 year", "১২")):
         return "6 Months", 180, 99
-    elif any(k in p for k in ("12m", "1y", "1year", "12 month", "12 months", "1 year", "১২")):
-        return "12 Months", 365, 99
     elif any(k in p for k in ("3m", "3mo", "3month", "3 months", "3 month", "৩")):
         return "3 Months", 90, 50
     return "1 Month", 30, 25

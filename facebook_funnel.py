@@ -57,7 +57,6 @@ PACKAGES = {
     "pkg_1m": {"key": "1m", "name": "১ মাস (২৫ টাকা)", "price": 25, "days": 30},
     "pkg_3m": {"key": "3m", "name": "৩ মাস (৫০ টাকা)", "price": 50, "days": 90},
     "pkg_6m": {"key": "6m", "name": "৬ মাস (৯৯ টাকা)", "price": 99, "days": 180},
-    "pkg_12m": {"key": "12m", "name": "১ বছর (১৫০ টাকা)", "price": 150, "days": 365},
 }
 
 
@@ -365,8 +364,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 pkg_price = 50
             elif "99" in str(pkg_info) or "৬ মাস" in str(pkg_info):
                 pkg_price = 99
-            elif "150" in str(pkg_info) or "১ বছর" in str(pkg_info):
-                pkg_price = 150
+
 
         if proof.get("is_payment_proof"):
             provider = proof.get("provider", "Mobile Banking")

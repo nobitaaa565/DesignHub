@@ -89,7 +89,6 @@ Tracks one-time expiring Canva invite tokens.
 | **1 Month** | 30 days | **৳25** |
 | **3 Months** | 90 days | **৳50** |
 | **6 Months** | 180 days | **৳99** |
-| **12 Months** | 365 days | **৳99** |
 
 ---
 

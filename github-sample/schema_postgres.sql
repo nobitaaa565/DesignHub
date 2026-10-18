@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     id SERIAL PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
     name TEXT DEFAULT '',
-    package TEXT NOT NULL,                  -- '1 Month', '3 Months', '6 Months', '12 Months'
+    package TEXT NOT NULL,                  -- '1 Month', '3 Months', '6 Months'
     days INTEGER DEFAULT 30,               -- Duration in days (30, 90, 180, 365)
     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS payments (
     customer_id INTEGER,
     email TEXT NOT NULL,
     name TEXT DEFAULT '',
-    package TEXT NOT NULL,                  -- '1 Month', '3 Months', '6 Months', '12 Months'
+    package TEXT NOT NULL,                  -- '1 Month', '3 Months', '6 Months'
     amount DOUBLE PRECISION NOT NULL,       -- Strictly 25, 50, or 99 BDT
     currency TEXT DEFAULT 'BDT',
     provider TEXT DEFAULT 'bKash',          -- 'bKash', 'Nagad', 'Rocket', 'Bank Transfer', 'Other'

@@ -210,18 +210,15 @@
                 filtered = allSubscribers.filter(s => (s.team_name || "Carmella Elan") === donutSelectedTeam);
             }
 
-            let m1 = 0, m3 = 0, m6 = 0, m12 = 0;
+            let m1 = 0, m3 = 0, m6 = 0;
             filtered.forEach(s => {
                 const p = (s.package || "").toLowerCase();
-                if (p.includes("12") || p.includes("year")) m12++;
-                else if (p.includes("6")) m6++;
+                if (p.includes("6") || p.includes("12") || p.includes("year")) m6++;
                 else if (p.includes("3")) m3++;
                 else m1++;
             });
 
-
-
-            const total = m1 + m3 + m6 + m12;
+            const total = m1 + m3 + m6;
             const legendEl = document.getElementById("donutCustomLegend");
 
             if (total === 0) {
@@ -237,10 +234,9 @@
             }
 
             const slices = [
-                { label: "1 Month", count: m1, color: "#0062FF" },
-                { label: "3 Months", count: m3, color: "#7C3AED" },
-                { label: "6 Months", count: m6, color: "#0D9488" },
-                { label: "12 Months", count: m12, color: "#10B981" }
+                { label: "1 Month (৳25)", count: m1, color: "#0062FF" },
+                { label: "3 Months (৳50)", count: m3, color: "#7C3AED" },
+                { label: "6 Months (৳99)", count: m6, color: "#0D9488" }
             ].filter(s => s.count > 0);
 
             const cx = w / 2;

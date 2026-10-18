@@ -72,8 +72,7 @@
 const PACKAGE_PRICING = {
     "1 Month": 25,
     "3 Months": 50,
-    "6 Months": 99,
-    "12 Months": 99
+    "6 Months": 99
 };
 
 function getPackageRate(pkg, customAmt) {
@@ -81,7 +80,7 @@ function getPackageRate(pkg, customAmt) {
         return parseFloat(customAmt);
     }
     const p = String(pkg || "").toLowerCase();
-    if (p.includes("12") || p.includes("6")) return 99;
+    if (p.includes("6") || p.includes("12")) return 99;
     if (p.includes("3")) return 50;
     return 25;
 }

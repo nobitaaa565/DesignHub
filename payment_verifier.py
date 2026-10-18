@@ -32,7 +32,7 @@ def analyze_payment_screenshot(image_bytes: bytes) -> dict:
         "Examine this payment confirmation receipt or screenshot from Bangladesh Mobile Banking (bKash, Nagad, Rocket, Upay).\n"
         "CRITICAL INSTRUCTIONS:\n"
         "1. Extract the exact recipient/receiver phone number (the account money was transferred TO, under 'To', 'Recipient', 'প্রাপক', 'Receiver', or under receiver contact info, e.g. 01571425035 or 01798361516).\n"
-        "2. Extract the exact amount sent (e.g. 25, 50, 99, 150 Tk).\n"
+        "2. Extract the exact amount sent (e.g. 25, 50, 99 Tk).\n"
         "3. Extract the Transaction ID (TrxID).\n"
         "4. Extract the provider (bKash, Nagad, Rocket, Upay).\n\n"
         "Return valid JSON with this exact format:\n"
