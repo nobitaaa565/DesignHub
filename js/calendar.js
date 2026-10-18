@@ -233,21 +233,8 @@
                     bigCalSelectedDay = 1;
                 }
 
-                // Populate team filter options in big calendar
-                const teamSelect = document.getElementById("bigCalTeamFilter");
-                if (teamSelect) {
-                    const currentVal = teamSelect.value || "ALL";
-                    let opts = `<option value="ALL">All Canva Teams</option>`;
-                    allTeams.forEach(t => {
-                        opts += `<option value="${t}">${t}</option>`;
-                    });
-                    teamSelect.innerHTML = opts;
-                    if (currentVal && (currentVal === "ALL" || allTeams.includes(currentVal))) {
-                        teamSelect.value = currentVal;
-                    } else {
-                        teamSelect.value = "ALL";
-                    }
-                }
+                // Populate multi-team filter options in big calendar
+                renderBigCalTeamPopoverOptions();
 
                 renderBigCalendar();
 
@@ -318,7 +305,7 @@
             const isCurrentMonth = (today.getFullYear() === calCurrentYear && today.getMonth() === calCurrentMonth);
             const currentDayDate = today.getDate();
 
-            const selectedTeam = document.getElementById("bigCalTeamFilter")?.value || "ALL";
+            const isTeamFilterActive = (bigCalSelectedTeams.size > 0 && bigCalSelectedTeams.size < allTeams.length);
             const searchVal = (document.getElementById("bigCalSearchInput")?.value || "").toLowerCase().trim();
 
             // Group events for the month
@@ -334,7 +321,7 @@
             let monthTotalPending = 0;
 
             allSubscribers.forEach(s => {
-                if (selectedTeam !== "ALL" && (s.team_name || "Carmella Elan") !== selectedTeam) return;
+                if (isTeamFilterActive && !bigCalSelectedTeams.has(s.team_name || "Carmella Elan")) return;
                 if (searchVal) {
                     const matchName = (s.name || '').toLowerCase().includes(searchVal);
                     const matchEmail = (s.email || '').toLowerCase().includes(searchVal);
@@ -350,7 +337,7 @@
                             dayEvents[dayNum].expiries.push(s);
                             monthTotalExpiries++;
                             const pkgStr = (s.package || '').toLowerCase();
-                            const amt = pkgStr.includes("12") ? 1200 : (pkgStr.includes("6") ? 650 : 350);
+                            const amt = pkgStr.includes("6") ? 99 : (pkgStr.includes("3") ? 50 : 25);
                             monthTotalExpRevenue += amt;
                         }
                     }
@@ -369,7 +356,7 @@
             });
 
             allPayments.forEach(p => {
-                if (selectedTeam !== "ALL" && (p.team_name || "Carmella Elan") !== selectedTeam) return;
+                if (isTeamFilterActive && !bigCalSelectedTeams.has(p.team_name || "Carmella Elan")) return;
                 if (searchVal) {
                     const matchName = (p.name || '').toLowerCase().includes(searchVal);
                     const matchEmail = (p.email || '').toLowerCase().includes(searchVal);
@@ -539,6 +526,99 @@
             renderCalendar(); // Keep mini calendar synced
         }
 
+        var bigCalSelectedTeams = new Set();
+
+        function toggleBigCalTeamPopover(e) {
+            if (e) e.stopPropagation();
+            const pop = document.getElementById("bigCalTeamPopover");
+            if (!pop) return;
+            const isAct = pop.classList.contains("active");
+            if (!isAct) {
+                renderBigCalTeamPopoverOptions();
+                pop.classList.add("active");
+            } else {
+                pop.classList.remove("active");
+            }
+        }
+
+        function renderBigCalTeamPopoverOptions() {
+            const list = document.getElementById("bigCalTeamCheckboxList");
+            if (!list) return;
+
+            // If empty, initialize with all teams
+            if (bigCalSelectedTeams.size === 0) {
+                allTeams.forEach(t => bigCalSelectedTeams.add(t));
+            }
+
+            list.innerHTML = allTeams.map(team => {
+                const checked = bigCalSelectedTeams.has(team);
+                const count = allSubscribers.filter(s => (s.team_name || "Carmella Elan") === team).length;
+                return `
+                    <label class="team-check-label" style="display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0.5rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: background 0.15s;">
+                        <span style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" ${checked ? 'checked' : ''} onchange="onBigCalTeamCheckChange(this, '${team.replace(/'/g, "\\'")}')" style="cursor: pointer; accent-color: var(--blue-primary);">
+                            <span style="font-weight: 600; color: var(--text-dark);">${team}</span>
+                        </span>
+                        <span style="font-size: 0.7rem; color: var(--text-muted); background: var(--bg-subtle); padding: 1px 6px; border-radius: 10px;">${count}</span>
+                    </label>
+                `;
+            }).join('');
+
+            updateBigCalTeamTriggerLabel();
+        }
+
+        function onBigCalTeamCheckChange(cb, team) {
+            if (cb.checked) {
+                bigCalSelectedTeams.add(team);
+            } else {
+                bigCalSelectedTeams.delete(team);
+            }
+            updateBigCalTeamTriggerLabel();
+            renderBigCalendar();
+        }
+
+        function toggleAllBigCalTeams(e) {
+            if (e) e.stopPropagation();
+            if (bigCalSelectedTeams.size === allTeams.length) {
+                bigCalSelectedTeams.clear();
+            } else {
+                allTeams.forEach(t => bigCalSelectedTeams.add(t));
+            }
+            renderBigCalTeamPopoverOptions();
+            renderBigCalendar();
+        }
+
+        function updateBigCalTeamTriggerLabel() {
+            const lbl = document.getElementById("bigCalTeamTriggerLabel");
+            if (!lbl) return;
+            if (bigCalSelectedTeams.size === 0 || bigCalSelectedTeams.size === allTeams.length) {
+                lbl.textContent = `Teams: All (${allTeams.length})`;
+            } else if (bigCalSelectedTeams.size === 1) {
+                lbl.textContent = Array.from(bigCalSelectedTeams)[0];
+            } else {
+                lbl.textContent = `Teams (${bigCalSelectedTeams.size}/${allTeams.length})`;
+            }
+        }
+
+        document.addEventListener("click", (e) => {
+            const pop = document.getElementById("bigCalTeamPopover");
+            const btn = document.getElementById("bigCalTeamTriggerBtn");
+            if (pop && pop.classList.contains("active") && !pop.contains(e.target) && (!btn || !btn.contains(e.target))) {
+                pop.classList.remove("active");
+            }
+        });
+
+        function copyPaymentCardDetails(name, email, amount, trxId, provider, team) {
+            const lines = [
+                `Name: ${name || 'N/A'}`,
+                `Email: ${email || 'N/A'}`,
+                `Amount: ৳${amount || '0'} (${provider || 'bKash'})`,
+                `TrxID: ${trxId || 'N/A'}`
+            ];
+            if (team) lines.push(`Team: ${team}`);
+            copyTextToClipboard(lines.join('\n'), "Payment details (Name, Email, Amount, TrxID) copied!");
+        }
+
         function renderBigCalendarDaySidebar(day, ev) {
             const sidebar = document.getElementById("bigCalDaySidebar");
             if (!sidebar) return;
@@ -579,24 +659,31 @@
                     `;
                     ev.expiries.forEach(s => {
                         itemsHtml += `
-                            <div class="big-cal-item-card" style="border-left: 3.5px solid var(--rose);">
-                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                    <div>
-                                        <div style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark);">${s.name || 'Member'}</div>
-                                        <div style="font-size: 0.76rem; color: var(--text-muted); word-break: break-all;">${s.email}</div>
-                                        <div style="font-size: 0.72rem; color: var(--blue-primary); font-weight: 700; margin-top: 0.25rem;">
-                                            ${s.team_name || 'Carmella Elan'} • ${s.package || '3 Months'}
+                            <div class="big-cal-item-card" style="border-left: 3.5px solid var(--rose); padding: 0.75rem 0.85rem; margin-bottom: 0.55rem; background: #FFFFFF; border-radius: 10px; border: 1px solid var(--border-subtle); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="font-weight: 800; font-size: 0.88rem; color: var(--text-dark); margin-bottom: 0.15rem;">${s.name || 'Member'}</div>
+                                        <div style="font-size: 0.76rem; color: var(--text-muted); word-break: break-all; margin-bottom: 0.3rem;">${s.email}</div>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; flex-wrap: wrap;">
+                                            <span class="team-tag" style="font-size: 0.68rem; padding: 1px 6px;">
+                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                                                ${s.team_name || 'Carmella Elan'}
+                                            </span>
+                                            <span class="badge badge-info" style="font-size: 0.68rem; padding: 1px 6px;">${s.package || '3 Months'}</span>
+                                        </div>
+                                        <div style="font-size: 0.7rem; color: var(--rose); font-weight: 700; margin-top: 0.3rem;">
+                                            Expires: ${(s.expires_at || '').substring(0, 10)}
                                         </div>
                                     </div>
-                                </div>
-                                <div style="display: flex; gap: 0.4rem; margin-top: 0.55rem; padding-top: 0.45rem; border-top: 1px solid var(--border-subtle);">
-                                    <button class="btn btn-secondary" style="flex: 1; font-size: 0.72rem; padding: 0.3rem 0.5rem;" onclick="copyRenewalReminder('${s.email}', '${s.expires_at}', '${s.team_name || 'Canva Pro'}')">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                                        <span>Copy Reminder</span>
-                                    </button>
-                                    <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.3rem 0.55rem;" onclick="jumpToSubscriberInTable('${s.email}')" title="Find in Roster">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                    </button>
+                                    <div style="display: flex; flex-direction: column; gap: 0.3rem; flex-shrink: 0;">
+                                        <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem;" onclick="copyTextToClipboard('Name: ${(s.name || 'Member').replace(/'/g, "\\'")}\\nEmail: ${s.email}\\nTeam: ${(s.team_name || '').replace(/'/g, "\\'")}\\nPackage: ${(s.package || '3 Months').replace(/'/g, "\\'")}\\nExpiry: ${(s.expires_at || '').substring(0, 10)}', 'Member details copied!')" title="Copy Details">
+                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                            <span>Copy</span>
+                                        </button>
+                                        <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.25rem 0.5rem;" onclick="copyRenewalReminder('${s.email}', '${s.expires_at}', '${s.team_name || 'Canva Pro'}')" title="Copy Reminder Message">
+                                            <span>Reminder</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -607,22 +694,38 @@
                 if (payCount > 0) {
                     itemsHtml += `
                         <div style="font-size: 0.72rem; font-weight: 800; color: var(--emerald); text-transform: uppercase; margin: 0.75rem 0 0.4rem 0; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
-                            <span>💳 VERIFIED PAYMENTS (${payCount} • ৳${paySum})</span>
+                            <span>💳 VERIFIED PAYMENTS (${payCount} • ৳${paySum.toFixed(2)})</span>
                         </div>
                     `;
                     ev.payments.forEach(p => {
+                        const emailVal = p.customer_email || p.email || '—';
                         itemsHtml += `
-                            <div class="big-cal-item-card" style="border-left: 3.5px solid var(--emerald);">
-                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                    <div>
-                                        <div style="font-weight: 800; font-size: 0.85rem; color: var(--text-dark);">৳${p.amount} • ${p.provider || 'bKash'}</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted);">${p.name || p.email}</div>
-                                        <div style="font-size: 0.72rem; color: var(--text-body); font-family: monospace; margin-top: 0.2rem;">
+                            <div class="big-cal-item-card" style="border-left: 3.5px solid var(--emerald); padding: 0.75rem 0.85rem; margin-bottom: 0.55rem; background: #FFFFFF; border-radius: 10px; border: 1px solid var(--border-subtle); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.15rem;">
+                                            <span style="font-weight: 800; font-size: 0.88rem; color: var(--text-dark);">${p.name || 'Customer'}</span>
+                                            <span style="font-weight: 800; font-size: 0.88rem; color: #047857;">৳${parseFloat(p.amount || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div style="font-size: 0.76rem; color: var(--text-muted); word-break: break-all; margin-bottom: 0.3rem;">
+                                            ${emailVal}
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; flex-wrap: wrap;">
+                                            <span class="provider-badge ${((p.provider || 'bkash').toLowerCase()).includes('nagad') ? 'provider-nagad' : 'provider-bkash'}" style="font-size: 0.68rem; padding: 1px 6px;">
+                                                ${(p.provider || 'bKash').toUpperCase()}
+                                            </span>
+                                            <span class="team-tag" style="font-size: 0.68rem; padding: 1px 6px;">
+                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                                                ${p.team_name || 'Carmella Elan'}
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 0.72rem; color: var(--text-body); font-family: 'JetBrains Mono', monospace; margin-top: 0.35rem; background: var(--bg-subtle); padding: 2px 6px; border-radius: 4px; display: inline-block;">
                                             TrxID: <strong>${p.trx_id || 'N/A'}</strong>
                                         </div>
                                     </div>
-                                    <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.25rem 0.45rem;" onclick="copyTextToClipboard('${p.trx_id}', 'TrxID Copied!')" title="Copy TrxID">
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.3rem 0.6rem; display: inline-flex; align-items: center; gap: 0.3rem; flex-shrink: 0;" onclick="copyPaymentCardDetails('${(p.name || 'Customer').replace(/'/g, "\\'")}', '${emailVal.replace(/'/g, "\\'")}', '${parseFloat(p.amount || 0).toFixed(2)}', '${(p.trx_id || 'N/A').replace(/'/g, "\\'")}', '${(p.provider || 'bKash').replace(/'/g, "\\'")}', '${(p.team_name || '').replace(/'/g, "\\'")}')" title="Copy (Name, Email, Amount, TrxID)">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                        <span>Copy</span>
                                     </button>
                                 </div>
                             </div>
@@ -639,11 +742,19 @@
                     `;
                     ev.pending.forEach(s => {
                         itemsHtml += `
-                            <div class="big-cal-item-card" style="border-left: 3.5px solid #D97706;">
-                                <div style="font-weight: 800; font-size: 0.84rem; color: var(--text-dark);">${s.name || 'Customer'}</div>
-                                <div style="font-size: 0.75rem; color: var(--text-muted);">${s.email}</div>
-                                <div style="font-size: 0.72rem; color: #D97706; font-weight: 700; margin-top: 0.2rem;">
-                                    ${s.package || '3 Months'} • Awaiting Verification
+                            <div class="big-cal-item-card" style="border-left: 3.5px solid #D97706; padding: 0.75rem 0.85rem; margin-bottom: 0.55rem; background: #FFFFFF; border-radius: 10px; border: 1px solid var(--border-subtle); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="font-weight: 800; font-size: 0.88rem; color: var(--text-dark); margin-bottom: 0.15rem;">${s.name || 'Customer'}</div>
+                                        <div style="font-size: 0.76rem; color: var(--text-muted); word-break: break-all; margin-bottom: 0.3rem;">${s.email}</div>
+                                        <div style="font-size: 0.72rem; color: #D97706; font-weight: 700;">
+                                            ${s.package || '3 Months'} • Awaiting Verification
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; flex-shrink: 0;" onclick="copyTextToClipboard('Name: ${(s.name || 'Customer').replace(/'/g, "\\'")}\\nEmail: ${s.email}\\nPackage: ${(s.package || '3 Months').replace(/'/g, "\\'")}', 'Customer details copied!')" title="Copy Details">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                        <span>Copy</span>
+                                    </button>
                                 </div>
                             </div>
                         `;
@@ -659,9 +770,6 @@
                         <span class="team-stat-tag tag-amber" style="font-size: 0.68rem; padding: 0.15rem 0.5rem;">${totalItems} ${totalItems === 1 ? 'event' : 'events'}</span>
                     </div>
                     <div style="font-size: 0.95rem; font-weight: 800; color: var(--text-dark);">${dateStr}</div>
-                    <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 0.15rem;">
-                        ${expCount} Expiries • ${payCount} Payments (৳${paySum}) ${pendCount > 0 ? `• ${pendCount} Pending` : ''}
-                    </div>
                 </div>
 
                 <div class="big-cal-sidebar-list">

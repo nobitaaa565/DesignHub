@@ -1186,10 +1186,25 @@
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
-                    <!-- Team Filter Dropdown -->
-                    <select id="bigCalTeamFilter" class="form-select" style="font-size: 0.78rem; padding: 0.4rem 0.8rem; height: 34px; min-width: 140px;" onchange="renderBigCalendar()">
-                        <option value="ALL">All Canva Teams</option>
-                    </select>
+                    <!-- Multi-Team Filter Dropdown -->
+                    <div class="team-selector-wrap" style="position: relative;">
+                        <button class="btn-team-trigger" id="bigCalTeamTriggerBtn" type="button" onclick="toggleBigCalTeamPopover(event)" style="font-size: 0.78rem; height: 34px; padding: 0.35rem 0.8rem; background: #FFFFFF; border: 1px solid var(--border); border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; color: var(--text-dark); font-weight: 700;" title="Filter multiple teams">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
+                            </svg>
+                            <span id="bigCalTeamTriggerLabel">Teams: All</span>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                        </button>
+                        <div class="team-popover" id="bigCalTeamPopover" style="position: absolute; top: calc(100% + 6px); left: 0; right: auto; width: 230px; z-index: 1050;">
+                            <div class="team-popover-header">
+                                <span>Filter Teams</span>
+                                <span style="cursor: pointer; color: var(--blue-primary); text-transform: none; font-weight: 700;" onclick="toggleAllBigCalTeams(event)">Toggle All</span>
+                            </div>
+                            <div class="team-checkbox-list" id="bigCalTeamCheckboxList"></div>
+                        </div>
+                    </div>
 
                     <!-- Search Input -->
                     <div style="position: relative;">

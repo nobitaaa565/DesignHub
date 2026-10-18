@@ -69,6 +69,62 @@
             }, 250);
         }
 
+        window.showToast = showToast;
+
+        function showUndoToast(message, onUndo, timeout = 9000) {
+            const container = document.getElementById("toastContainer");
+            if (!container) return;
+            const toast = document.createElement("div");
+            toast.className = "toast toast-undo";
+            toast.innerHTML = `
+                <div class="toast-content-wrap" style="display: flex; align-items: center; gap: 0.65rem;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg" style="flex-shrink: 0;">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                    <span>${message}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
+                    <button type="button" class="btn-toast-undo" title="Undo deletion">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                        <span>Undo</span>
+                    </button>
+                    <button type="button" class="toast-close-btn" title="Dismiss" aria-label="Dismiss">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+            `;
+
+            let autoCloseTimer = setTimeout(() => {
+                dismissToastElement(toast);
+            }, timeout);
+
+            const undoBtn = toast.querySelector(".btn-toast-undo");
+            if (undoBtn) {
+                undoBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    clearTimeout(autoCloseTimer);
+                    dismissToastElement(toast);
+                    if (typeof onUndo === "function") {
+                        try { onUndo(); } catch (err) { console.error("Undo error:", err); }
+                    }
+                });
+            }
+
+            const closeBtn = toast.querySelector(".toast-close-btn");
+            if (closeBtn) {
+                closeBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    clearTimeout(autoCloseTimer);
+                    dismissToastElement(toast);
+                });
+            }
+
+            container.appendChild(toast);
+        }
+        window.showUndoToast = showUndoToast;
+
         // ==================== CUSTOM DIALOGS ====================
         function showAlert(title, message, isWarning = false) {
             document.getElementById("alertTitle").textContent = title;
@@ -1532,10 +1588,11 @@
         async function actionDeleteTeam(teamName) {
             const confirmed = await showConfirm(
                 "Delete Canva Team?",
-                `Are you sure you want to remove '${teamName}' from the roster? Subscriber records will remain in database.`,
+                `Are you sure you want to remove '${teamName}' from the roster? You can undo this action.`,
                 true
             );
             if (confirmed) {
+                const deletedTeam = teamName;
                 allTeams = allTeams.filter(t => t !== teamName);
                 if (allTeams.length === 0) allTeams = ["Carmella Elan"];
                 saveStoredData("dh_teams", allTeams);
@@ -1546,7 +1603,38 @@
                 renderTeamsGrid();
                 populateTeamSelects();
                 updateOverviewKPICards();
-                showToast(`Team '${teamName}' removed`, "error");
+                if (activeView === "overview") {
+                    try { drawAllCharts(); } catch(e) {}
+                }
+
+                showUndoToast(`Team '${deletedTeam}' removed`, async () => {
+                    if (!allTeams.includes(deletedTeam)) {
+                        allTeams.push(deletedTeam);
+                        saveStoredData("dh_teams", allTeams);
+                    }
+                    selectedTeams.add(deletedTeam);
+
+                    renderTeamPopoverOptions();
+                    renderTeamsCarousel();
+                    renderTeamsGrid();
+                    populateTeamSelects();
+                    updateOverviewKPICards();
+                    if (activeView === "overview") {
+                        try { drawAllCharts(); } catch(e) {}
+                    }
+
+                    try {
+                        await fetch("/api/team/add", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ team_name: deletedTeam })
+                        });
+                        loadDashboardData(true);
+                    } catch(err) {
+                        console.warn("Error restoring team:", err);
+                    }
+                    showToast(`Restored team '${deletedTeam}'`, "success");
+                });
 
                 try {
                     await fetch("/api/team/delete", {
@@ -1998,19 +2086,59 @@
 
         async function actionDelete(email) {
             const confirmed = await showConfirm(
-                "Permanently Delete Customer?",
-                `Are you sure you want to delete ${email}? All record data will be permanently deleted.`,
+                "Delete Customer?",
+                `Are you sure you want to delete ${email}? You can undo this action.`,
                 true
             );
             if (confirmed) {
-                allSubscribers = allSubscribers.filter(s => s.email.toLowerCase() !== email.toLowerCase());
+                const subIndex = allSubscribers.findIndex(s => s.email.toLowerCase() === email.toLowerCase());
+                if (subIndex === -1) return;
+                const deletedSub = { ...allSubscribers[subIndex] };
+
+                allSubscribers.splice(subIndex, 1);
                 saveStoredData("dh_subscribers", allSubscribers);
 
                 updateOverviewKPICards();
                 filterSubscribers();
                 renderUpcomingRenewals();
                 renderCalendar();
-                showToast(`Deleted ${email}`, "error");
+                if (activeView === "overview") {
+                    try { drawAllCharts(); } catch(e) {}
+                }
+
+                showUndoToast(`Deleted subscriber ${email}`, async () => {
+                    allSubscribers.splice(subIndex, 0, deletedSub);
+                    saveStoredData("dh_subscribers", allSubscribers);
+
+                    updateOverviewKPICards();
+                    filterSubscribers();
+                    renderUpcomingRenewals();
+                    renderCalendar();
+                    if (activeView === "overview") {
+                        try { drawAllCharts(); } catch(e) {}
+                    }
+
+                    try {
+                        await fetch("/api/subscriber/add", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                email: deletedSub.email,
+                                name: deletedSub.name,
+                                package: deletedSub.package,
+                                is_paid: deletedSub.payment_status === "PAID",
+                                provider: deletedSub.provider || deletedSub.method || "bKash",
+                                trx_id: deletedSub.trx_id,
+                                amount: deletedSub.amount,
+                                team_name: deletedSub.team_name
+                            })
+                        });
+                        loadDashboardData(true);
+                    } catch(err) {
+                        console.warn("Error restoring subscriber:", err);
+                    }
+                    showToast(`Restored subscriber ${deletedSub.email}`, "success");
+                });
 
                 try {
                     await fetch("/api/subscriber/delete", {

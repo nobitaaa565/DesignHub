@@ -710,17 +710,75 @@
 
             const confirmed = await showConfirm(
                 "Delete Payment Transaction?",
-                `Are you sure you want to delete payment record #${targetId}? This cannot be undone.`,
+                `Are you sure you want to delete payment record #${targetId}? You can undo this action.`,
                 true
             );
             if (confirmed) {
-                await fetch("/api/payment/delete", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id: targetId })
-                });
-                showToast(`Payment record #${targetId} deleted`, "error");
-                loadDashboardData();
+                const payIndex = allPayments.findIndex(p => p.id === targetId);
+                const deletedPay = (payIndex !== -1) ? { ...allPayments[payIndex] } : null;
+
+                if (payIndex !== -1) {
+                    allPayments.splice(payIndex, 1);
+                    saveStoredData("dh_payments", allPayments);
+                }
+
+                updateOverviewKPICards();
+                filterPayments();
+                renderOverviewRecentTable();
+                renderCalendar();
+                if (activeView === "overview") {
+                    try { drawAllCharts(); } catch(e) {}
+                }
+
+                if (typeof showUndoToast === "function") {
+                    showUndoToast(`Payment record #${targetId} deleted`, async () => {
+                        if (deletedPay) {
+                            allPayments.splice(payIndex, 0, deletedPay);
+                            saveStoredData("dh_payments", allPayments);
+
+                            updateOverviewKPICards();
+                            filterPayments();
+                            renderOverviewRecentTable();
+                            renderCalendar();
+                            if (activeView === "overview") {
+                                try { drawAllCharts(); } catch(e) {}
+                            }
+
+                            try {
+                                await fetch("/api/payment/add", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        email: deletedPay.customer_email || deletedPay.email,
+                                        amount: deletedPay.amount,
+                                        provider: deletedPay.provider,
+                                        trx_id: deletedPay.trx_id,
+                                        package: deletedPay.package,
+                                        notes: deletedPay.notes,
+                                        team_name: deletedPay.team_name
+                                    })
+                                });
+                                loadDashboardData(true);
+                            } catch(err) {
+                                console.warn("Error restoring payment:", err);
+                            }
+                            showToast(`Restored payment #${targetId}`, "success");
+                        }
+                    });
+                } else {
+                    showToast(`Payment record #${targetId} deleted`, "error");
+                }
+
+                try {
+                    await fetch("/api/payment/delete", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: targetId })
+                    });
+                    loadDashboardData(true);
+                } catch(err) {
+                    console.warn("Server sync error for delete payment:", err);
+                }
             }
         }
 
