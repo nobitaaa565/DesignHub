@@ -51,7 +51,10 @@ from subscription_manager import (
     delete_payment,
     get_all_teams,
     add_team,
-    delete_team
+    delete_team,
+    get_all_references,
+    add_reference,
+    update_reference
 )
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
@@ -1769,7 +1772,8 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                 "teams": get_all_teams(),
                 "team_name": get_canva_team_name(),
                 "active_team": team_filter if team_filter.lower() != "all" else get_canva_team_name(),
-                "earnings": get_total_earnings(team_filter)
+                "earnings": get_total_earnings(team_filter),
+                "references": get_all_references()
             }
             self.wfile.write(json.dumps(data).encode("utf-8"))
             return
@@ -1908,6 +1912,23 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             else:
                 res = {"status": "error", "message": "Team name cannot be empty"}
 
+        elif self.path == "/api/reference/add":
+            ref_name = payload.get("name", "").strip()
+            if ref_name:
+                refs = add_reference(ref_name)
+                res = {"status": "ok", "references": refs}
+            else:
+                res = {"status": "error", "message": "Reference name is required"}
+
+        elif self.path == "/api/reference/update":
+            old_name = payload.get("old_name", "").strip()
+            new_name = payload.get("new_name", "").strip()
+            if old_name and new_name:
+                refs = update_reference(old_name, new_name)
+                res = {"status": "ok", "references": refs}
+            else:
+                res = {"status": "error", "message": "Both old_name and new_name are required"}
+
         elif self.path == "/api/payment/add":
             email = payload.get("email", "").strip()
             amount = payload.get("amount")
@@ -1935,8 +1956,9 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                 amount = None
             provider = payload.get("provider", "bKash")
             team_name = payload.get("team_name", None)
+            reference_name = payload.get("reference_name", "Page Lead")
             if email:
-                sub = add_subscriber(email, pkg, name, team_name=team_name)
+                sub = add_subscriber(email, pkg, name, team_name=team_name, reference_name=reference_name)
                 if is_paid:
                     mark_paid(email, trx_id=trx_id, amount=amount, provider=provider)
                 res = {"status": "ok", "subscriber": sub}

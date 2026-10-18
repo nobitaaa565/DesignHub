@@ -211,7 +211,17 @@
 
                 const trx = sub.trx_id ? `<span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; background: var(--bg-subtle); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border);">${sub.trx_id}</span>` : `<span style="color: var(--text-faint); font-size: 0.78rem;">—</span>`;
 
+                const refName = sub.reference_name || 'Page Lead';
+                const isPageLead = refName.toLowerCase() === 'page lead';
+                const refIcon = isPageLead ? `
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                ` : `
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                `;
+                const refBadge = `<span class="ref-badge ${isPageLead ? 'ref-badge-page' : 'ref-badge-custom'}">${refIcon}<span>${refName}</span></span>`;
+
                 if (subQuickEditActive) {
+                    const refOpts = (allReferences || ["Page Lead"]).map(r => `<option value="${r}" ${r.toLowerCase() === refName.toLowerCase() ? 'selected' : ''}>${r}</option>`).join('');
                     const teamOpts = allTeams.map(t => `<option value="${t}" ${t === (sub.team_name || 'Carmella Elan') ? 'selected' : ''}>${t}</option>`).join('');
                     const pkgOpts = ["1 Month", "3 Months", "6 Months"].map(p => `<option value="${p}" ${p.toLowerCase().includes((sub.package || '').toLowerCase()) ? 'selected' : ''}>${p}</option>`).join('');
                     const provOpts = ["bkash", "nagad", "rocket", "bank", "other"].map(pr => `<option value="${pr}" ${pr === methRaw ? 'selected' : ''}>${pr.toUpperCase()}</option>`).join('');
@@ -227,6 +237,9 @@
                             <td>
                                 <input type="text" class="cell-input" id="sub_name_${rowKey}" value="${sub.name || ''}" placeholder="Name" onchange="markSubRowDirty('${sub.email}')" style="margin-bottom: 2px;">
                                 <input type="email" class="cell-input" id="sub_email_${rowKey}" value="${sub.email}" onchange="markSubRowDirty('${sub.email}')">
+                            </td>
+                            <td>
+                                <select class="cell-input" id="sub_ref_${rowKey}" onchange="markSubRowDirty('${sub.email}')">${refOpts}</select>
                             </td>
                             <td>
                                 <select class="cell-input" id="sub_team_${rowKey}" onchange="markSubRowDirty('${sub.email}')">${teamOpts}</select>
@@ -273,6 +286,7 @@
                                 <span class="customer-name">${sub.name || 'Personal Account'}</span>
                             </div>
                         </td>
+                        <td>${refBadge}</td>
                         <td>${teamBadge}</td>
                         <td><span style="font-weight: 700;">${sub.package}</span></td>
                         <td>${amtCell}</td>
@@ -315,6 +329,7 @@
                     (s.customer_id && s.customer_id.toString().includes(cleanQuery)) ||
                     (s.email && s.email.toLowerCase().includes(query)) ||
                     (s.name && s.name.toLowerCase().includes(query)) ||
+                    (s.reference_name && s.reference_name.toLowerCase().includes(query)) ||
                     (s.team_name && s.team_name.toLowerCase().includes(query)) ||
                     (s.trx_id && s.trx_id.toLowerCase().includes(query)) ||
                     (s.package && s.package.toLowerCase().includes(query)) ||
@@ -434,6 +449,7 @@
             const rowKey = btoa(origEmail).replace(/=/g, '');
             const name = document.getElementById(`sub_name_${rowKey}`).value.trim();
             const email = document.getElementById(`sub_email_${rowKey}`).value.trim();
+            const reference_name = document.getElementById(`sub_ref_${rowKey}`)?.value || "Page Lead";
             const team_name = document.getElementById(`sub_team_${rowKey}`).value;
             const pkg = document.getElementById(`sub_pkg_${rowKey}`).value;
             const amount = parseFloat(document.getElementById(`sub_amt_${rowKey}`)?.value || 0);
@@ -456,6 +472,7 @@
                     name,
                     email,
                     team_name,
+                    reference_name,
                     package: pkg,
                     amount,
                     method,
@@ -477,6 +494,7 @@
                             name,
                             email,
                             team_name,
+                            reference_name,
                             package: pkg,
                             amount,
                             method,
@@ -717,14 +735,34 @@
                 const payIndex = allPayments.findIndex(p => p.id === targetId);
                 const deletedPay = (payIndex !== -1) ? { ...allPayments[payIndex] } : null;
 
+                let linkedSub = null;
+                let originalPaymentStatus = null;
+
                 if (payIndex !== -1) {
                     allPayments.splice(payIndex, 1);
                     saveStoredData("dh_payments", allPayments);
+
+                    // Check if subscriber has remaining payments. If none, update payment_status to PENDING
+                    if (deletedPay) {
+                        const pEmail = (deletedPay.customer_email || deletedPay.email || "").toLowerCase();
+                        const remPays = allPayments.filter(p => (p.customer_email || p.email || "").toLowerCase() === pEmail);
+                        if (remPays.length === 0) {
+                            const subIdx = allSubscribers.findIndex(s => s.email.toLowerCase() === pEmail);
+                            if (subIdx !== -1) {
+                                linkedSub = allSubscribers[subIdx];
+                                originalPaymentStatus = linkedSub.payment_status;
+                                linkedSub.payment_status = "PENDING";
+                                saveStoredData("dh_subscribers", allSubscribers);
+                            }
+                        }
+                    }
                 }
 
                 updateOverviewKPICards();
                 filterPayments();
+                filterSubscribers();
                 renderOverviewRecentTable();
+                renderActivitiesFeed();
                 renderCalendar();
                 if (activeView === "overview") {
                     try { drawAllCharts(); } catch(e) {}
@@ -736,9 +774,16 @@
                             allPayments.splice(payIndex, 0, deletedPay);
                             saveStoredData("dh_payments", allPayments);
 
+                            if (linkedSub && originalPaymentStatus) {
+                                linkedSub.payment_status = originalPaymentStatus;
+                                saveStoredData("dh_subscribers", allSubscribers);
+                            }
+
                             updateOverviewKPICards();
                             filterPayments();
+                            filterSubscribers();
                             renderOverviewRecentTable();
+                            renderActivitiesFeed();
                             renderCalendar();
                             if (activeView === "overview") {
                                 try { drawAllCharts(); } catch(e) {}
@@ -785,14 +830,15 @@
         // ==================== CSV EXPORT UTILITIES ====================
         function exportSubscribersCSV() {
             if (allSubscribers.length === 0) return showToast("No subscribers to export", "warning");
-            const headers = ["CID", "Name", "Email", "Team", "Package", "Amount_BDT", "Method", "Expires_At", "Payment_Status", "Status", "TrxID"];
+            const headers = ["CID", "Name", "Email", "Reference", "Team", "Package", "Amount_BDT", "Method", "Expires_At", "Payment_Status", "Status", "TrxID"];
             const rows = allSubscribers.map(s => [
                 s.customer_id || 800,
                 `"${(s.name || '').replace(/"/g, '""')}"`,
                 s.email,
+                `"${s.reference_name || 'Page Lead'}"`,
                 `"${s.team_name || 'Carmella Elan'}"`,
                 `"${s.package || '3 Months'}"`,
-                s.amount || ((s.package?.includes('12') || s.package?.includes('6')) ? 99 : s.package?.includes('3') ? 50 : 25),
+                s.amount || (s.package?.includes('6') ? 99 : s.package?.includes('3') ? 50 : 25),
                 (s.method || s.provider || 'bkash').toUpperCase(),
                 s.expires_at || '',
                 s.payment_status || 'PENDING',

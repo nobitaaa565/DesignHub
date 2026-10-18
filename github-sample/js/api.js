@@ -75,6 +75,12 @@
                     saveStoredData("dh_payments", allPayments);
                 }
 
+                // Synchronize reference sources with live database
+                if (dataSubs && Array.isArray(dataSubs.references) && dataSubs.references.length > 0) {
+                    allReferences = Array.from(new Set(["Page Lead", ...dataSubs.references]));
+                    saveStoredData("dh_references", allReferences);
+                }
+
                 // Synchronize Canva teams with live database
                 let sTeams = [];
                 if (dataSubs && Array.isArray(dataSubs.teams)) sTeams = dataSubs.teams;
@@ -119,6 +125,7 @@
 
                 // Refresh all UI components with updated database records
                 try { renderTeamPopoverOptions(); } catch(e) {}
+                try { populateReferenceSelects(); } catch(e) {}
                 try { renderTeamsCarousel(); } catch(e) {}
                 try { renderTeamsGrid(); } catch(e) {}
                 try { populateTeamSelects(); } catch(e) {}
@@ -168,6 +175,7 @@
                 try { filterSubscribers(); } catch(e) {}
                 try { filterPayments(); } catch(e) {}
                 try { renderUpcomingRenewals(); } catch(e) {}
+                try { populateReferenceSelects(); } catch(e) {}
                 try { renderCalendar(); } catch(e) {}
                 try { renderActivitiesFeed(); } catch(e) {}
             }

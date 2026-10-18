@@ -255,6 +255,32 @@
             border: 1px solid #BFDBFE;
         }
 
+        /* Reference Badges */
+        .ref-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.65rem;
+            border-radius: var(--radius-pill);
+            font-size: 0.74rem;
+            font-weight: 700;
+            white-space: nowrap;
+            letter-spacing: 0.01em;
+            transition: all 0.2s ease;
+        }
+
+        .ref-badge-page {
+            background: rgba(0, 98, 255, 0.08);
+            color: var(--blue-primary);
+            border: 1px solid rgba(0, 98, 255, 0.22);
+        }
+
+        .ref-badge-custom {
+            background: rgba(139, 92, 246, 0.09);
+            color: #7C3AED;
+            border: 1px solid rgba(139, 92, 246, 0.24);
+        }
+
         /* Action Buttons in Tables */
         .table-actions {
             display: flex;

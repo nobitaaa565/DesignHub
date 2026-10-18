@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     fb_sender_id TEXT DEFAULT '',
     last_reminder_at TIMESTAMP,
     pending_telegram_msg_id INTEGER,
-    team_name TEXT DEFAULT 'Carmella Elan'
+    team_name TEXT DEFAULT 'Carmella Elan',
+    reference_name TEXT DEFAULT 'Page Lead'
 );
 
 CREATE INDEX IF NOT EXISTS idx_subs_email ON subscriptions (email);

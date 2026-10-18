@@ -22,6 +22,10 @@ if (!Array.isArray(allTeams) || allTeams.length === 0) {
 }
 var allSubscribers = loadStoredData("dh_subscribers", []);
 var allPayments = loadStoredData("dh_payments", []);
+var allReferences = loadStoredData("dh_references", ["Page Lead", "Admin Direct", "WhatsApp", "Personal Referral"]);
+if (!Array.isArray(allReferences) || allReferences.length === 0) {
+    allReferences = ["Page Lead", "Admin Direct", "WhatsApp", "Personal Referral"];
+}
 var selectedTeams = new Set();
 var subCurrentPage = 1;
 var subPageSize = 20; // Records per page: 20, 40, 60, 80, 100

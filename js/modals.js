@@ -766,7 +766,10 @@
             document.getElementById("editTrxId").value = sub.trx_id || "";
 
             populateTeamSelects();
+            populateReferenceSelects();
             document.getElementById("editTeam").value = sub.team_name || "Carmella Elan";
+            const editRef = document.getElementById("editReference");
+            if (editRef) editRef.value = sub.reference_name || "Page Lead";
             document.getElementById("editPackage").value = sub.package || "3 Months";
             document.getElementById("editPaymentStatus").value = sub.payment_status || "PENDING";
             document.getElementById("editStatus").value = sub.status || "active";
@@ -791,6 +794,8 @@
             const origEmail = document.getElementById("editOrigEmail").value;
             const name = document.getElementById("editName").value.trim();
             const email = document.getElementById("editEmail").value.trim();
+            const refSel = document.getElementById("editReference");
+            const reference_name = (refSel && refSel.value && refSel.value !== "__add__") ? refSel.value : "Page Lead";
             const team_name = document.getElementById("editTeam").value;
             const pkg = document.getElementById("editPackage").value;
             const payment_status = document.getElementById("editPaymentStatus").value;
@@ -809,6 +814,7 @@
                     name,
                     email,
                     team_name,
+                    reference_name,
                     package: pkg,
                     amount,
                     method,
@@ -830,6 +836,7 @@
                             name,
                             email,
                             team_name,
+                            reference_name,
                             package: pkg,
                             payment_status,
                             status,
@@ -1692,8 +1699,109 @@
         }
 
         // ==================== OTHER MODALS & ACTIONS ====================
+        function populateReferenceSelects() {
+            const addSel = document.getElementById("addReference");
+            const editSel = document.getElementById("editReference");
+            if (!Array.isArray(allReferences) || allReferences.length === 0) {
+                allReferences = ["Page Lead", "Admin Direct", "WhatsApp", "Personal Referral"];
+            }
+            const opts = allReferences.map(r => `<option value="${r}">${r}</option>`).join('') +
+                         `<option value="__add__">+ Add New Reference...</option>`;
+            if (addSel) {
+                const cur = addSel.value;
+                addSel.innerHTML = opts;
+                if (cur && cur !== "__add__" && allReferences.includes(cur)) addSel.value = cur;
+                else addSel.value = "Page Lead";
+            }
+            if (editSel) {
+                const cur = editSel.value;
+                editSel.innerHTML = opts;
+                if (cur && cur !== "__add__" && allReferences.includes(cur)) editSel.value = cur;
+                else editSel.value = "Page Lead";
+            }
+        }
+
+        function onAddReferenceChange() {
+            const sel = document.getElementById("addReference");
+            if (sel && sel.value === "__add__") {
+                openAddReferencePrompt('add');
+            }
+        }
+
+        function onEditReferenceChange() {
+            const sel = document.getElementById("editReference");
+            if (sel && sel.value === "__add__") {
+                openAddReferencePrompt('edit');
+            }
+        }
+
+        async function openAddReferencePrompt(target) {
+            const newRef = await showPrompt("Add Reference Name", "Enter the referrer, agent, or source name:", "");
+            if (newRef && newRef.trim()) {
+                const clean = newRef.trim();
+                if (!allReferences.includes(clean)) {
+                    allReferences.push(clean);
+                    saveStoredData("dh_references", allReferences);
+                }
+                populateReferenceSelects();
+                const sel = document.getElementById(target === 'add' ? "addReference" : "editReference");
+                if (sel) sel.value = clean;
+                showToast(`Reference '${clean}' added`, "success");
+                try {
+                    await fetch("/api/reference/add", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ name: clean })
+                    });
+                } catch(e) {}
+            } else {
+                populateReferenceSelects();
+            }
+        }
+
+        async function openEditReferencePrompt(target) {
+            const sel = document.getElementById(target === 'add' ? "addReference" : "editReference");
+            const current = sel ? sel.value : "Page Lead";
+            if (!current || current === "__add__") return;
+            const updated = await showPrompt("Edit Reference Name", `Rename reference '${current}' to:`, current);
+            if (updated && updated.trim() && updated.trim() !== current) {
+                const clean = updated.trim();
+                const idx = allReferences.indexOf(current);
+                if (idx !== -1) {
+                    allReferences[idx] = clean;
+                } else {
+                    allReferences.push(clean);
+                }
+                allReferences = Array.from(new Set(allReferences));
+                saveStoredData("dh_references", allReferences);
+
+                allSubscribers.forEach(s => {
+                    if (s.reference_name === current) {
+                        s.reference_name = clean;
+                    }
+                });
+                saveStoredData("dh_subscribers", allSubscribers);
+
+                populateReferenceSelects();
+                if (sel) sel.value = clean;
+                filterSubscribers();
+                showToast(`Renamed reference to '${clean}'`, "success");
+
+                try {
+                    await fetch("/api/reference/update", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ old_name: current, new_name: clean })
+                    });
+                    loadDashboardData(true);
+                } catch(e) {}
+            }
+        }
+
         function openAddModal() {
             populateTeamSelects();
+            populateReferenceSelects();
+            setAddRate(50);
             document.getElementById("addModal").classList.add("active");
             document.getElementById("addEmail").focus();
         }
@@ -1729,18 +1837,38 @@
             const pkg = document.getElementById("addPackage")?.value || "";
             const amtInput = document.getElementById("addAmount");
             if (!amtInput) return;
+            let amt = 50;
             if (pkg.includes("6")) {
-                amtInput.value = "99";
+                amt = 99;
             } else if (pkg.includes("3")) {
-                amtInput.value = "50";
+                amt = 50;
             } else {
-                amtInput.value = "25";
+                amt = 25;
             }
+            amtInput.value = amt;
+            const b25 = document.getElementById("addRateBtn25");
+            const b50 = document.getElementById("addRateBtn50");
+            const b99 = document.getElementById("addRateBtn99");
+            if (b25) { b25.classList.toggle("btn-primary", amt === 25); b25.classList.toggle("btn-secondary", amt !== 25); }
+            if (b50) { b50.classList.toggle("btn-primary", amt === 50); b50.classList.toggle("btn-secondary", amt !== 50); }
+            if (b99) { b99.classList.toggle("btn-primary", amt === 99); b99.classList.toggle("btn-secondary", amt !== 99); }
         }
 
         function setAddRate(amt) {
             const amtInput = document.getElementById("addAmount");
             if (amtInput) amtInput.value = amt;
+            const pkgSelect = document.getElementById("addPackage");
+            if (pkgSelect) {
+                if (amt === 25) pkgSelect.value = "1 Month";
+                else if (amt === 50) pkgSelect.value = "3 Months";
+                else if (amt === 99) pkgSelect.value = "6 Months";
+            }
+            const b25 = document.getElementById("addRateBtn25");
+            const b50 = document.getElementById("addRateBtn50");
+            const b99 = document.getElementById("addRateBtn99");
+            if (b25) { b25.classList.toggle("btn-primary", amt === 25); b25.classList.toggle("btn-secondary", amt !== 25); }
+            if (b50) { b50.classList.toggle("btn-primary", amt === 50); b50.classList.toggle("btn-secondary", amt !== 50); }
+            if (b99) { b99.classList.toggle("btn-primary", amt === 99); b99.classList.toggle("btn-secondary", amt !== 99); }
         }
 
         function onPayPackageChange() {
@@ -1780,6 +1908,8 @@
             const name = document.getElementById("addName").value.trim();
             const team_name = document.getElementById("addTeamSelect").value || (allTeams[0] || "Carmella Elan");
             const pkg = document.getElementById("addPackage").value;
+            const refSel = document.getElementById("addReference");
+            const reference_name = (refSel && refSel.value && refSel.value !== "__add__") ? refSel.value : "Page Lead";
             const isPaid = document.getElementById("addIsPaid").checked;
             const provider = document.getElementById("addProvider").value;
             const trxId = document.getElementById("addTrxId").value.trim();
@@ -1803,6 +1933,7 @@
                 name: name,
                 team_name: team_name,
                 package: pkg,
+                reference_name: reference_name,
                 payment_status: isPaid ? 'PAID' : 'PENDING',
                 status: 'active',
                 added_at: nowStr,
@@ -1861,7 +1992,7 @@
                 await fetch("/api/subscriber/add", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, name, package: pkg, is_paid: isPaid, provider, trx_id: trxId, amount, team_name })
+                    body: JSON.stringify({ email, name, package: pkg, is_paid: isPaid, provider, trx_id: trxId, amount, team_name, reference_name })
                 });
                 loadDashboardData(true);
             } catch (err) {
@@ -2095,11 +2226,28 @@
                 if (subIndex === -1) return;
                 const deletedSub = { ...allSubscribers[subIndex] };
 
+                // Cascade delete associated payments from allPayments so count and revenue update dynamically
+                const deletedPays = [];
+                for (let i = allPayments.length - 1; i >= 0; i--) {
+                    const p = allPayments[i];
+                    const pEmail = (p.customer_email || p.email || "").toLowerCase();
+                    if (pEmail === email.toLowerCase() || (deletedSub.customer_id && p.customer_id === deletedSub.customer_id)) {
+                        deletedPays.push({ index: i, payment: { ...p } });
+                        allPayments.splice(i, 1);
+                    }
+                }
+
                 allSubscribers.splice(subIndex, 1);
                 saveStoredData("dh_subscribers", allSubscribers);
+                if (deletedPays.length > 0) {
+                    saveStoredData("dh_payments", allPayments);
+                }
 
                 updateOverviewKPICards();
                 filterSubscribers();
+                filterPayments();
+                renderOverviewRecentTable();
+                renderActivitiesFeed();
                 renderUpcomingRenewals();
                 renderCalendar();
                 if (activeView === "overview") {
@@ -2110,8 +2258,18 @@
                     allSubscribers.splice(subIndex, 0, deletedSub);
                     saveStoredData("dh_subscribers", allSubscribers);
 
+                    deletedPays.reverse().forEach(dp => {
+                        allPayments.splice(dp.index, 0, dp.payment);
+                    });
+                    if (deletedPays.length > 0) {
+                        saveStoredData("dh_payments", allPayments);
+                    }
+
                     updateOverviewKPICards();
                     filterSubscribers();
+                    filterPayments();
+                    renderOverviewRecentTable();
+                    renderActivitiesFeed();
                     renderUpcomingRenewals();
                     renderCalendar();
                     if (activeView === "overview") {
@@ -2130,9 +2288,25 @@
                                 provider: deletedSub.provider || deletedSub.method || "bKash",
                                 trx_id: deletedSub.trx_id,
                                 amount: deletedSub.amount,
-                                team_name: deletedSub.team_name
+                                team_name: deletedSub.team_name,
+                                reference_name: deletedSub.reference_name || "Page Lead"
                             })
                         });
+                        for (const dp of deletedPays) {
+                            await fetch("/api/payment/add", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    email: dp.payment.customer_email || dp.payment.email,
+                                    amount: dp.payment.amount,
+                                    provider: dp.payment.provider,
+                                    trx_id: dp.payment.trx_id,
+                                    package: dp.payment.package,
+                                    notes: dp.payment.notes,
+                                    team_name: dp.payment.team_name
+                                })
+                            });
+                        }
                         loadDashboardData(true);
                     } catch(err) {
                         console.warn("Error restoring subscriber:", err);

@@ -167,9 +167,12 @@ def init_db():
                     fb_sender_id TEXT DEFAULT '',
                     last_reminder_at TIMESTAMP,
                     pending_telegram_msg_id INTEGER,
-                    team_name TEXT DEFAULT 'Carmella Elan'
+                    team_name TEXT DEFAULT 'Carmella Elan',
+                    reference_name TEXT DEFAULT 'Page Lead'
                 );
             """)
+            c.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS reference_name TEXT DEFAULT 'Page Lead'")
+            c.execute("UPDATE subscriptions SET reference_name = 'Page Lead' WHERE reference_name IS NULL OR reference_name = ''")
             c.execute("""
                 CREATE TABLE IF NOT EXISTS payments (
                     id SERIAL PRIMARY KEY,
@@ -243,12 +246,15 @@ def init_db():
         if "pending_telegram_msg_id" not in cols:
             c.execute("ALTER TABLE subscriptions ADD COLUMN pending_telegram_msg_id INTEGER")
 
-        # Ensure team_name column in subscriptions
+        # Ensure team_name and reference_name column in subscriptions
         c.execute("PRAGMA table_info(subscriptions)")
         sub_cols = [col[1] for col in c.fetchall()]
         if "team_name" not in sub_cols:
             c.execute("ALTER TABLE subscriptions ADD COLUMN team_name TEXT DEFAULT 'Carmella Elan'")
         c.execute("UPDATE subscriptions SET team_name = 'Carmella Elan' WHERE team_name IS NULL OR team_name = ''")
+        if "reference_name" not in sub_cols:
+            c.execute("ALTER TABLE subscriptions ADD COLUMN reference_name TEXT DEFAULT 'Page Lead'")
+        c.execute("UPDATE subscriptions SET reference_name = 'Page Lead' WHERE reference_name IS NULL OR reference_name = ''")
 
         # Payments table for revenue tracking & ledger
         c.execute("""
@@ -434,7 +440,7 @@ def delete_team(name: str) -> bool:
         return c.rowcount > 0
 
 
-def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id: str = "", team_name: str = None) -> dict:
+def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id: str = "", team_name: str = None, reference_name: str = None) -> dict:
     init_db()
     pkg_name, days, price = parse_package(package)
     now = datetime.now()
@@ -445,16 +451,18 @@ def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id
     clean_sender = str(fb_sender_id).strip() if fb_sender_id else ""
     assigned_team = (team_name or get_canva_team_name() or "Carmella Elan").strip()
     add_team(assigned_team)
+    final_ref = (reference_name or "").strip() or "Page Lead"
 
     with get_db() as conn:
         c = conn.cursor()
-        c.execute("SELECT customer_id, fb_sender_id, team_name FROM subscriptions WHERE email = ?", (clean_email,))
+        c.execute("SELECT customer_id, fb_sender_id, team_name, reference_name FROM subscriptions WHERE email = ?", (clean_email,))
         existing = c.fetchone()
         if existing and existing[0]:
             assigned_id = existing[0]
             existing_sender = existing[1] or ""
             sender_to_save = clean_sender or existing_sender
             final_team = assigned_team if team_name else (existing[2] or assigned_team)
+            final_ref = (reference_name or "").strip() or (existing[3] or "Page Lead")
         else:
             c.execute("SELECT MAX(customer_id) FROM subscriptions WHERE customer_id >= 800")
             max_row = c.fetchone()
@@ -463,8 +471,8 @@ def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id
             final_team = assigned_team
 
         c.execute("""
-            INSERT INTO subscriptions (email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, team_name)
-            VALUES (?, ?, ?, ?, ?, ?, 'PENDING', 'active', ?, ?, ?)
+            INSERT INTO subscriptions (email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, team_name, reference_name)
+            VALUES (?, ?, ?, ?, ?, ?, 'PENDING', 'active', ?, ?, ?, ?)
             ON CONFLICT(email) DO UPDATE SET
                 package=excluded.package,
                 days=excluded.days,
@@ -474,8 +482,9 @@ def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id
                 status='active',
                 customer_id=COALESCE(subscriptions.customer_id, excluded.customer_id),
                 fb_sender_id=CASE WHEN excluded.fb_sender_id != '' THEN excluded.fb_sender_id ELSE subscriptions.fb_sender_id END,
-                team_name=COALESCE(excluded.team_name, subscriptions.team_name)
-        """, (clean_email, name.strip(), pkg_name, days, now_str, exp_str, assigned_id, sender_to_save, final_team))
+                team_name=COALESCE(excluded.team_name, subscriptions.team_name),
+                reference_name=COALESCE(excluded.reference_name, subscriptions.reference_name)
+        """, (clean_email, name.strip(), pkg_name, days, now_str, exp_str, assigned_id, sender_to_save, final_team, final_ref))
         conn.commit()
 
     return {
@@ -489,7 +498,8 @@ def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id
         "payment_status": "PENDING",
         "status": "active",
         "fb_sender_id": sender_to_save,
-        "team_name": final_team
+        "team_name": final_team,
+        "reference_name": final_ref
     }
 
 
@@ -610,13 +620,22 @@ def update_payment(payment_id: int, fields: dict) -> dict:
 
 
 def delete_payment(payment_id: int) -> bool:
-    """Deletes a payment record from the payments ledger."""
+    """Deletes a payment record from the payments ledger and syncs subscriber payment status."""
     init_db()
     with get_db() as conn:
         c = conn.cursor()
+        c.execute("SELECT email, customer_id FROM payments WHERE id = ?", (int(payment_id),))
+        row = c.fetchone()
         c.execute("DELETE FROM payments WHERE id = ?", (int(payment_id),))
+        if row:
+            pay_email = (row[0] or "").lower().strip()
+            if pay_email:
+                c.execute("SELECT COUNT(*) FROM payments WHERE LOWER(email) = ?", (pay_email,))
+                rem = c.fetchone()
+                if rem and rem[0] == 0:
+                    c.execute("UPDATE subscriptions SET payment_status = 'PENDING' WHERE LOWER(email) = ?", (pay_email,))
         conn.commit()
-        return c.rowcount > 0
+        return True
 
 
 def get_all_payments(limit: int = 2000, team_filter: str = None) -> list:
@@ -836,12 +855,12 @@ def get_subscriber(identifier: str) -> dict:
         c = conn.cursor()
         if clean.isdigit():
             c.execute("""
-                SELECT email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan')
+                SELECT email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan'), COALESCE(reference_name, 'Page Lead')
                 FROM subscriptions WHERE customer_id = ?
             """, (int(clean),))
         else:
             c.execute("""
-                SELECT email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan')
+                SELECT email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan'), COALESCE(reference_name, 'Page Lead')
                 FROM subscriptions WHERE email = ?
             """, (raw.lower(),))
         row = c.fetchone()
@@ -859,19 +878,20 @@ def get_subscriber(identifier: str) -> dict:
             "customer_id": row[8] or 800,
             "fb_sender_id": row[9] or "",
             "trx_id": row[10] or "",
-            "team_name": row[11] or "Carmella Elan"
+            "team_name": row[11] or "Carmella Elan",
+            "reference_name": row[12] or "Page Lead"
         }
 
 
 def update_subscriber(identifier: str, fields: dict) -> dict:
     """
-    Updates any editable attributes for a customer (name, email, package, expires_at, payment_status, status, trx_id, team_name, notes).
+    Updates any editable attributes for a customer (name, email, package, expires_at, payment_status, status, trx_id, team_name, notes, reference_name).
     """
     init_db()
     clean_email = resolve_email(identifier)
     allowed_fields = [
         "name", "email", "package", "expires_at", 
-        "payment_status", "status", "trx_id", "team_name", "notes"
+        "payment_status", "status", "trx_id", "team_name", "notes", "reference_name"
     ]
     updates = {}
     for k, v in fields.items():
@@ -944,7 +964,7 @@ def list_subscribers(status_filter: str = None, team_filter: str = None) -> list
     with get_db() as conn:
         c = conn.cursor()
         query = """
-            SELECT email, name, package, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan'), added_at
+            SELECT email, name, package, expires_at, payment_status, status, customer_id, fb_sender_id, trx_id, COALESCE(team_name, 'Carmella Elan'), added_at, COALESCE(reference_name, 'Page Lead')
             FROM subscriptions
         """
         conditions = []
@@ -981,7 +1001,8 @@ def list_subscribers(status_filter: str = None, team_filter: str = None) -> list
                 "trx_id": r[8] or "",
                 "team_name": r[9] or "Carmella Elan",
                 "joined_at": r[10] or r[3] or "",
-                "added_at": r[10] or r[3] or ""
+                "added_at": r[10] or r[3] or "",
+                "reference_name": r[11] or "Page Lead"
             }
             for r in rows
         ]
@@ -1079,13 +1100,86 @@ if __name__ == "__main__":
     print("Subscription Manager initialized. Stats:", get_db_stats())
 
 def delete_subscriber(email: str) -> bool:
+    """Deletes a subscriber and cascades deletion to payments so revenue and counts update dynamically."""
     init_db()
     clean_email = email.lower().strip()
     with get_db() as conn:
         c = conn.cursor()
+        c.execute("SELECT customer_id FROM subscriptions WHERE email = ?", (clean_email,))
+        row = c.fetchone()
+        cid = row[0] if row else None
+        if cid:
+            c.execute("DELETE FROM payments WHERE customer_id = ? OR LOWER(email) = ?", (cid, clean_email))
+        else:
+            c.execute("DELETE FROM payments WHERE LOWER(email) = ?", (clean_email,))
         c.execute("DELETE FROM subscriptions WHERE email = ?", (clean_email,))
         conn.commit()
-        return c.rowcount > 0
+        return True
+
+
+def get_all_references() -> list:
+    """Returns list of reference sources (defaulting to 'Page Lead')."""
+    init_db()
+    with get_db() as conn:
+        c = conn.cursor()
+        refs = []
+        try:
+            c.execute("SELECT value FROM settings WHERE key = 'reference_names'")
+            row = c.fetchone()
+            if row and row[0]:
+                refs = json.loads(row[0])
+        except Exception:
+            refs = []
+        try:
+            c.execute("SELECT DISTINCT reference_name FROM subscriptions WHERE reference_name IS NOT NULL AND reference_name != ''")
+            db_refs = [r[0] for r in c.fetchall()]
+        except Exception:
+            db_refs = []
+        combined = list(dict.fromkeys(["Page Lead", "Admin Direct", "WhatsApp", "Personal Referral"] + refs + db_refs))
+        return combined
+
+
+def add_reference(ref_name: str) -> list:
+    """Adds a new reference name."""
+    clean = (ref_name or "").strip()
+    if not clean:
+        return get_all_references()
+    current = get_all_references()
+    if clean not in current:
+        current.append(clean)
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO settings (key, value) VALUES ('reference_names', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (json.dumps(current),)
+        )
+        conn.commit()
+    return current
+
+
+def update_reference(old_name: str, new_name: str) -> list:
+    """Renames an existing reference name across settings and subscriptions."""
+    old_clean = (old_name or "").strip()
+    new_clean = (new_name or "").strip()
+    if not old_clean or not new_clean or old_clean == new_clean:
+        return get_all_references()
+    current = get_all_references()
+    updated = [new_clean if r == old_clean else r for r in current]
+    if new_clean not in updated:
+        updated.append(new_clean)
+    updated = list(dict.fromkeys(updated))
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO settings (key, value) VALUES ('reference_names', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (json.dumps(updated),)
+        )
+        try:
+            c.execute("UPDATE subscriptions SET reference_name = ? WHERE reference_name = ?", (new_clean, old_clean))
+        except Exception:
+            pass
+        conn.commit()
+    return updated
 
 def get_subscribers_expiring_soon(days: int = 7) -> list:
     """
