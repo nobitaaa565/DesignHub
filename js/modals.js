@@ -1537,7 +1537,7 @@
             );
             if (confirmed) {
                 allTeams = allTeams.filter(t => t !== teamName);
-                if (allTeams.length === 0) allTeams = ["Carmella Elan", "Pro Team 2"];
+                if (allTeams.length === 0) allTeams = ["Carmella Elan"];
                 saveStoredData("dh_teams", allTeams);
                 selectedTeams.delete(teamName);
 
@@ -1587,6 +1587,7 @@
             renderTeamsGrid();
             populateTeamSelects();
             updateOverviewKPICards();
+            if (activeView === "overview") { try { drawAllCharts(); } catch(e) {} }
 
             showToast(`Team '${team_name}' registered successfully!`, "success");
 
@@ -1764,6 +1765,7 @@
             renderCalendar();
             renderTeamsCarousel();
             renderTeamsGrid();
+            if (activeView === "overview") { try { drawAllCharts(); } catch(e) {} }
 
             showToast(`Customer ${email} enrolled in ${team_name} (৳${amount})`, "success");
 
@@ -1875,6 +1877,7 @@
             renderOverviewRecentTable();
             renderActivitiesFeed();
             renderCalendar();
+            if (activeView === "overview") { try { drawAllCharts(); } catch(e) {} }
 
             showToast(`Payment of ৳${amount} logged for ${email}`, "success");
 

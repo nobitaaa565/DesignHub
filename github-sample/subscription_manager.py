@@ -49,6 +49,12 @@ class DBCursor:
     def execute(self, query, params=None):
         if self.is_postgres:
             sql = query.replace("?", "%s")
+
+            # Auto-translate SQLite "INSERT OR IGNORE INTO" for PostgreSQL
+            if "INSERT OR IGNORE INTO" in sql.upper():
+                sql = re.sub(r"(?i)INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", sql)
+                if "ON CONFLICT" not in sql.upper():
+                    sql = sql.rstrip("; ") + " ON CONFLICT DO NOTHING"
             
             # Auto-handle lastrowid for PostgreSQL on INSERT INTO payments
             if sql.strip().upper().startswith("INSERT INTO PAYMENTS") and "RETURNING" not in sql.upper():
@@ -409,7 +415,10 @@ def add_team(name: str) -> str:
         return "Carmella Elan"
     with get_db() as conn:
         c = conn.cursor()
-        c.execute("INSERT OR IGNORE INTO teams (name) VALUES (?)", (clean_name,))
+        if IS_POSTGRES:
+            c.execute("INSERT INTO teams (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (clean_name,))
+        else:
+            c.execute("INSERT OR IGNORE INTO teams (name) VALUES (?)", (clean_name,))
         conn.commit()
     return clean_name
 

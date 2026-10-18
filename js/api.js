@@ -1,13 +1,13 @@
         function startSmartSyncPolling() {
             if (autoSyncTimer) clearInterval(autoSyncTimer);
-            // Poll every 60 seconds, only when tab is visible
+            // Poll every 15 seconds for rapid real-time sync with database
             autoSyncTimer = setInterval(() => {
                 if (!document.hidden) {
                     loadDashboardData(true);
                 }
-            }, 60000);
+            }, 15000);
 
-            // Ticks every second so it shows "Synced 12s ago" format accurately
+            // Ticks every second so it shows \"Synced 12s ago\" format accurately
             setInterval(updateRelativeSyncTime, 1000);
         }
 
@@ -35,13 +35,6 @@
                 console.warn("Manual sync fallback:", err);
             }
 
-            lastSyncTimestamp = Date.now();
-            updateRelativeSyncTime();
-            updateOverviewKPICards();
-            renderCalendar();
-            renderOverviewRecentTable();
-            renderActivitiesFeed();
-            renderUpcomingRenewals();
             filterSubscribers();
             filterPayments();
 
@@ -55,21 +48,12 @@
             }, 500);
         }
 
-
-
         // ==================== DATA FETCHING & SYNCHRONIZATION ====================
         async function loadDashboardData(isBackground = false) {
             try {
-                let teamParam = "all";
-                if (selectedTeams.size > 0 && selectedTeams.size < allTeams.length) {
-                    teamParam = Array.from(selectedTeams).join(",");
-                }
-
-                const queryStr = teamParam === "all" ? "" : `?team=${encodeURIComponent(teamParam)}`;
-
                 const [resSubs, resPay] = await Promise.all([
-                    fetch(`/api/subscribers${queryStr}`),
-                    fetch(`/api/payments${queryStr}`)
+                    fetch("/api/subscribers"),
+                    fetch("/api/payments")
                 ]);
 
                 if (!resSubs.ok || !resPay.ok) {
@@ -79,102 +63,112 @@
                 const dataSubs = await resSubs.json();
                 const dataPay = await resPay.json();
 
-                // Merge subscribers: if server returned subscribers, update and persist; else keep local
-                if (dataSubs && Array.isArray(dataSubs.subscribers) && dataSubs.subscribers.length > 0) {
+                // Synchronize subscribers with live database
+                if (dataSubs && Array.isArray(dataSubs.subscribers)) {
                     allSubscribers = dataSubs.subscribers;
                     saveStoredData("dh_subscribers", allSubscribers);
-                } else if (allSubscribers.length > 0) {
-                    saveStoredData("dh_subscribers", allSubscribers);
                 }
 
-                // Merge payments
-                if (dataPay && Array.isArray(dataPay.payments) && dataPay.payments.length > 0) {
+                // Synchronize payments with live database
+                if (dataPay && Array.isArray(dataPay.payments)) {
                     allPayments = dataPay.payments;
                     saveStoredData("dh_payments", allPayments);
-                } else if (allPayments.length > 0) {
-                    saveStoredData("dh_payments", allPayments);
                 }
 
-                // Merge teams (server teams + local teams)
+                // Synchronize Canva teams with live database
                 let sTeams = [];
                 if (dataSubs && Array.isArray(dataSubs.teams)) sTeams = dataSubs.teams;
                 if (dataSubs && dataSubs.active_team && !sTeams.includes(dataSubs.active_team)) sTeams.push(dataSubs.active_team);
-                allTeams = Array.from(new Set([...sTeams, ...allTeams]));
-                if (allTeams.length === 0) allTeams = ["Carmella Elan", "Pro Team 2"];
+                if (dataSubs && dataSubs.team_name && !sTeams.includes(dataSubs.team_name)) sTeams.push(dataSubs.team_name);
+                if (sTeams.length > 0) {
+                    allTeams = sTeams;
+                } else if (!allTeams || allTeams.length === 0) {
+                    allTeams = ["Carmella Elan"];
+                }
                 saveStoredData("dh_teams", allTeams);
 
-                const sampleActivePaid = allSubscribers.filter(s => s.payment_status === 'PAID').length;
-                const samplePending = allSubscribers.filter(s => s.payment_status === 'PENDING').length;
-                const stats = (dataSubs && dataSubs.stats && (dataSubs.stats.active_paid || dataSubs.stats.pending)) 
-                    ? dataSubs.stats 
-                    : { active_paid: sampleActivePaid, pending: samplePending };
+                // Scope metrics dynamically according to active team selection in navbar
+                const isScoped = (selectedTeams.size > 0 && selectedTeams.size < allTeams.length);
+                const scopedSubs = isScoped ? allSubscribers.filter(s => selectedTeams.has(s.team_name || "Carmella Elan")) : allSubscribers;
+                const scopedPays = isScoped ? allPayments.filter(p => selectedTeams.has(p.team_name || "Carmella Elan")) : allPayments;
 
-                const totalBdt = allPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-                const earnings = (dataSubs && dataSubs.earnings && dataSubs.earnings.total_bdt > 0) 
-                    ? dataSubs.earnings 
-                    : (dataPay && dataPay.earnings && dataPay.earnings.total_bdt > 0 ? dataPay.earnings : { total_bdt: totalBdt, total_count: allPayments.length });
+                const activePaidCount = scopedSubs.filter(s => s.payment_status === PAID).length;
+                const pendingCount = scopedSubs.filter(s => s.payment_status === PENDING).length;
+                const totalBdt = scopedPays.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+                const txCount = scopedPays.length;
 
                 // Update Hero Metric Cards
-                document.getElementById("kpiRevenue").textContent = `৳${(earnings.total_bdt || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                document.getElementById("kpiTxCount").textContent = earnings.total_count || 0;
-                document.getElementById("kpiActivePaid").textContent = stats.active_paid || 0;
-                document.getElementById("kpiPending").textContent = stats.pending || 0;
-                document.getElementById("kpiTeamsCount").textContent = allTeams.length;
+                const revEl = document.getElementById("kpiRevenue");
+                if (revEl) revEl.textContent = `৳${totalBdt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const txEl = document.getElementById("kpiTxCount");
+                if (txEl) txEl.textContent = txCount;
+                const paidEl = document.getElementById("kpiActivePaid");
+                if (paidEl) paidEl.textContent = activePaidCount;
+                const pendEl = document.getElementById("kpiPending");
+                if (pendEl) pendEl.textContent = pendingCount;
+                const teamsCountEl = document.getElementById("kpiTeamsCount");
+                if (teamsCountEl) teamsCountEl.textContent = allTeams.length;
 
                 // Update Navigation Badges
-                document.getElementById("navSubBadge").textContent = allSubscribers.length;
-                const npb = document.getElementById("navPayBadge"); if (npb) npb.textContent = allPayments.length;
-                document.getElementById("navTeamBadge").textContent = allTeams.length;
+                const subBadge = document.getElementById("navSubBadge");
+                if (subBadge) subBadge.textContent = allSubscribers.length;
+                const npb = document.getElementById("navPayBadge");
+                if (npb) npb.textContent = allPayments.length;
+                const teamBadge = document.getElementById("navTeamBadge");
+                if (teamBadge) teamBadge.textContent = allTeams.length;
 
-                renderTeamPopoverOptions();
-                renderTeamsCarousel();
-                renderTeamsGrid();
+                // Refresh all UI components with updated database records
+                try { renderTeamPopoverOptions(); } catch(e) {}
+                try { renderTeamsCarousel(); } catch(e) {}
+                try { renderTeamsGrid(); } catch(e) {}
+                try { populateTeamSelects(); } catch(e) {}
+                if (activeView === "subscribers") {
+                    try { renderTeamFilterChips("subTeamChipsBar"); } catch(e) {}
+                }
 
                 const subSearchFocused = (document.activeElement === document.getElementById("searchSubInput"));
-                const payInputEl = document.getElementById("searchPayInput"); const paySearchFocused = payInputEl ? (document.activeElement === payInputEl) : false;
+                const payInputEl = document.getElementById("searchPayInput");
+                const paySearchFocused = payInputEl ? (document.activeElement === payInputEl) : false;
 
-                if (!subSearchFocused || !isBackground) filterSubscribers();
-                if (!paySearchFocused || !isBackground) filterPayments();
+                if (!subSearchFocused || !isBackground) {
+                    try { filterSubscribers(); } catch(e) {}
+                }
+                if (!paySearchFocused || !isBackground) {
+                    try { filterPayments(); } catch(e) {}
+                }
 
-                renderOverviewRecentTable();
-                renderActivitiesFeed();
-                renderUpcomingRenewals();
-                renderCalendar();
+                try { renderOverviewRecentTable(); } catch(e) {}
+                try { renderActivitiesFeed(); } catch(e) {}
+                try { renderUpcomingRenewals(); } catch(e) {}
+                try { renderCalendar(); } catch(e) {}
 
                 if (activeView === "overview") {
-                    drawAllCharts();
+                    try { drawAllCharts(); } catch(e) {}
                 }
 
                 lastSyncTimestamp = Date.now();
                 updateRelativeSyncTime();
             } catch (err) {
                 console.warn("Dashboard sync using offline/local cache:", err);
+                const sPaid = allSubscribers.filter(s => s.payment_status === PAID).length;
+                const sPending = allSubscribers.filter(s => s.payment_status === PENDING).length;
+                const totalBdt = allPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
 
-                // Recover from localStorage if in memory is empty
-                if (allTeams.length === 0) {
-                    allTeams = loadStoredData("dh_teams", ["Carmella Elan", "Pro Team 2"]);
-                }
-                if (allSubscribers.length === 0) {
-                    allSubscribers = loadStoredData("dh_subscribers", []);
-                }
-                if (allPayments.length === 0) {
-                    allPayments = loadStoredData("dh_payments", []);
-                }
+                const revEl = document.getElementById("kpiRevenue");
+                if (revEl) revEl.textContent = `৳${totalBdt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const txEl = document.getElementById("kpiTxCount");
+                if (txEl) txEl.textContent = allPayments.length;
+                const paidEl = document.getElementById("kpiActivePaid");
+                if (paidEl) paidEl.textContent = sPaid;
+                const pendEl = document.getElementById("kpiPending");
+                if (pendEl) pendEl.textContent = sPending;
+                const teamsCountEl = document.getElementById("kpiTeamsCount");
+                if (teamsCountEl) teamsCountEl.textContent = allTeams.length;
 
-                updateOverviewKPICards();
-                renderTeamPopoverOptions();
-                renderTeamsCarousel();
-                renderTeamsGrid();
-                filterSubscribers();
-                filterPayments();
-                renderOverviewRecentTable();
-                renderActivitiesFeed();
-                renderUpcomingRenewals();
-                renderCalendar();
-
-                if (activeView === "overview" && !isChartAnimationRunning) {
-                    ensureOverviewChartsReady(false);
-                }
+                try { filterSubscribers(); } catch(e) {}
+                try { filterPayments(); } catch(e) {}
+                try { renderUpcomingRenewals(); } catch(e) {}
+                try { renderCalendar(); } catch(e) {}
+                try { renderActivitiesFeed(); } catch(e) {}
             }
         }
-
