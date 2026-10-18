@@ -1,0 +1,315 @@
+        /* ==================== EDUSYNC CUTE & SOOTHING DESIGN SYSTEM ==================== */
+        :root {
+            /* Backgrounds */
+            --bg-main: #F4F7FC;
+            --bg-sidebar: #FFFFFF;
+            --bg-card: #FFFFFF;
+            --bg-subtle: #F8FAFD;
+            --bg-hover: #F1F5FB;
+
+            /* Borders */
+            --border: #E6EDF6;
+            --border-subtle: #EDF2F9;
+            --border-focus: #0062FF;
+
+            /* Edusync Signature Accents */
+            --blue-primary: #0062FF;
+            --blue-light: #EBF3FF;
+            --blue-hover: #0052D9;
+            --blue-text: #0062FF;
+
+            /* Hero Stat Colors (Edusync Exact Palette) */
+            --amber-hero: #FFAE34;
+            --amber-hero-light: #FFF5E5;
+            --yellow-hero: #FFD13B;
+            --yellow-hero-light: #FFFBEA;
+            --peach-hero: #FFBF80;
+            --peach-hero-light: #FFF3E8;
+            --blue-hero: #0062FF;
+
+            /* Semantic Colors */
+            --emerald: #10B981;
+            --emerald-light: #D1FAE5;
+            --rose: #EF4444;
+            --rose-light: #FEE2E2;
+            --purple: #8B5CF6;
+            --purple-light: #EDE9FE;
+
+            /* Typography */
+            --text-dark: #1E293B;
+            --text-body: #475569;
+            --text-muted: #8E9BAE;
+            --text-faint: #CBD5E1;
+
+            /* Radii & Shadows */
+            --radius-card: 20px;
+            --radius-pill: 9999px;
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --shadow-card: 0 4px 20px rgba(71, 95, 145, 0.04), 0 1px 3px rgba(71, 95, 145, 0.02);
+            --shadow-hover: 0 12px 30px rgba(71, 95, 145, 0.09), 0 2px 8px rgba(71, 95, 145, 0.04);
+            --shadow-float: 0 20px 40px rgba(0, 98, 255, 0.12);
+
+            /* Spring Timing */
+            --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        html {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-dark);
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        /* SVG Outline Icon Standard */
+        .icon-svg {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+            flex-shrink: 0;
+        }
+
+        /* Cute Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: var(--radius-pill);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
+        }
+
+        /* ==================== PIN AUTH SCREEN ==================== */
+        #authScreen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #EEF3FA 0%, #E2ECF8 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            backdrop-filter: blur(10px);
+        }
+
+        .auth-card {
+            background: #FFFFFF;
+            border-radius: 28px;
+            padding: 3rem 2.5rem;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(71, 95, 145, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            animation: cardEntrance 0.6s var(--ease-spring) both;
+        }
+
+        .auth-logo {
+            width: 58px;
+            height: 58px;
+            background: linear-gradient(135deg, #0062FF 0%, #00B2FF 100%);
+            border-radius: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            margin-bottom: 1.25rem;
+            box-shadow: 0 10px 24px rgba(0, 98, 255, 0.25);
+            animation: pulseSubtle 3s ease-in-out infinite;
+        }
+
+        .auth-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 0.35rem;
+            letter-spacing: -0.02em;
+        }
+
+        .auth-sub {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            margin-bottom: 2rem;
+            line-height: 1.4;
+        }
+
+        .pin-input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .pin-input {
+            width: 100%;
+            padding: 0.95rem 1rem;
+            font-size: 1.25rem;
+            text-align: center;
+            letter-spacing: 0.4em;
+            font-weight: 700;
+            border-radius: 14px;
+            border: 2px solid var(--border);
+            background: var(--bg-subtle);
+            color: var(--text-dark);
+            transition: all 0.25s var(--ease-spring);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .pin-input:focus {
+            outline: none;
+            border-color: var(--blue-primary);
+            background: #FFFFFF;
+            box-shadow: 0 0 0 4px rgba(0, 98, 255, 0.15);
+        }
+
+        .btn-pin-submit {
+            width: 100%;
+            padding: 0.9rem;
+            background: var(--blue-primary);
+            color: #FFFFFF;
+            border: none;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0, 98, 255, 0.25);
+            transition: all 0.25s var(--ease-spring);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-pin-submit:hover {
+            background: var(--blue-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 26px rgba(0, 98, 255, 0.32);
+        }
+
+        .pin-error {
+            color: var(--rose);
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-top: 0.75rem;
+            display: none;
+            animation: shake 0.35s ease;
+        }
+
+
+
+        /* ==================== SMOOTH ANIMATIONS ==================== */
+        @keyframes cardEntrance {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes springPop {
+            0% {
+                opacity: 0;
+                transform: scale(0.92) translateY(12px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes toastSlide {
+            from {
+                opacity: 0;
+                transform: translateX(40px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+
+        @keyframes pulseDot {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+            }
+            50% {
+                transform: scale(1.15);
+                box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.1);
+            }
+        }
+
+        @keyframes pulseSubtle {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        /* Responsive */
+        @media (max-width: 1280px) {
+            .hero-stats-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .middle-charts-row, .bottom-widgets-row {
+                grid-template-columns: 1fr;
+            }
+            .right-auxiliary-panel {
+                display: none;
+            }
+            .main-wrapper {
+                max-width: calc(100vw - 250px);
+            }
+        }
+
+        @media (max-width: 860px) {
+            .sidebar {
+                display: none;
+            }
+            .main-wrapper {
+                max-width: 100vw;
+            }
+            .center-stage {
+                padding: 1.25rem;
+            }
+            .hero-stats-row {
+                grid-template-columns: 1fr;
+            }
+        }

@@ -1,0 +1,608 @@
+        /* ==================== HERO STATS ROW (EDUSYNC 4 CARDS) ==================== */
+        .hero-stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 1.75rem;
+        }
+
+        .hero-stat-card {
+            border-radius: 22px;
+            padding: 1.45rem 1.5rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 135px;
+            box-shadow: var(--shadow-card);
+            transition: all 0.28s var(--ease-spring);
+            cursor: pointer;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            animation: cardEntrance 0.5s var(--ease-spring) both;
+        }
+
+        .hero-stat-card::after {
+            content: '';
+            position: absolute;
+            top: -25px;
+            right: -25px;
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+            pointer-events: none;
+            border-radius: 50%;
+        }
+
+        .hero-stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .hero-stat-card:hover .stat-arrow-btn {
+            transform: scale(1.12);
+        }
+
+        /* Card 1: Active Subscribers (DesignHub Electric Royal Blue) */
+        .card-amber, .card-subscribers {
+            background: linear-gradient(135deg, #0062FF 0%, #004BD6 100%);
+            color: #FFFFFF;
+            box-shadow: 0 10px 24px -4px rgba(0, 98, 255, 0.32);
+        }
+
+        /* Card 2: Verified Payments (DesignHub Emerald Green) */
+        .card-yellow, .card-payments {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: #FFFFFF;
+            box-shadow: 0 10px 24px -4px rgba(16, 185, 129, 0.32);
+        }
+
+        /* Card 3: Pending Verifications (Modern Indigo / Status Violet) */
+        .card-peach, .card-pending {
+            background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+            color: #FFFFFF;
+            box-shadow: 0 10px 24px -4px rgba(99, 102, 241, 0.32);
+        }
+
+        /* Card 4: Active Canva Teams (Canva Ocean Cyan / Sky Blue) */
+        .card-blue, .card-teams {
+            background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%);
+            color: #FFFFFF;
+            box-shadow: 0 10px 24px -4px rgba(14, 165, 233, 0.32);
+        }
+
+        .stat-top-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        .stat-metric-num {
+            font-size: 2.15rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+        }
+
+        .stat-arrow-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.22);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            transition: all 0.25s var(--ease-spring);
+        }
+
+        .hero-stat-card:hover .stat-arrow-btn {
+            background: rgba(255, 255, 255, 0.36);
+            transform: scale(1.12);
+        }
+
+        .stat-metric-label {
+            font-size: 0.92rem;
+            font-weight: 700;
+            margin-top: 0.65rem;
+            opacity: 0.9;
+        }
+
+        /* ==================== MIDDLE ROW: CHARTS SECTION ==================== */
+        .middle-charts-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr);
+            gap: 1.5rem;
+            margin-bottom: 1.75rem;
+            width: 100%;
+        }
+
+        .cute-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-card);
+            padding: 1.5rem 1.65rem;
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.25s var(--ease-spring);
+            animation: cardEntrance 0.55s var(--ease-spring) both;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .cute-card:hover {
+            box-shadow: var(--shadow-hover);
+        }
+
+        .cute-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+        }
+
+        .cute-card-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            letter-spacing: -0.01em;
+        }
+
+        .cute-pill-dropdown {
+            position: relative;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.85rem;
+            border-radius: var(--radius-pill);
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-body);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.15s;
+            user-select: none;
+        }
+
+        .cute-pill-dropdown:hover {
+            background: var(--bg-hover);
+            color: var(--blue-primary);
+            border-color: var(--blue-primary);
+        }
+
+        .cute-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 0.35rem;
+            min-width: 145px;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .cute-dropdown-menu.active {
+            display: flex;
+        }
+
+        .cute-dropdown-item {
+            padding: 0.45rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            white-space: nowrap;
+        }
+
+        .cute-dropdown-item:hover {
+            background: var(--blue-light);
+            color: var(--blue-primary);
+        }
+
+        .cute-dropdown-item.active {
+            color: var(--blue-primary);
+            font-weight: 700;
+            background: var(--blue-light);
+        }
+
+        /* Activity Feed Tag Badges */
+        .act-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 0.68rem;
+            font-weight: 750;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            margin-right: 0.35rem;
+        }
+        .act-tag-bkash { background: #FDF2F8; color: #BE185D; border: 1px solid #FBCFE8; }
+        .act-tag-nagad { background: #FFF7ED; color: #C2410C; border: 1px solid #FFEDD5; }
+        .act-tag-rocket { background: #FAF5FF; color: #7E22CE; border: 1px solid #F3E8FF; }
+        .act-tag-bank { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+        .act-tag-enroll { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+
+        .chart-legend-row {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .legend-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+        }
+
+        /* Canvas Wrapper - Fixed height & strictly bounded to prevent layout blowout */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 240px;
+            min-height: 240px;
+            max-height: 240px;
+            min-width: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .canvas-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100% !important;
+            max-height: 100% !important;
+            display: block !important;
+            box-sizing: border-box;
+        }
+
+        /* Redesigned Donut Legend Grid (Appropriate, Clean 2x2 Badge Tiles) */
+        .donut-legend-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.85rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .donut-legend-tile {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.45rem 0.65rem;
+            background: #F8FAFC;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .donut-legend-tile:hover {
+            background: #FFFFFF;
+            border-color: #CBD5E1;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+            transform: translateY(-1px);
+        }
+
+        .donut-legend-info {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            min-width: 0;
+        }
+
+        .donut-legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .donut-legend-title {
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .donut-legend-metrics {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-shrink: 0;
+        }
+
+        .donut-legend-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .donut-legend-pct-pill {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 1.5px 5.5px;
+            border-radius: 999px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ==================== BOTTOM ROW: ATTENDANCE & ACTIVITIES ==================== */
+        .bottom-widgets-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            width: 100%;
+        }
+
+        /* ==================== STUDENT ACTIVITIES FEED STYLING ==================== */
+        .activity-feed-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 0.65rem;
+        }
+
+        .activity-feed-card,
+        .activity-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.85rem;
+            padding: 0.75rem 0.95rem;
+            background: #F8FAFC;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .activity-feed-card:hover,
+        .activity-item:hover {
+            background: #FFFFFF;
+            border-color: #CBD5E1;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+            transform: translateX(3px);
+        }
+
+        .activity-avatar-icon,
+        .activity-icon-badge {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+
+        .activity-feed-card:hover .activity-avatar-icon,
+        .activity-item:hover .activity-icon-badge {
+            transform: scale(1.06);
+        }
+
+        .activity-center-col,
+        .activity-details {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.22rem;
+        }
+
+        .act-top-line {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .act-title,
+        .activity-main-text {
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .act-team-line,
+        .activity-sub-text {
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .act-time-pill,
+        .activity-time {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            background: rgba(241, 245, 249, 0.9);
+            padding: 0.22rem 0.6rem;
+            border-radius: 999px;
+            border: 1px solid rgba(226, 232, 240, 0.75);
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-family: 'JetBrains Mono', monospace;
+            transition: all 0.2s ease;
+        }
+
+        .activity-feed-card:hover .act-time-pill,
+        .activity-item:hover .activity-time {
+            color: var(--text-secondary);
+            background: #FFFFFF;
+            border-color: #CBD5E1;
+        }
+
+        /* ==================== RIGHT AUXILIARY COLUMN (EDUSYNC 3RD COLUMN) ==================== */
+        .right-auxiliary-panel {
+            width: 320px;
+            padding: 0 1.75rem 2.5rem 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        /* Admin Profile Card - Sticky aligned with top header */
+        .admin-profile-card {
+            position: sticky;
+            top: 0;
+            z-index: 99;
+            background: var(--bg-card);
+            border-radius: var(--radius-card);
+            padding: 0.95rem 1.35rem;
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 0;
+        }
+
+        .admin-info-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+        }
+
+        .admin-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0062FF 0%, #00B2FF 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            box-shadow: 0 4px 12px rgba(0, 98, 255, 0.2);
+        }
+
+        .admin-name {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--text-dark);
+        }
+
+        .admin-role {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .btn-bell-notice {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s var(--ease-spring);
+        }
+
+        .btn-bell-notice:hover {
+            background: var(--blue-light);
+            color: var(--blue-primary);
+        }
+
+        .bell-dot {
+            position: absolute;
+            top: 7px;
+            right: 8px;
+            width: 7px;
+            height: 7px;
+            background: var(--rose);
+            border-radius: 50%;
+            box-shadow: 0 0 0 2px #FFFFFF;
+        }
+
+        /* Mini Calendar Card */
+        .calendar-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-card);
+            padding: 1.45rem;
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--border);
+        }
+
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.15rem;
+        }
+
+        .calendar-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text-dark);
+        }
+
+        .calendar-nav-btns {
+            display: flex;
+            gap: 0.4rem;
+        }
+
+        .cal-nav-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: all 0.15s;
+        }
+
+        .cal-nav-btn:hover {
+            background: var(--blue-primary);
+            color: #FFFFFF;
+            border-color: var(--blue-primary);
+        }
+

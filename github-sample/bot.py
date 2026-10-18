@@ -1799,14 +1799,27 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(data).encode("utf-8"))
             return
 
-        # Serve static PNG images (e.g. designuhb-logo.png)
-        if path_only.endswith(".png"):
-            png_file = Path(__file__).resolve().parent / path_only.lstrip("/")
-            if png_file.exists():
+        # Serve static assets (.css, .js, .png, .jpg, .jpeg, .svg, .ico, .woff, .woff2)
+        ext_map = {
+            ".css": "text/css; charset=utf-8",
+            ".js": "application/javascript; charset=utf-8",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+            ".woff": "font/woff",
+            ".woff2": "font/woff2",
+        }
+        ext = os.path.splitext(path_only)[1].lower()
+        if ext in ext_map:
+            static_file = Path(__file__).resolve().parent / path_only.lstrip("/")
+            if static_file.exists() and static_file.is_file():
                 self.send_response(200)
-                self.send_header("Content-type", "image/png")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-type", ext_map[ext])
                 self.end_headers()
-                with open(png_file, "rb") as f:
+                with open(static_file, "rb") as f:
                     self.wfile.write(f.read())
                 return
 
