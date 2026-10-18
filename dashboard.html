@@ -4182,10 +4182,10 @@
                     <div class="form-group">
                         <label class="form-label">Subscription Package</label>
                         <select id="editPackage" class="form-select">
-                            <option value="1 Month">1 Month</option>
-                            <option value="3 Months">3 Months</option>
-                            <option value="6 Months">6 Months</option>
-                            <option value="12 Months">12 Months</option>
+                            <option value="1 Month">1 Month (৳25)</option>
+                            <option value="3 Months">3 Months (৳50)</option>
+                            <option value="6 Months">6 Months (৳99)</option>
+                            <option value="12 Months">12 Months (৳99)</option>
                         </select>
                     </div>
                 </div>
@@ -4210,7 +4210,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Amount (BDT ৳)</label>
-                        <input type="number" id="editAmount" class="form-input" placeholder="750">
+                        <input type="number" id="editAmount" class="form-input" placeholder="50">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Payment Method</label>
@@ -4295,11 +4295,11 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Package Plan</label>
-                        <select id="editPayPackage" class="form-select">
-                            <option value="1 Month">1 Month</option>
-                            <option value="3 Months">3 Months</option>
-                            <option value="6 Months">6 Months</option>
-                            <option value="12 Months">12 Months</option>
+                        <select id="editPayPackage" class="form-select" onchange="onEditPayPackageChange()">
+                            <option value="1 Month">1 Month (৳25)</option>
+                            <option value="3 Months">3 Months (৳50)</option>
+                            <option value="6 Months">6 Months (৳99)</option>
+                            <option value="12 Months">12 Months (৳99)</option>
                         </select>
                     </div>
                 </div>
@@ -4385,12 +4385,24 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Package Plan</label>
-                        <select id="addPackage" class="form-select">
-                            <option value="1 Month">1 Month</option>
-                            <option value="3 Months" selected>3 Months</option>
-                            <option value="6 Months">6 Months</option>
-                            <option value="12 Months">12 Months</option>
+                        <select id="addPackage" class="form-select" onchange="onAddPackageChange()">
+                            <option value="1 Month">1 Month (৳25)</option>
+                            <option value="3 Months" selected>3 Months (৳50)</option>
+                            <option value="6 Months">6 Months (৳99)</option>
+                            <option value="12 Months">12 Months (৳99)</option>
                         </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Rate / Payment Amount (BDT ৳) *</label>
+                    <div style="position: relative;">
+                        <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-weight: 700; font-size: 0.95rem;">৳</span>
+                        <input type="number" id="addAmount" class="form-input" style="padding-left: 2.2rem; font-weight: 700;" value="50" min="1" step="1" required>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-secondary rate-chip" onclick="setAddRate(25)" style="padding: 0.25rem 0.65rem; font-size: 0.75rem; border-radius: 8px;">৳25 (1 Mo)</button>
+                        <button type="button" class="btn btn-secondary rate-chip" onclick="setAddRate(50)" style="padding: 0.25rem 0.65rem; font-size: 0.75rem; border-radius: 8px;">৳50 (3 Mo)</button>
+                        <button type="button" class="btn btn-secondary rate-chip" onclick="setAddRate(99)" style="padding: 0.25rem 0.65rem; font-size: 0.75rem; border-radius: 8px;">৳99 (6/12 Mo)</button>
                     </div>
                 </div>
                 <div class="form-group" style="display: flex; align-items: center; gap: 0.65rem; margin-top: 0.5rem;">
@@ -4441,8 +4453,13 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Amount (BDT) *</label>
-                        <input type="number" step="0.01" id="payAmount" class="form-input" placeholder="50.00" required>
+                        <label class="form-label">Amount (BDT ৳) *</label>
+                        <input type="number" step="0.01" id="payAmount" class="form-input" placeholder="50.00" value="50.00" required>
+                        <div style="display: flex; gap: 0.4rem; margin-top: 0.4rem; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-secondary" onclick="setPayAmount(25)" style="padding: 0.2rem 0.55rem; font-size: 0.72rem; border-radius: 6px;">৳25 (1 Mo)</button>
+                            <button type="button" class="btn btn-secondary" onclick="setPayAmount(50)" style="padding: 0.2rem 0.55rem; font-size: 0.72rem; border-radius: 6px;">৳50 (3 Mo)</button>
+                            <button type="button" class="btn btn-secondary" onclick="setPayAmount(99)" style="padding: 0.2rem 0.55rem; font-size: 0.72rem; border-radius: 6px;">৳99 (6/12 Mo)</button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Canva Team</label>
@@ -4462,11 +4479,11 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Package Plan</label>
-                        <select id="payPackage" class="form-select">
-                            <option value="1 Month">1 Month</option>
-                            <option value="3 Months" selected>3 Months</option>
-                            <option value="6 Months">6 Months</option>
-                            <option value="12 Months">12 Months</option>
+                        <select id="payPackage" class="form-select" onchange="onPayPackageChange()">
+                            <option value="1 Month">1 Month (৳25)</option>
+                            <option value="3 Months" selected>3 Months (৳50)</option>
+                            <option value="6 Months">6 Months (৳99)</option>
+                            <option value="12 Months">12 Months (৳99)</option>
                         </select>
                     </div>
                 </div>
@@ -4507,10 +4524,10 @@
                 <div class="form-group">
                     <label class="form-label">Extension Duration</label>
                     <select id="extPackage" class="form-select">
-                        <option value="1 Month">Add 1 Month</option>
-                        <option value="3 Months" selected>Add 3 Months</option>
-                        <option value="6 Months">Add 6 Months</option>
-                        <option value="12 Months">Add 12 Months</option>
+                        <option value="1 Month">Add 1 Month (৳25)</option>
+                        <option value="3 Months" selected>Add 3 Months (৳50)</option>
+                        <option value="6 Months">Add 6 Months (৳99)</option>
+                        <option value="12 Months">Add 12 Months (৳99)</option>
                     </select>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
@@ -4525,10 +4542,28 @@
     <script>
         const DEFAULT_PIN = "1809";
 
-        // Global State (Synchronized dynamically with live database)
-        let allSubscribers = [];
-        let allPayments = [];
-        let allTeams = [];
+        // LocalStorage Resilience Helpers
+        function loadStoredData(key, fallback) {
+            try {
+                const val = localStorage.getItem(key);
+                return val ? JSON.parse(val) : fallback;
+            } catch (e) {
+                return fallback;
+            }
+        }
+        function saveStoredData(key, val) {
+            try {
+                localStorage.setItem(key, JSON.stringify(val));
+            } catch (e) {}
+        }
+
+        // Global State (Synchronized dynamically with live database + local persistence)
+        let allTeams = loadStoredData("dh_teams", ["Carmella Elan", "Pro Team 2"]);
+        if (!Array.isArray(allTeams) || allTeams.length === 0) {
+            allTeams = ["Carmella Elan", "Pro Team 2"];
+        }
+        let allSubscribers = loadStoredData("dh_subscribers", []);
+        let allPayments = loadStoredData("dh_payments", []);
         let selectedTeams = new Set();
         let subCurrentPage = 1;
         let subPageSize = 20; // Records per page: 20, 40, 60, 80, 100
@@ -4543,8 +4578,9 @@
         let dirtySubRows = new Set();
         let dirtyPayRows = new Set();
         let lastSyncTimestamp = Date.now();
-        let calCurrentYear = 2026;
-        let calCurrentMonth = 9; // October (0-indexed: 9)
+        const initToday = new Date();
+        let calCurrentYear = initToday.getFullYear();
+        let calCurrentMonth = initToday.getMonth(); // 0-indexed month
 
         // Dialog Resolvers
         let confirmResolver = null;
@@ -4552,6 +4588,26 @@
 
         // Auto Refresh Timer (Free-Tier Safe: Pauses when tab is inactive)
         let autoSyncTimer = null;
+
+        // Hoisted Dashboard State Variables (Prevents TDZ ReferenceErrors)
+        // selectedCalDay hoisted to script top
+        let bigCalSelectedDay = null;
+        let bigCalFilterType = "all";
+        // drawChartsDebounceTimer hoisted
+        let revTimeframe = "30d";
+        let activeRevHoverX = null;
+        let revCanvasListenersAttached = false;
+        let healthPeriod = "weekly";
+        let activeHealthHoverIndex = null;
+        let activeHealthMouseX = null;
+        let healthCanvasListenersAttached = false;
+        // donutSelectedTeam hoisted
+        donutSelectedTeam = donutSelectedTeam || all;
+        let currentDrawerFilter = "all";
+        let currentTeamSlideIndex = 0;
+        let isTeamCarouselPlaying = true;
+        let teamCarouselAutoPlayTimer = null;
+        let activeTeamHealthFilter = "all";
 
         // ==================== AUTH & INITIALIZATION ====================
         
@@ -5207,18 +5263,36 @@
                     fetch(`/api/payments${queryStr}`)
                 ]);
 
+                if (!resSubs.ok || !resPay.ok) {
+                    throw new Error(`HTTP Error: Subs ${resSubs.status}, Pay ${resPay.status}`);
+                }
+
                 const dataSubs = await resSubs.json();
                 const dataPay = await resPay.json();
 
-                allSubscribers = (dataSubs && Array.isArray(dataSubs.subscribers)) ? dataSubs.subscribers : [];
-                allPayments = (dataPay && Array.isArray(dataPay.payments)) ? dataPay.payments : [];
-                if (dataSubs && Array.isArray(dataSubs.teams) && dataSubs.teams.length > 0) {
-                    allTeams = dataSubs.teams;
-                } else if (dataSubs && dataSubs.active_team) {
-                    allTeams = [dataSubs.active_team];
-                } else if (allTeams.length === 0) {
-                    allTeams = ["Carmella Elan"];
+                // Merge subscribers: if server returned subscribers, update and persist; else keep local
+                if (dataSubs && Array.isArray(dataSubs.subscribers) && dataSubs.subscribers.length > 0) {
+                    allSubscribers = dataSubs.subscribers;
+                    saveStoredData("dh_subscribers", allSubscribers);
+                } else if (allSubscribers.length > 0) {
+                    saveStoredData("dh_subscribers", allSubscribers);
                 }
+
+                // Merge payments
+                if (dataPay && Array.isArray(dataPay.payments) && dataPay.payments.length > 0) {
+                    allPayments = dataPay.payments;
+                    saveStoredData("dh_payments", allPayments);
+                } else if (allPayments.length > 0) {
+                    saveStoredData("dh_payments", allPayments);
+                }
+
+                // Merge teams (server teams + local teams)
+                let sTeams = [];
+                if (dataSubs && Array.isArray(dataSubs.teams)) sTeams = dataSubs.teams;
+                if (dataSubs && dataSubs.active_team && !sTeams.includes(dataSubs.active_team)) sTeams.push(dataSubs.active_team);
+                allTeams = Array.from(new Set([...sTeams, ...allTeams]));
+                if (allTeams.length === 0) allTeams = ["Carmella Elan", "Pro Team 2"];
+                saveStoredData("dh_teams", allTeams);
 
                 const sampleActivePaid = allSubscribers.filter(s => s.payment_status === 'PAID').length;
                 const samplePending = allSubscribers.filter(s => s.payment_status === 'PENDING').length;
@@ -5256,6 +5330,7 @@
                 renderOverviewRecentTable();
                 renderActivitiesFeed();
                 renderUpcomingRenewals();
+                renderCalendar();
 
                 if (activeView === "overview") {
                     drawAllCharts();
@@ -5266,6 +5341,16 @@
             } catch (err) {
                 console.warn("Dashboard sync using offline/local cache:", err);
 
+                // Recover from localStorage if in memory is empty
+                if (allTeams.length === 0) {
+                    allTeams = loadStoredData("dh_teams", ["Carmella Elan", "Pro Team 2"]);
+                }
+                if (allSubscribers.length === 0) {
+                    allSubscribers = loadStoredData("dh_subscribers", []);
+                }
+                if (allPayments.length === 0) {
+                    allPayments = loadStoredData("dh_payments", []);
+                }
 
                 updateOverviewKPICards();
                 renderTeamPopoverOptions();
@@ -5276,6 +5361,7 @@
                 renderOverviewRecentTable();
                 renderActivitiesFeed();
                 renderUpcomingRenewals();
+                renderCalendar();
 
                 if (activeView === "overview" && !isChartAnimationRunning) {
                     ensureOverviewChartsReady(false);
@@ -5284,7 +5370,7 @@
         }
 
         // ==================== PURE CANVAS CHARTS (OPENING ANIMATIONS & AUTOMATIC RELOAD DISPLAY) ====================
-        let drawChartsDebounceTimer = null;
+        // drawChartsDebounceTimer hoisted
 
         function triggerChartOpeningAnimation() {
             if (activeView !== "overview") return;
@@ -5362,9 +5448,9 @@
         }
 
         // ==================== CHART CONTROLS & TIMEFRAMES ====================
-        let revTimeframe = '30d'; // '7d', '14d', '30d', 'all'
-        let activeRevHoverX = null;
-        let revCanvasListenersAttached = false;
+        // revTimeframe hoisted
+        // activeRevHoverX hoisted
+        // revCanvasListenersAttached hoisted
 
         function toggleRevTimeframeDropdown(e) {
             if (e) e.stopPropagation();
@@ -5393,10 +5479,10 @@
             drawRevenueTimelineChart();
         }
 
-        let healthPeriod = 'weekly'; // 'daily', 'weekly', 'monthly'
-        let activeHealthHoverIndex = null;
-        let activeHealthMouseX = null;
-        let healthCanvasListenersAttached = false;
+        // healthPeriod hoisted
+        // activeHealthHoverIndex hoisted
+        // activeHealthMouseX hoisted
+        // healthCanvasListenersAttached hoisted
 
         function toggleHealthPeriodDropdown(e) {
             if (e) e.stopPropagation();
@@ -5438,7 +5524,7 @@
         // ==================== EARNINGS FLOW (WITH VISIBLE PIN CIRCLES & CLEAN HOVER) ====================
         
         // ==================== SUBSCRIBERS PLAN SHARE (DONUT CHART & TEAM FILTER) ====================
-        let donutSelectedTeam = "all";
+        // donutSelectedTeam hoisted
 
         function toggleDonutTeamDropdown(e) {
             if (e) e.stopPropagation();
@@ -5992,7 +6078,7 @@
 
             const barCoords = [];
 
-            let activeHealthHoverIndex = null;
+        // activeHealthHoverIndex hoisted
             if (activeHealthMouseX !== null) {
                 buckets.forEach((b, idx) => {
                     const cx = paddingLeft + slotW * idx + slotW / 2;
@@ -6189,7 +6275,7 @@
         }
 
         // ==================== MINI CALENDAR & UPCOMING RENEWALS ====================
-        let selectedCalDay = null;
+        // selectedCalDay hoisted to script top
 
         function renderCalendar() {
             try {
@@ -6409,8 +6495,8 @@
 
 
         // ==================== EXPANDED BIG CALENDAR CONTROLLER ====================
-        let bigCalSelectedDay = null;
-        let bigCalFilterType = 'all'; // 'all', 'expiries', 'payments', 'pending'
+        // bigCalSelectedDay hoisted
+        // bigCalFilterType hoisted
 
         function openBigCalendarModal() {
             try {
@@ -6898,7 +6984,7 @@
         }
 
         // ==================== SLIDE-IN NOTIFICATION DRAWER CONTROLLER ====================
-        let currentDrawerFilter = 'all';
+        // currentDrawerFilter hoisted
 
         function toggleNotificationDrawer() {
             const drawer = document.getElementById("notificationDrawer");
@@ -7260,10 +7346,9 @@
                 let amtNum = sub.amount;
                 if (amtNum === undefined || amtNum === null || amtNum === '') {
                     const p = (sub.package || '').toLowerCase();
-                    if (p.includes('12')) amtNum = 2500;
-                    else if (p.includes('6')) amtNum = 1400;
-                    else if (p.includes('3')) amtNum = 750;
-                    else amtNum = 280;
+                    if (p.includes('12') || p.includes('6')) amtNum = 99;
+                    else if (p.includes('3')) amtNum = 50;
+                    else amtNum = 25;
                 }
                 const amtFormatted = `৳${parseFloat(amtNum || 0).toLocaleString('en-US')}`;
                 const amtCell = `<span style="font-weight: 800; color: #047857; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem;">${amtFormatted}</span>`;
@@ -7586,7 +7671,7 @@
                 let amt = sub.amount;
                 if (amt === undefined || amt === null || amt === '') {
                     const p = (sub.package || '').toLowerCase();
-                    amt = p.includes('12') ? 2500 : p.includes('6') ? 1400 : p.includes('3') ? 750 : 280;
+                    amt = (p.includes('12') || p.includes('6')) ? 99 : p.includes('3') ? 50 : 25;
                 }
                 document.getElementById("editAmount").value = amt;
             }
@@ -7903,7 +7988,7 @@
                 s.email,
                 `"${s.team_name || 'Carmella Elan'}"`,
                 `"${s.package || '3 Months'}"`,
-                s.amount || (s.package?.includes('12')?2500:s.package?.includes('6')?1400:s.package?.includes('3')?750:280),
+                s.amount || ((s.package?.includes('12') || s.package?.includes('6')) ? 99 : s.package?.includes('3') ? 50 : 25),
                 (s.method || s.provider || 'bkash').toUpperCase(),
                 s.expires_at || '',
                 s.payment_status || 'PENDING',
@@ -7944,10 +8029,10 @@
         }
 
         // ==================== TEAMS HEALTH & CAROUSEL STATE ====================
-        let currentTeamSlideIndex = 0;
-        let isTeamCarouselPlaying = true;
-        let teamCarouselAutoPlayTimer = null;
-        let activeTeamHealthFilter = 'all'; // 'all', 'critical', 'warning', 'healthy'
+        // currentTeamSlideIndex hoisted
+        // isTeamCarouselPlaying hoisted
+        // teamCarouselAutoPlayTimer hoisted
+        // activeTeamHealthFilter hoisted
 
         function getTeamHealth(teamName) {
             const teamSubs = allSubscribers.filter(s => (s.team_name || 'Carmella Elan') === teamName);
@@ -8674,14 +8759,28 @@
                 true
             );
             if (confirmed) {
-                await fetch("/api/team/delete", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ team_name: teamName })
-                });
-                showToast(`Team '${teamName}' removed`, "error");
+                allTeams = allTeams.filter(t => t !== teamName);
+                if (allTeams.length === 0) allTeams = ["Carmella Elan", "Pro Team 2"];
+                saveStoredData("dh_teams", allTeams);
                 selectedTeams.delete(teamName);
-                loadDashboardData();
+
+                renderTeamPopoverOptions();
+                renderTeamsCarousel();
+                renderTeamsGrid();
+                populateTeamSelects();
+                updateOverviewKPICards();
+                showToast(`Team '${teamName}' removed`, "error");
+
+                try {
+                    await fetch("/api/team/delete", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ team_name: teamName })
+                    });
+                    loadDashboardData(true);
+                } catch (err) {
+                    console.warn("Server sync error for delete team:", err);
+                }
             }
         }
 
@@ -8692,20 +8791,38 @@
 
         async function handleAddTeam(e) {
             e.preventDefault();
-            const team_name = document.getElementById("newTeamInput").value.trim();
+            const input = document.getElementById("newTeamInput");
+            const team_name = input.value.trim();
             if (!team_name) return;
 
-            await fetch("/api/team/add", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ team_name })
-            });
+            if (!allTeams.includes(team_name)) {
+                allTeams.push(team_name);
+                saveStoredData("dh_teams", allTeams);
+            }
 
             closeModal("addTeamModal");
+            input.value = "";
             selectedTeams.clear();
             selectedTeams.add(team_name);
+
+            renderTeamPopoverOptions();
+            renderTeamsCarousel();
+            renderTeamsGrid();
+            populateTeamSelects();
+            updateOverviewKPICards();
+
             showToast(`Team '${team_name}' registered successfully!`, "success");
-            loadDashboardData(false);
+
+            try {
+                await fetch("/api/team/add", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ team_name })
+                });
+                loadDashboardData(true);
+            } catch (err) {
+                console.warn("Server sync error for add team, kept locally:", err);
+            }
         }
 
         // ==================== OTHER MODALS & ACTIONS ====================
@@ -8742,21 +8859,118 @@
             document.getElementById("addPaidFields").style.display = isPaid ? "block" : "none";
         }
 
+        function onAddPackageChange() {
+            const pkg = document.getElementById("addPackage")?.value || "";
+            const amtInput = document.getElementById("addAmount");
+            if (!amtInput) return;
+            if (pkg.includes("12") || pkg.includes("6")) {
+                amtInput.value = "99";
+            } else if (pkg.includes("3")) {
+                amtInput.value = "50";
+            } else {
+                amtInput.value = "25";
+            }
+        }
+
+        function setAddRate(amt) {
+            const amtInput = document.getElementById("addAmount");
+            if (amtInput) amtInput.value = amt;
+        }
+
+        function onPayPackageChange() {
+            const pkg = document.getElementById("payPackage")?.value || "";
+            const amtInput = document.getElementById("payAmount");
+            if (!amtInput) return;
+            if (pkg.includes("12") || pkg.includes("6")) {
+                amtInput.value = "99.00";
+            } else if (pkg.includes("3")) {
+                amtInput.value = "50.00";
+            } else {
+                amtInput.value = "25.00";
+            }
+        }
+
+        function setPayAmount(amt) {
+            const amtInput = document.getElementById("payAmount");
+            if (amtInput) amtInput.value = Number(amt).toFixed(2);
+        }
+
+        function onEditPayPackageChange() {
+            const pkg = document.getElementById("editPayPackage")?.value || "";
+            const amtInput = document.getElementById("editPayAmount");
+            if (!amtInput) return;
+            if (pkg.includes("12") || pkg.includes("6")) {
+                amtInput.value = "99.00";
+            } else if (pkg.includes("3")) {
+                amtInput.value = "50.00";
+            } else {
+                amtInput.value = "25.00";
+            }
+        }
+
         async function handleAddSubscriber(e) {
             e.preventDefault();
             const email = document.getElementById("addEmail").value.trim();
             const name = document.getElementById("addName").value.trim();
-            const team_name = document.getElementById("addTeamSelect").value;
+            const team_name = document.getElementById("addTeamSelect").value || (allTeams[0] || "Carmella Elan");
             const pkg = document.getElementById("addPackage").value;
             const isPaid = document.getElementById("addIsPaid").checked;
             const provider = document.getElementById("addProvider").value;
             const trxId = document.getElementById("addTrxId").value.trim();
+            const amountInput = document.getElementById("addAmount");
+            const amount = parseFloat(amountInput ? amountInput.value : 0) || ((pkg.includes("12") || pkg.includes("6")) ? 99 : pkg.includes("3") ? 50 : 25);
 
-            await fetch("/api/subscriber/add", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, name, package: pkg, is_paid: isPaid, provider, trx_id: trxId, team_name })
-            });
+            let days = 30;
+            if (pkg.includes("12")) days = 365;
+            else if (pkg.includes("6")) days = 180;
+            else if (pkg.includes("3")) days = 90;
+
+            const now = new Date();
+            const exp = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+            const nowStr = now.toISOString().replace('T', ' ').substring(0, 19);
+            const expStr = exp.toISOString().replace('T', ' ').substring(0, 19);
+
+            const nextCid = allSubscribers.reduce((max, s) => Math.max(max, parseInt(s.customer_id || 800)), 800) + 1;
+
+            const newSub = {
+                customer_id: nextCid,
+                email: email,
+                name: name,
+                team_name: team_name,
+                package: pkg,
+                payment_status: isPaid ? 'PAID' : 'PENDING',
+                status: 'active',
+                added_at: nowStr,
+                expires_at: expStr,
+                trx_id: trxId,
+                amount: amount,
+                method: provider,
+                provider: provider
+            };
+
+            allSubscribers = allSubscribers.filter(s => s.email.toLowerCase() !== email.toLowerCase());
+            allSubscribers.unshift(newSub);
+            saveStoredData("dh_subscribers", allSubscribers);
+
+            if (isPaid) {
+                const newPay = {
+                    id: Date.now(),
+                    customer_id: nextCid,
+                    customer_email: email,
+                    email: email,
+                    name: name,
+                    package: pkg,
+                    amount: amount,
+                    currency: "BDT",
+                    provider: provider,
+                    trx_id: trxId,
+                    paid_at: nowStr,
+                    notes: "Enrollment payment",
+                    team_name: team_name
+                };
+                allPayments.unshift(newPay);
+                saveStoredData("dh_payments", allPayments);
+            }
 
             closeModal("addModal");
             document.getElementById("addEmail").value = "";
@@ -8764,8 +8978,29 @@
             document.getElementById("addTrxId").value = "";
             document.getElementById("addIsPaid").checked = false;
             toggleAddPaidFields();
-            showToast(`Customer ${email} enrolled in ${team_name}`, "success");
-            loadDashboardData();
+
+            updateOverviewKPICards();
+            filterSubscribers();
+            filterPayments();
+            renderOverviewRecentTable();
+            renderActivitiesFeed();
+            renderUpcomingRenewals();
+            renderCalendar();
+            renderTeamsCarousel();
+            renderTeamsGrid();
+
+            showToast(`Customer ${email} enrolled in ${team_name} (৳${amount})`, "success");
+
+            try {
+                await fetch("/api/subscriber/add", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, name, package: pkg, is_paid: isPaid, provider, trx_id: trxId, amount, team_name })
+                });
+                loadDashboardData(true);
+            } catch (err) {
+                console.warn("Server sync error for add subscriber:", err);
+            }
         }
 
         async function handleExtendSubscriber(e) {
@@ -8773,52 +9008,168 @@
             const email = document.getElementById("extEmail").value;
             const pkg = document.getElementById("extPackage").value;
 
-            await fetch("/api/subscriber/extend", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, package: pkg })
-            });
+            let addDays = 30;
+            let addRate = 25;
+            if (pkg.includes("12")) { addDays = 365; addRate = 99; }
+            else if (pkg.includes("6")) { addDays = 180; addRate = 99; }
+            else if (pkg.includes("3")) { addDays = 90; addRate = 50; }
+
+            const sub = allSubscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
+            if (sub) {
+                const baseDate = (sub.expires_at && new Date(sub.expires_at) > new Date()) ? new Date(sub.expires_at) : new Date();
+                const newExp = new Date(baseDate.getTime() + addDays * 24 * 60 * 60 * 1000);
+                sub.expires_at = newExp.toISOString().replace('T', ' ').substring(0, 19);
+                sub.package = pkg;
+                sub.status = 'active';
+                sub.amount = addRate;
+                saveStoredData("dh_subscribers", allSubscribers);
+            }
 
             closeModal("extendModal");
+            updateOverviewKPICards();
+            filterSubscribers();
+            renderUpcomingRenewals();
+            renderCalendar();
             showToast(`Subscription extended for ${email}`, "success");
-            loadDashboardData();
+
+            try {
+                await fetch("/api/subscriber/extend", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, package: pkg })
+                });
+                loadDashboardData(true);
+            } catch (err) {
+                console.warn("Server sync error for extend:", err);
+            }
         }
 
         async function handleRecordManualPayment(e) {
             e.preventDefault();
             const email = document.getElementById("payEmail").value.trim();
             const amount = parseFloat(document.getElementById("payAmount").value);
-            const team_name = document.getElementById("payTeamSelect").value;
+            const team_name = document.getElementById("payTeamSelect").value || (allTeams[0] || "Carmella Elan");
             const provider = document.getElementById("payProvider").value;
             const trx_id = document.getElementById("payTrxId").value.trim();
             const pkg = document.getElementById("payPackage").value;
             const notes = document.getElementById("payNotes").value.trim();
 
-            await fetch("/api/payment/add", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, amount, provider, trx_id, package: pkg, notes, team_name })
-            });
+            const nextId = Date.now();
+            const sub = allSubscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
+            const cid = sub ? (sub.customer_id || 800) : 800 + allPayments.length + 1;
+            const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+            const newPay = {
+                id: nextId,
+                customer_id: cid,
+                customer_email: email,
+                email: email,
+                name: sub ? (sub.name || "") : "",
+                package: pkg,
+                amount: amount,
+                currency: "BDT",
+                provider: provider,
+                trx_id: trx_id,
+                paid_at: nowStr,
+                notes: notes || "Manual Entry",
+                team_name: team_name
+            };
+
+            allPayments.unshift(newPay);
+            saveStoredData("dh_payments", allPayments);
+
+            if (sub) {
+                sub.payment_status = "PAID";
+                sub.status = "active";
+                sub.amount = amount;
+                sub.trx_id = trx_id || sub.trx_id;
+                sub.provider = provider;
+                sub.method = provider;
+                saveStoredData("dh_subscribers", allSubscribers);
+            }
 
             closeModal("recordPayModal");
             document.getElementById("payEmail").value = "";
-            document.getElementById("payAmount").value = "";
+            document.getElementById("payAmount").value = "50.00";
             document.getElementById("payTrxId").value = "";
             document.getElementById("payNotes").value = "";
+
+            updateOverviewKPICards();
+            filterPayments();
+            filterSubscribers();
+            renderOverviewRecentTable();
+            renderActivitiesFeed();
+            renderCalendar();
+
             showToast(`Payment of ৳${amount} logged for ${email}`, "success");
-            loadDashboardData();
+
+            try {
+                await fetch("/api/payment/add", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, amount, provider, trx_id, package: pkg, notes, team_name })
+                });
+                loadDashboardData(true);
+            } catch (err) {
+                console.warn("Server sync error for payment add:", err);
+            }
         }
 
         async function actionMarkPaid(email) {
             const trx = await showPrompt("Confirm Payment", `Enter bKash/Nagad TrxID for ${email} (Optional):`, "");
             if (trx !== null) {
-                await fetch("/api/subscriber/paid", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, trx_id: trx })
-                });
-                showToast(`Payment marked as PAID for ${email}`, "success");
-                loadDashboardData();
+                const sub = allSubscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
+                const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+                const pkg = sub ? (sub.package || "3 Months") : "3 Months";
+                const amount = sub && sub.amount ? sub.amount : ((pkg.includes("12") || pkg.includes("6")) ? 99 : pkg.includes("3") ? 50 : 25);
+                const team_name = sub ? (sub.team_name || "Carmella Elan") : "Carmella Elan";
+                const prov = sub ? (sub.provider || sub.method || "bKash") : "bKash";
+
+                if (sub) {
+                    sub.payment_status = 'PAID';
+                    sub.status = 'active';
+                    sub.trx_id = trx || sub.trx_id;
+                    sub.amount = amount;
+                    saveStoredData("dh_subscribers", allSubscribers);
+                }
+
+                const newPay = {
+                    id: Date.now(),
+                    customer_id: sub ? sub.customer_id : 800,
+                    customer_email: email,
+                    email: email,
+                    name: sub ? sub.name : "",
+                    package: pkg,
+                    amount: amount,
+                    currency: "BDT",
+                    provider: prov,
+                    trx_id: trx || "",
+                    paid_at: nowStr,
+                    notes: "Marked Paid from Subscriber View",
+                    team_name: team_name
+                };
+                allPayments.unshift(newPay);
+                saveStoredData("dh_payments", allPayments);
+
+                updateOverviewKPICards();
+                filterSubscribers();
+                filterPayments();
+                renderOverviewRecentTable();
+                renderActivitiesFeed();
+                renderCalendar();
+
+                showToast(`Payment marked as PAID for ${email} (৳${amount})`, "success");
+
+                try {
+                    await fetch("/api/subscriber/paid", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email, trx_id: trx, amount, provider: prov })
+                    });
+                    loadDashboardData(true);
+                } catch (err) {
+                    console.warn("Server sync error for mark paid:", err);
+                }
             }
         }
 
@@ -8841,13 +9192,29 @@
                 true
             );
             if (confirmed) {
-                await fetch("/api/subscriber/kick", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email })
-                });
+                const sub = allSubscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
+                if (sub) {
+                    sub.status = 'kicked';
+                    sub.payment_status = 'REVOKED';
+                    saveStoredData("dh_subscribers", allSubscribers);
+                }
+
+                updateOverviewKPICards();
+                filterSubscribers();
+                renderUpcomingRenewals();
+                renderCalendar();
                 showToast(`Member kicked: ${email}`, "warning");
-                loadDashboardData();
+
+                try {
+                    await fetch("/api/subscriber/kick", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email })
+                    });
+                    loadDashboardData(true);
+                } catch (err) {
+                    console.warn("Server sync error for kick:", err);
+                }
             }
         }
 
@@ -8858,13 +9225,25 @@
                 true
             );
             if (confirmed) {
-                await fetch("/api/subscriber/delete", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email })
-                });
+                allSubscribers = allSubscribers.filter(s => s.email.toLowerCase() !== email.toLowerCase());
+                saveStoredData("dh_subscribers", allSubscribers);
+
+                updateOverviewKPICards();
+                filterSubscribers();
+                renderUpcomingRenewals();
+                renderCalendar();
                 showToast(`Deleted ${email}`, "error");
-                loadDashboardData();
+
+                try {
+                    await fetch("/api/subscriber/delete", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email })
+                    });
+                    loadDashboardData(true);
+                } catch (err) {
+                    console.warn("Server sync error for delete:", err);
+                }
             }
         }
     </script>

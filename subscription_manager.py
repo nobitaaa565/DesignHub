@@ -371,7 +371,7 @@ def parse_package(pkg: str):
     if any(k in p for k in ("6m", "6mo", "6month", "6 months", "6 month", "৬")):
         return "6 Months", 180, 99
     elif any(k in p for k in ("12m", "1y", "1year", "12 month", "12 months", "1 year", "১২")):
-        return "12 Months", 365, 150
+        return "12 Months", 365, 99
     elif any(k in p for k in ("3m", "3mo", "3month", "3 months", "3 month", "৩")):
         return "3 Months", 90, 50
     return "1 Month", 30, 25
@@ -614,6 +614,13 @@ def delete_payment(payment_id: int) -> bool:
 
 def get_all_payments(limit: int = 2000, team_filter: str = None) -> list:
     """Fetches the recent payment transaction history ledger, optionally filtered by team."""
+    if isinstance(limit, str) and not limit.isdigit():
+        team_filter = limit
+        limit = 2000
+    try:
+        limit = int(limit)
+    except (ValueError, TypeError):
+        limit = 2000
     init_db()
     with get_db() as conn:
         c = conn.cursor()

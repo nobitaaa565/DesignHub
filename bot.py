@@ -1584,7 +1584,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_HEAD(self):
         self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Content-type", "text/plain; charset=utf-8")
+        self.end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
         self.end_headers()
 
     def do_GET(self):
@@ -1752,6 +1760,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
 
         if path_only == "/api/subscribers":
             self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-type", "application/json")
             self.end_headers()
             data = {
@@ -1767,6 +1776,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
 
         if path_only == "/api/payments":
             self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-type", "application/json")
             self.end_headers()
             data = {
@@ -1779,6 +1789,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
 
         if path_only == "/api/teams":
             self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-type", "application/json")
             self.end_headers()
             data = {
@@ -1904,13 +1915,20 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             name = payload.get("name", "")
             is_paid = payload.get("is_paid", False)
             trx_id = payload.get("trx_id", "")
-            amount = payload.get("amount")
+            amount_raw = payload.get("amount")
+            try:
+                amount = float(amount_raw) if amount_raw is not None and str(amount_raw).strip() != "" else None
+            except Exception:
+                amount = None
             provider = payload.get("provider", "bKash")
             team_name = payload.get("team_name", None)
             if email:
-                add_subscriber(email, pkg, name, team_name=team_name)
+                sub = add_subscriber(email, pkg, name, team_name=team_name)
                 if is_paid:
                     mark_paid(email, trx_id=trx_id, amount=amount, provider=provider)
+                res = {"status": "ok", "subscriber": sub}
+            else:
+                res = {"status": "error", "message": "Email is required"}
 
         elif self.path == "/api/subscriber/paid":
             email = payload.get("email", "")
@@ -1937,6 +1955,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                 delete_subscriber(email)
 
         self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Content-type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps(res).encode("utf-8"))
