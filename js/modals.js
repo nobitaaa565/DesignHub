@@ -228,14 +228,17 @@
             if (viewId === "overview") {
                 // Ensure layout reflow finishes before measuring canvas
                 requestAnimationFrame(() => {
-                    setTimeout(() => ensureOverviewChartsReady(!chartHasAnimated), 25);
+                    try { drawAllCharts(); } catch(e) {}
+                    setTimeout(() => {
+                        try { ensureOverviewChartsReady(!chartHasAnimated); } catch(e) {}
+                    }, 25);
                 });
             } else if (viewId === "subscribers") {
-                renderTeamFilterChips("subTeamChipsBar");
-                filterSubscribers();
+                try { renderTeamFilterChips("subTeamChipsBar"); } catch(e) {}
+                try { filterSubscribers(); } catch(e) {}
             } else if (viewId === "teams") {
-                renderTeamsCarousel();
-                renderTeamsGrid();
+                try { renderTeamsCarousel(); } catch(e) { console.error("renderTeamsCarousel error:", e); }
+                try { renderTeamsGrid(); } catch(e) { console.error("renderTeamsGrid error:", e); }
             }
         }
 

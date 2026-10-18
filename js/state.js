@@ -1,75 +1,73 @@
-        const DEFAULT_PIN = "1809";
+var DEFAULT_PIN = "1809";
 
-        // LocalStorage Resilience Helpers
-        function loadStoredData(key, fallback) {
-            try {
-                const val = localStorage.getItem(key);
-                return val ? JSON.parse(val) : fallback;
-            } catch (e) {
-                return fallback;
-            }
-        }
-        function saveStoredData(key, val) {
-            try {
-                localStorage.setItem(key, JSON.stringify(val));
-            } catch (e) {}
-        }
+// LocalStorage Resilience Helpers
+function loadStoredData(key, fallback) {
+    try {
+        var val = localStorage.getItem(key);
+        return val ? JSON.parse(val) : fallback;
+    } catch (e) {
+        return fallback;
+    }
+}
+function saveStoredData(key, val) {
+    try {
+        localStorage.setItem(key, JSON.stringify(val));
+    } catch (e) {}
+}
 
-        // Global State (Synchronized dynamically with live database + local persistence)
-        let allTeams = loadStoredData("dh_teams", ["Carmella Elan", "Pro Team 2"]);
-        if (!Array.isArray(allTeams) || allTeams.length === 0) {
-            allTeams = ["Carmella Elan", "Pro Team 2"];
-        }
-        let allSubscribers = loadStoredData("dh_subscribers", []);
-        let allPayments = loadStoredData("dh_payments", []);
-        let selectedTeams = new Set();
-        let subCurrentPage = 1;
-        let subPageSize = 20; // Records per page: 20, 40, 60, 80, 100
-        let filteredSubscribersCache = [];
-        let chartAnimProgress = 1.0;
-        let chartAnimId = null;
-        let chartHasAnimated = false;
-        let isChartAnimationRunning = false;
-        let activeView = "overview";
-        let subQuickEditActive = false;
-        let payQuickEditActive = false;
-        let dirtySubRows = new Set();
-        let dirtyPayRows = new Set();
-        let lastSyncTimestamp = Date.now();
-        const initToday = new Date();
-        let calCurrentYear = initToday.getFullYear();
-        let calCurrentMonth = initToday.getMonth(); // 0-indexed month
+// Global State (Synchronized dynamically with live database + local persistence)
+var allTeams = loadStoredData("dh_teams", ["Carmella Elan"]);
+if (!Array.isArray(allTeams) || allTeams.length === 0) {
+    allTeams = ["Carmella Elan"];
+}
+var allSubscribers = loadStoredData("dh_subscribers", []);
+var allPayments = loadStoredData("dh_payments", []);
+var selectedTeams = new Set();
+var subCurrentPage = 1;
+var subPageSize = 20; // Records per page: 20, 40, 60, 80, 100
+var filteredSubscribersCache = [];
+var chartAnimProgress = 1.0;
+var chartAnimId = null;
+var chartHasAnimated = false;
+var isChartAnimationRunning = false;
+var activeView = "overview";
+var subQuickEditActive = false;
+var payQuickEditActive = false;
+var dirtySubRows = new Set();
+var dirtyPayRows = new Set();
+var lastSyncTimestamp = Date.now();
+var initToday = new Date();
+var calCurrentYear = initToday.getFullYear();
+var calCurrentMonth = initToday.getMonth(); // 0-indexed month
 
-        // Dialog Resolvers
-        let confirmResolver = null;
-        let promptResolver = null;
+// Dialog Resolvers
+var confirmResolver = null;
+var promptResolver = null;
 
-        // Auto Refresh Timer (Free-Tier Safe: Pauses when tab is inactive)
-        let autoSyncTimer = null;
+// Auto Refresh Timer
+var autoSyncTimer = null;
 
-        // Hoisted Dashboard State Variables (Prevents TDZ ReferenceErrors)
-        // selectedCalDay hoisted to script top
-        let bigCalSelectedDay = null;
-        let bigCalFilterType = "all";
-        // drawChartsDebounceTimer hoisted
-        let revTimeframe = "30d";
-        let activeRevHoverX = null;
-        let revCanvasListenersAttached = false;
-        let healthPeriod = "weekly";
-        let activeHealthHoverIndex = null;
-        let activeHealthMouseX = null;
-        let healthCanvasListenersAttached = false;
-        // donutSelectedTeam hoisted
-        donutSelectedTeam = donutSelectedTeam || all;
-        let currentDrawerFilter = "all";
-        let currentTeamSlideIndex = 0;
-        let isTeamCarouselPlaying = true;
-        let teamCarouselAutoPlayTimer = null;
-        let activeTeamHealthFilter = "all";
+// Hoisted Dashboard State Variables
+var selectedCalDay = null;
+var bigCalSelectedDay = null;
+var bigCalFilterType = "all";
+var drawChartsDebounceTimer = null;
+var revTimeframe = "30d";
+var activeRevHoverX = null;
+var revCanvasListenersAttached = false;
+var healthPeriod = "weekly";
+var activeHealthHoverIndex = null;
+var activeHealthMouseX = null;
+var healthCanvasListenersAttached = false;
+var donutSelectedTeam = "all";
+var currentDrawerFilter = "all";
+var currentTeamSlideIndex = 0;
+var isTeamCarouselPlaying = true;
+var teamCarouselAutoPlayTimer = null;
+var activeTeamHealthFilter = "all";
 
-
-// Package Pricing Configuration Rules (Strict)
-const PACKAGE_PRICING = {
+// Package Pricing Configuration Rules (Strict: 25, 50, 99 only)
+var PACKAGE_PRICING = {
     "1 Month": 25,
     "3 Months": 50,
     "6 Months": 99
@@ -79,7 +77,7 @@ function getPackageRate(pkg, customAmt) {
     if (customAmt !== undefined && customAmt !== null && !isNaN(customAmt) && customAmt > 0) {
         return parseFloat(customAmt);
     }
-    const p = String(pkg || "").toLowerCase();
+    var p = String(pkg || "").toLowerCase();
     if (p.includes("6") || p.includes("12")) return 99;
     if (p.includes("3")) return 50;
     return 25;

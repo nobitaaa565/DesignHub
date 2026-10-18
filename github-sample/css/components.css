@@ -482,11 +482,8 @@
             flex-shrink: 0;
         }
 
-        /* Admin Profile Card - Sticky aligned with top header */
+        /* Admin Profile Card - Clean natural flow card */
         .admin-profile-card {
-            position: sticky;
-            top: 0;
-            z-index: 99;
             background: var(--bg-card);
             border-radius: var(--radius-card);
             padding: 0.95rem 1.35rem;

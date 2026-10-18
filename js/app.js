@@ -107,28 +107,27 @@
         }
 
         function initDashboard() {
+            // Render all UI elements IMMEDIATELY with defensive try-catches
+            try { updateOverviewKPICards(); } catch(e) { console.error("KPICards:", e); }
+            try { renderTeamPopoverOptions(); } catch(e) { console.error("TeamPopover:", e); }
+            try { renderTeamsCarousel(); } catch(e) { console.error("TeamsCarousel:", e); }
+            try { renderTeamsGrid(); } catch(e) { console.error("TeamsGrid:", e); }
+            try { renderOverviewRecentTable(); } catch(e) { console.error("RecentTable:", e); }
+            try { renderActivitiesFeed(); } catch(e) { console.error("ActivitiesFeed:", e); }
+            try { renderUpcomingRenewals(); } catch(e) { console.error("UpcomingRenewals:", e); }
+            try { filterSubscribers(); } catch(e) { console.error("FilterSubs:", e); }
+            try { filterPayments(); } catch(e) { console.error("FilterPays:", e); }
+            try { renderCalendar(); } catch(e) { console.error("Calendar:", e); }
 
-
-            // Render all UI elements IMMEDIATELY so page is never blank on reload/load!
-            updateOverviewKPICards();
-            renderTeamPopoverOptions();
-            renderTeamsCarousel();
-            renderTeamsGrid();
-            renderOverviewRecentTable();
-            renderActivitiesFeed();
-            renderUpcomingRenewals();
-            filterSubscribers();
-            filterPayments();
-            renderCalendar();
-
-            // Fire opening animations for charts after layout settles so animation is always seen on login!
+            // Ensure charts draw immediately AND with animation
+            try { drawAllCharts(); } catch(e) { console.error("Initial drawAllCharts:", e); }
             setTimeout(() => {
-                ensureOverviewChartsReady(true);
+                try { ensureOverviewChartsReady(true); } catch(e) { console.error("ensureChartsReady:", e); }
             }, 60);
 
             // Sync with backend asynchronously
-            loadDashboardData(false);
-            startSmartSyncPolling();
+            try { loadDashboardData(false); } catch(e) {}
+            try { startSmartSyncPolling(); } catch(e) {}
 
             // Window resize keeps charts crisp
             window.addEventListener("resize", () => {
