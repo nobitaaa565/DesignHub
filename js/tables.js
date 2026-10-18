@@ -190,16 +190,21 @@
                     `;
                 }
 
-                // Amount calculation with package-based default if not set
-                let amtNum = sub.amount;
-                if (amtNum === undefined || amtNum === null || amtNum === '') {
+                // Amount calculation based strictly on verified payment status
+                const isPaidStatus = (sub.payment_status === 'PAID');
+                let amtNum = parseFloat(sub.amount || 0);
+                if (isPaidStatus && (!amtNum || isNaN(amtNum))) {
                     const p = (sub.package || '').toLowerCase();
                     if (p.includes('12') || p.includes('6')) amtNum = 99;
                     else if (p.includes('3')) amtNum = 50;
                     else amtNum = 25;
+                } else if (!isPaidStatus) {
+                    amtNum = 0;
                 }
-                const amtFormatted = `৳${parseFloat(amtNum || 0).toLocaleString('en-US')}`;
-                const amtCell = `<span style="font-weight: 800; color: #047857; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem;">${amtFormatted}</span>`;
+                const amtFormatted = `৳${(amtNum || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const amtCell = isPaidStatus
+                    ? `<span style="font-weight: 800; color: #047857; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem;">${amtFormatted}</span>`
+                    : `<span style="font-weight: 600; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.84rem;">৳0.00</span>`;
 
                 // Method / Provider badge
                 const methRaw = (sub.method || sub.provider || 'bkash').toLowerCase();
@@ -270,6 +275,9 @@
                                     <button class="btn-action btn-action-edit" onclick="openEditCustomerModal('${sub.email}')" title="Full Dialog">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                     </button>
+                                    <button class="btn-action btn-action-delete" onclick="actionDelete('${sub.email}')" title="Delete Customer">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -301,6 +309,9 @@
                                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                     </svg>
+                                </button>
+                                <button class="btn-action btn-action-delete" onclick="actionDelete('${sub.email}')" title="Delete Customer">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
                                 </button>
                             </div>
                         </td>
@@ -732,26 +743,56 @@
                 true
             );
             if (confirmed) {
-                const payIndex = allPayments.findIndex(p => p.id === targetId);
+                const payIndex = allPayments.findIndex(p => p.id == targetId || String(p.id) === String(targetId));
                 const deletedPay = (payIndex !== -1) ? { ...allPayments[payIndex] } : null;
 
                 let linkedSub = null;
+                let originalSubIndex = -1;
+                let wasSubRemoved = false;
                 let originalPaymentStatus = null;
 
                 if (payIndex !== -1) {
                     allPayments.splice(payIndex, 1);
                     saveStoredData("dh_payments", allPayments);
 
-                    // Check if subscriber has remaining payments. If none, update payment_status to PENDING
                     if (deletedPay) {
-                        const pEmail = (deletedPay.customer_email || deletedPay.email || "").toLowerCase();
-                        const remPays = allPayments.filter(p => (p.customer_email || p.email || "").toLowerCase() === pEmail);
-                        if (remPays.length === 0) {
-                            const subIdx = allSubscribers.findIndex(s => s.email.toLowerCase() === pEmail);
-                            if (subIdx !== -1) {
-                                linkedSub = allSubscribers[subIdx];
-                                originalPaymentStatus = linkedSub.payment_status;
-                                linkedSub.payment_status = "PENDING";
+                        const pEmail = (deletedPay.customer_email || deletedPay.email || "").toLowerCase().trim();
+                        const pCid = String(deletedPay.customer_id || "").trim();
+                        const pName = (deletedPay.name || "").toLowerCase().trim();
+
+                        // Find any remaining payments for this customer
+                        const remPays = allPayments.filter(p => {
+                            const pe = (p.customer_email || p.email || "").toLowerCase().trim();
+                            const pc = String(p.customer_id || "").trim();
+                            const pn = (p.name || "").toLowerCase().trim();
+                            return (pEmail && pe === pEmail) || (pCid && pc === pCid) || (pName && pn === pName);
+                        });
+
+                        // Find linked subscriber
+                        const subIdx = allSubscribers.findIndex(s => {
+                            const se = (s.email || "").toLowerCase().trim();
+                            const sc = String(s.customer_id || "").trim();
+                            const sn = (s.name || "").toLowerCase().trim();
+                            return (pEmail && se === pEmail) || (pCid && sc === pCid) || (pName && sn === pName);
+                        });
+
+                        if (subIdx !== -1) {
+                            linkedSub = { ...allSubscribers[subIdx] };
+                            originalSubIndex = subIdx;
+                            originalPaymentStatus = linkedSub.payment_status;
+
+                            if (remPays.length === 0) {
+                                // Customer has NO remaining payments.
+                                // Purge the subscriber query record as requested:
+                                // "i have deleted the payment for 'priyssan.gamehero • ৳25' but you still kept his record and showing 75 tk. But you cannot show the records of payment total tk when i delete of any customers"
+                                allSubscribers.splice(subIdx, 1);
+                                wasSubRemoved = true;
+                                saveStoredData("dh_subscribers", allSubscribers);
+                            } else {
+                                // Has other payments remaining: update amount to sum of remaining payments
+                                const newAmt = remPays.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+                                allSubscribers[subIdx].amount = newAmt;
+                                allSubscribers[subIdx].payment_status = "PAID";
                                 saveStoredData("dh_subscribers", allSubscribers);
                             }
                         }
@@ -763,6 +804,7 @@
                 filterSubscribers();
                 renderOverviewRecentTable();
                 renderActivitiesFeed();
+                renderUpcomingRenewals();
                 renderCalendar();
                 if (activeView === "overview") {
                     try { drawAllCharts(); } catch(e) {}
@@ -774,8 +816,12 @@
                             allPayments.splice(payIndex, 0, deletedPay);
                             saveStoredData("dh_payments", allPayments);
 
-                            if (linkedSub && originalPaymentStatus) {
-                                linkedSub.payment_status = originalPaymentStatus;
+                            if (wasSubRemoved && linkedSub) {
+                                allSubscribers.splice(originalSubIndex, 0, linkedSub);
+                                saveStoredData("dh_subscribers", allSubscribers);
+                            } else if (linkedSub && originalSubIndex !== -1 && allSubscribers[originalSubIndex]) {
+                                allSubscribers[originalSubIndex].payment_status = originalPaymentStatus;
+                                allSubscribers[originalSubIndex].amount = linkedSub.amount;
                                 saveStoredData("dh_subscribers", allSubscribers);
                             }
 
@@ -784,12 +830,30 @@
                             filterSubscribers();
                             renderOverviewRecentTable();
                             renderActivitiesFeed();
+                            renderUpcomingRenewals();
                             renderCalendar();
                             if (activeView === "overview") {
                                 try { drawAllCharts(); } catch(e) {}
                             }
 
                             try {
+                                if (wasSubRemoved && linkedSub) {
+                                    await fetch("/api/subscriber/add", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            email: linkedSub.email,
+                                            name: linkedSub.name,
+                                            package: linkedSub.package,
+                                            is_paid: true,
+                                            provider: deletedPay.provider,
+                                            trx_id: deletedPay.trx_id,
+                                            amount: deletedPay.amount,
+                                            team_name: linkedSub.team_name,
+                                            reference_name: linkedSub.reference_name || "Page Lead"
+                                        })
+                                    });
+                                }
                                 await fetch("/api/payment/add", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },

@@ -2215,33 +2215,78 @@
             }
         }
 
-        async function actionDelete(email) {
+        async function actionDelete(identifier) {
             const confirmed = await showConfirm(
                 "Delete Customer?",
-                `Are you sure you want to delete ${email}? You can undo this action.`,
+                `Are you sure you want to delete ${identifier}? You can undo this action.`,
                 true
             );
-            if (confirmed) {
-                const subIndex = allSubscribers.findIndex(s => s.email.toLowerCase() === email.toLowerCase());
-                if (subIndex === -1) return;
-                const deletedSub = { ...allSubscribers[subIndex] };
+            if (!confirmed) return;
 
-                // Cascade delete associated payments from allPayments so count and revenue update dynamically
-                const deletedPays = [];
-                for (let i = allPayments.length - 1; i >= 0; i--) {
-                    const p = allPayments[i];
-                    const pEmail = (p.customer_email || p.email || "").toLowerCase();
-                    if (pEmail === email.toLowerCase() || (deletedSub.customer_id && p.customer_id === deletedSub.customer_id)) {
-                        deletedPays.push({ index: i, payment: { ...p } });
-                        allPayments.splice(i, 1);
-                    }
+            const idClean = String(identifier || "").toLowerCase().trim();
+            const idDigits = idClean.replace('#', '').trim();
+
+            const subIndex = allSubscribers.findIndex(s => {
+                const sEmail = (s.email || "").toLowerCase().trim();
+                const sName = (s.name || "").toLowerCase().trim();
+                const sCid = String(s.customer_id || "").trim();
+                return sEmail === idClean || (idDigits && sCid === idDigits) || sName === idClean;
+            });
+
+            if (subIndex === -1) return;
+            const deletedSub = { ...allSubscribers[subIndex] };
+
+            const targetEmail = (deletedSub.email || "").toLowerCase().trim();
+            const targetName = (deletedSub.name || "").toLowerCase().trim();
+            const targetCid = String(deletedSub.customer_id || "").trim();
+
+            // Cascade delete ALL associated payments from allPayments so count and revenue update dynamically
+            // "you cannot show the records of payment total tk when i delete of any customers"
+            const deletedPays = [];
+            for (let i = allPayments.length - 1; i >= 0; i--) {
+                const p = allPayments[i];
+                const pEmail = (p.customer_email || p.email || "").toLowerCase().trim();
+                const pName = (p.name || "").toLowerCase().trim();
+                const pCid = String(p.customer_id || "").trim();
+
+                const isCustomerMatch = (
+                    (targetEmail && pEmail === targetEmail) ||
+                    (targetCid && pCid === targetCid) ||
+                    (targetName && pName === targetName) ||
+                    (targetEmail && pName === targetEmail) ||
+                    (targetName && pEmail === targetName)
+                );
+
+                if (isCustomerMatch) {
+                    deletedPays.push({ index: i, payment: { ...p } });
+                    allPayments.splice(i, 1);
                 }
+            }
 
-                allSubscribers.splice(subIndex, 1);
+            allSubscribers.splice(subIndex, 1);
+            saveStoredData("dh_subscribers", allSubscribers);
+            saveStoredData("dh_payments", allPayments);
+
+            // Dynamically recalculate and update KPI cards immediately
+            updateOverviewKPICards();
+            filterSubscribers();
+            filterPayments();
+            renderOverviewRecentTable();
+            renderActivitiesFeed();
+            renderUpcomingRenewals();
+            renderCalendar();
+            if (activeView === "overview") {
+                try { drawAllCharts(); } catch(e) {}
+            }
+
+            showUndoToast(`Deleted subscriber ${deletedSub.name || deletedSub.email}`, async () => {
+                allSubscribers.splice(subIndex, 0, deletedSub);
                 saveStoredData("dh_subscribers", allSubscribers);
-                if (deletedPays.length > 0) {
-                    saveStoredData("dh_payments", allPayments);
-                }
+
+                deletedPays.reverse().forEach(dp => {
+                    allPayments.splice(dp.index, 0, dp.payment);
+                });
+                saveStoredData("dh_payments", allPayments);
 
                 updateOverviewKPICards();
                 filterSubscribers();
@@ -2254,75 +2299,52 @@
                     try { drawAllCharts(); } catch(e) {}
                 }
 
-                showUndoToast(`Deleted subscriber ${email}`, async () => {
-                    allSubscribers.splice(subIndex, 0, deletedSub);
-                    saveStoredData("dh_subscribers", allSubscribers);
-
-                    deletedPays.reverse().forEach(dp => {
-                        allPayments.splice(dp.index, 0, dp.payment);
+                try {
+                    await fetch("/api/subscriber/add", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            email: deletedSub.email,
+                            name: deletedSub.name,
+                            package: deletedSub.package,
+                            is_paid: deletedSub.payment_status === "PAID",
+                            provider: deletedSub.provider || deletedSub.method || "bKash",
+                            trx_id: deletedSub.trx_id,
+                            amount: deletedSub.amount,
+                            team_name: deletedSub.team_name,
+                            reference_name: deletedSub.reference_name || "Page Lead"
+                        })
                     });
-                    if (deletedPays.length > 0) {
-                        saveStoredData("dh_payments", allPayments);
-                    }
-
-                    updateOverviewKPICards();
-                    filterSubscribers();
-                    filterPayments();
-                    renderOverviewRecentTable();
-                    renderActivitiesFeed();
-                    renderUpcomingRenewals();
-                    renderCalendar();
-                    if (activeView === "overview") {
-                        try { drawAllCharts(); } catch(e) {}
-                    }
-
-                    try {
-                        await fetch("/api/subscriber/add", {
+                    for (const dp of deletedPays) {
+                        await fetch("/api/payment/add", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
-                                email: deletedSub.email,
-                                name: deletedSub.name,
-                                package: deletedSub.package,
-                                is_paid: deletedSub.payment_status === "PAID",
-                                provider: deletedSub.provider || deletedSub.method || "bKash",
-                                trx_id: deletedSub.trx_id,
-                                amount: deletedSub.amount,
-                                team_name: deletedSub.team_name,
-                                reference_name: deletedSub.reference_name || "Page Lead"
+                                email: dp.payment.customer_email || dp.payment.email,
+                                amount: dp.payment.amount,
+                                provider: dp.payment.provider,
+                                trx_id: dp.payment.trx_id,
+                                package: dp.payment.package,
+                                notes: dp.payment.notes,
+                                team_name: dp.payment.team_name
                             })
                         });
-                        for (const dp of deletedPays) {
-                            await fetch("/api/payment/add", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    email: dp.payment.customer_email || dp.payment.email,
-                                    amount: dp.payment.amount,
-                                    provider: dp.payment.provider,
-                                    trx_id: dp.payment.trx_id,
-                                    package: dp.payment.package,
-                                    notes: dp.payment.notes,
-                                    team_name: dp.payment.team_name
-                                })
-                            });
-                        }
-                        loadDashboardData(true);
-                    } catch(err) {
-                        console.warn("Error restoring subscriber:", err);
                     }
-                    showToast(`Restored subscriber ${deletedSub.email}`, "success");
-                });
-
-                try {
-                    await fetch("/api/subscriber/delete", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ email })
-                    });
                     loadDashboardData(true);
-                } catch (err) {
-                    console.warn("Server sync error for delete:", err);
+                } catch(err) {
+                    console.warn("Error restoring subscriber:", err);
                 }
+                showToast(`Restored subscriber ${deletedSub.email}`, "success");
+            });
+
+            try {
+                await fetch("/api/subscriber/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: targetEmail || idClean })
+                });
+                loadDashboardData(true);
+            } catch (err) {
+                console.warn("Server sync error for delete:", err);
             }
         }

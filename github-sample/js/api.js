@@ -98,8 +98,8 @@
                 const scopedSubs = isScoped ? allSubscribers.filter(s => selectedTeams.has(s.team_name || "Carmella Elan")) : allSubscribers;
                 const scopedPays = isScoped ? allPayments.filter(p => selectedTeams.has(p.team_name || "Carmella Elan")) : allPayments;
 
-                const activePaidCount = scopedSubs.filter(s => s.payment_status === PAID).length;
-                const pendingCount = scopedSubs.filter(s => s.payment_status === PENDING).length;
+                const activePaidCount = scopedSubs.filter(s => s.payment_status === 'PAID').length;
+                const pendingCount = scopedSubs.filter(s => s.payment_status === 'PENDING').length;
                 const totalBdt = scopedPays.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
                 const txCount = scopedPays.length;
 
@@ -157,14 +157,18 @@
                 updateRelativeSyncTime();
             } catch (err) {
                 console.warn("Dashboard sync using offline/local cache:", err);
-                const sPaid = allSubscribers.filter(s => s.payment_status === PAID).length;
-                const sPending = allSubscribers.filter(s => s.payment_status === PENDING).length;
-                const totalBdt = allPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+                const isScoped = (typeof selectedTeams !== "undefined" && selectedTeams.size > 0 && selectedTeams.size < allTeams.length);
+                const scopedSubs = isScoped ? allSubscribers.filter(s => selectedTeams.has(s.team_name || "Carmella Elan")) : allSubscribers;
+                const scopedPays = isScoped ? allPayments.filter(p => selectedTeams.has(p.team_name || "Carmella Elan")) : allPayments;
+
+                const sPaid = scopedSubs.filter(s => s.payment_status === 'PAID').length;
+                const sPending = scopedSubs.filter(s => s.payment_status === 'PENDING').length;
+                const totalBdt = scopedPays.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
 
                 const revEl = document.getElementById("kpiRevenue");
                 if (revEl) revEl.textContent = `৳${totalBdt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 const txEl = document.getElementById("kpiTxCount");
-                if (txEl) txEl.textContent = allPayments.length;
+                if (txEl) txEl.textContent = scopedPays.length;
                 const paidEl = document.getElementById("kpiActivePaid");
                 if (paidEl) paidEl.textContent = sPaid;
                 const pendEl = document.getElementById("kpiPending");

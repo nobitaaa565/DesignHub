@@ -82,10 +82,15 @@
         }
 
         function updateOverviewKPICards(stats, earnings) {
-            const sPaid = stats ? stats.active_paid : allSubscribers.filter(s => s.payment_status === 'PAID').length;
-            const sPend = stats ? stats.pending : allSubscribers.filter(s => s.payment_status !== 'PAID').length;
-            const totalBdt = earnings ? earnings.total_bdt : allPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-            const txCount = earnings ? earnings.total_count : allPayments.length;
+            const isScoped = (typeof selectedTeams !== "undefined" && selectedTeams.size > 0 && selectedTeams.size < allTeams.length);
+            const targetSubs = isScoped ? allSubscribers.filter(s => selectedTeams.has(s.team_name || "Carmella Elan")) : allSubscribers;
+            const targetPays = isScoped ? allPayments.filter(p => selectedTeams.has(p.team_name || "Carmella Elan")) : allPayments;
+
+            const sPaid = targetSubs.filter(s => s.payment_status === 'PAID').length;
+            const sPend = targetSubs.filter(s => s.payment_status !== 'PAID').length;
+            // Always dynamically recalculate strictly from target payments to prevent stale revenue leaks on delete
+            const totalBdt = targetPays.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+            const txCount = targetPays.length;
 
             const kpiRev = document.getElementById("kpiRevenue");
             if (kpiRev) kpiRev.textContent = `৳${(totalBdt || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

@@ -624,16 +624,36 @@ def delete_payment(payment_id: int) -> bool:
     init_db()
     with get_db() as conn:
         c = conn.cursor()
-        c.execute("SELECT email, customer_id FROM payments WHERE id = ?", (int(payment_id),))
+        c.execute("SELECT email, customer_id, name FROM payments WHERE id = ?", (int(payment_id),))
         row = c.fetchone()
         c.execute("DELETE FROM payments WHERE id = ?", (int(payment_id),))
         if row:
             pay_email = (row[0] or "").lower().strip()
+            cid = row[1]
+            pay_name = (row[2] or "").lower().strip()
+
+            rem_count = 0
             if pay_email:
                 c.execute("SELECT COUNT(*) FROM payments WHERE LOWER(email) = ?", (pay_email,))
-                rem = c.fetchone()
-                if rem and rem[0] == 0:
-                    c.execute("UPDATE subscriptions SET payment_status = 'PENDING' WHERE LOWER(email) = ?", (pay_email,))
+                rem_count = c.fetchone()[0]
+            elif cid:
+                c.execute("SELECT COUNT(*) FROM payments WHERE customer_id = ?", (cid,))
+                rem_count = c.fetchone()[0]
+            elif pay_name:
+                c.execute("SELECT COUNT(*) FROM payments WHERE LOWER(name) = ?", (pay_name,))
+                rem_count = c.fetchone()[0]
+
+            if rem_count == 0:
+                # Purge subscriber query record so it does not linger when payment is deleted
+                if pay_email:
+                    c.execute("DELETE FROM subscriptions WHERE LOWER(email) = ?", (pay_email,))
+                if cid:
+                    c.execute("DELETE FROM subscriptions WHERE customer_id = ?", (cid,))
+                if pay_name:
+                    c.execute("DELETE FROM subscriptions WHERE LOWER(name) = ?", (pay_name,))
+            else:
+                if pay_email:
+                    c.execute("UPDATE subscriptions SET payment_status = 'PAID' WHERE LOWER(email) = ?", (pay_email,))
         conn.commit()
         return True
 
@@ -1105,14 +1125,30 @@ def delete_subscriber(email: str) -> bool:
     clean_email = email.lower().strip()
     with get_db() as conn:
         c = conn.cursor()
-        c.execute("SELECT customer_id FROM subscriptions WHERE email = ?", (clean_email,))
+        c.execute("SELECT customer_id, name FROM subscriptions WHERE LOWER(email) = ? OR email = ?", (clean_email, clean_email))
         row = c.fetchone()
         cid = row[0] if row else None
+        name = (row[1] or "").lower().strip() if row else ""
+
+        if not cid and clean_email.lstrip("#").isdigit():
+            cid = int(clean_email.lstrip("#"))
+        if not cid and not name:
+            c.execute("SELECT customer_id, email FROM subscriptions WHERE LOWER(name) = ?", (clean_email,))
+            nrow = c.fetchone()
+            if nrow:
+                cid = nrow[0]
+                clean_email = (nrow[1] or "").lower().strip()
+
         if cid:
             c.execute("DELETE FROM payments WHERE customer_id = ? OR LOWER(email) = ?", (cid, clean_email))
         else:
             c.execute("DELETE FROM payments WHERE LOWER(email) = ?", (clean_email,))
-        c.execute("DELETE FROM subscriptions WHERE email = ?", (clean_email,))
+        if name:
+            c.execute("DELETE FROM payments WHERE LOWER(name) = ?", (name,))
+
+        c.execute("DELETE FROM subscriptions WHERE LOWER(email) = ? OR customer_id = ?", (clean_email, cid or -1))
+        if name:
+            c.execute("DELETE FROM subscriptions WHERE LOWER(name) = ?", (name,))
         conn.commit()
         return True
 
