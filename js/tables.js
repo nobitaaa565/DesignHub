@@ -156,35 +156,36 @@
             const tbody = document.getElementById("subscribersTbody");
             if (!tbody) return;
             if (!list || list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 3rem;">No subscribers found matching query.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 3rem;">No subscribers found matching query.</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = list.map(sub => {
                 const rowKey = btoa(sub.email).replace(/=/g, '');
                 const cidBadge = `<span class="cid-badge">#${sub.customer_id || 800}</span>`;
-                const teamBadge = `<span class="team-tag"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> ${sub.team_name || 'Carmella Elan'}</span>`;
+                const teamName = sub.team_name || 'Carmella Elan';
+                const teamBadge = `<span class="team-tag" title="${teamName}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg><span>${teamName}</span></span>`;
                 const expDate = (sub.expires_at || '').substring(0, 10);
 
                 let statusBadge = '';
                 if (sub.payment_status === 'PAID') {
                     statusBadge = `
                         <span class="badge-status status-paid">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><polyline points="20 6 9 17 4 12"/></svg>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><polyline points="20 6 9 17 4 12"/></svg>
                             <span>PAID</span>
                         </span>
                     `;
                 } else if (sub.status === 'kicked') {
                     statusBadge = `
                         <span class="badge-status status-kicked">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                             <span>KICKED</span>
                         </span>
                     `;
                 } else {
                     statusBadge = `
                         <span class="badge-status status-pending">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             <span>PENDING</span>
                         </span>
                     `;
@@ -201,10 +202,10 @@
                 } else if (!isPaidStatus) {
                     amtNum = 0;
                 }
-                const amtFormatted = `৳${(amtNum || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const amtFormatted = `৳${(amtNum || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
                 const amtCell = isPaidStatus
-                    ? `<span style="font-weight: 800; color: #047857; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem;">${amtFormatted}</span>`
-                    : `<span style="font-weight: 600; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.84rem;">৳0.00</span>`;
+                    ? `<span style="font-weight: 800; color: #047857; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; white-space: nowrap;">${amtFormatted}</span>`
+                    : `<span style="font-weight: 600; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; white-space: nowrap;">৳0</span>`;
 
                 // Method / Provider badge
                 const methRaw = (sub.method || sub.provider || 'bkash').toLowerCase();
@@ -214,16 +215,16 @@
                 else if (methRaw.includes("rocket")) provClass = "provider-rocket";
                 const methBadge = `<span class="provider-badge ${provClass}">${methRaw.toUpperCase()}</span>`;
 
-                const trx = sub.trx_id ? `<span style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; background: var(--bg-subtle); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border);">${sub.trx_id}</span>` : `<span style="color: var(--text-faint); font-size: 0.78rem;">—</span>`;
+                const trx = sub.trx_id ? `<span class="trx-pill" title="${sub.trx_id}">${sub.trx_id}</span>` : `<span style="color: var(--text-faint); font-size: 0.74rem;">—</span>`;
 
                 const refName = sub.reference_name || 'Page Lead';
                 const isPageLead = refName.toLowerCase() === 'page lead';
                 const refIcon = isPageLead ? `
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 ` : `
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 `;
-                const refBadge = `<span class="ref-badge ${isPageLead ? 'ref-badge-page' : 'ref-badge-custom'}">${refIcon}<span>${refName}</span></span>`;
+                const refBadge = `<span class="ref-badge ${isPageLead ? 'ref-badge-page' : 'ref-badge-custom'}" title="${refName}">${refIcon}<span>${refName}</span></span>`;
 
                 if (subQuickEditActive) {
                     const refOpts = (allReferences || ["Page Lead"]).map(r => `<option value="${r}" ${r.toLowerCase() === refName.toLowerCase() ? 'selected' : ''}>${r}</option>`).join('');
@@ -238,45 +239,45 @@
 
                     return `
                         <tr id="subrow_${rowKey}">
-                            <td>${cidBadge}</td>
+                            <td style="text-align: center;">${cidBadge}</td>
                             <td>
-                                <input type="text" class="cell-input" id="sub_name_${rowKey}" value="${sub.name || ''}" placeholder="Name" onchange="markSubRowDirty('${sub.email}')" style="margin-bottom: 2px;">
-                                <input type="email" class="cell-input" id="sub_email_${rowKey}" value="${sub.email}" onchange="markSubRowDirty('${sub.email}')">
+                                <input type="text" class="cell-input" id="sub_name_${rowKey}" value="${sub.name || ''}" placeholder="Name" onchange="markSubRowDirty('${sub.email}')" style="margin-bottom: 2px; font-size: 0.73rem; padding: 2px 4px; height: 23px;">
+                                <input type="email" class="cell-input" id="sub_email_${rowKey}" value="${sub.email}" onchange="markSubRowDirty('${sub.email}')" style="font-size: 0.73rem; padding: 2px 4px; height: 23px;">
                             </td>
                             <td>
-                                <select class="cell-input" id="sub_ref_${rowKey}" onchange="markSubRowDirty('${sub.email}')">${refOpts}</select>
+                                <select class="cell-input" id="sub_ref_${rowKey}" onchange="markSubRowDirty('${sub.email}')" style="font-size: 0.71rem; padding: 2px 1px; height: 25px;">${refOpts}</select>
                             </td>
                             <td>
-                                <select class="cell-input" id="sub_team_${rowKey}" onchange="markSubRowDirty('${sub.email}')">${teamOpts}</select>
+                                <select class="cell-input" id="sub_team_${rowKey}" onchange="markSubRowDirty('${sub.email}')" style="font-size: 0.71rem; padding: 2px 1px; height: 25px;">${teamOpts}</select>
                             </td>
                             <td>
-                                <select class="cell-input" id="sub_pkg_${rowKey}" onchange="markSubRowDirty('${sub.email}')">${pkgOpts}</select>
+                                <select class="cell-input" id="sub_pkg_${rowKey}" onchange="markSubRowDirty('${sub.email}')" style="font-size: 0.71rem; padding: 2px 1px; height: 25px;">${pkgOpts}</select>
                             </td>
                             <td>
-                                <input type="number" step="1" class="cell-input" id="sub_amt_${rowKey}" value="${amtNum}" onchange="markSubRowDirty('${sub.email}')" style="width: 85px;">
+                                <input type="number" step="1" class="cell-input" id="sub_amt_${rowKey}" value="${amtNum}" onchange="markSubRowDirty('${sub.email}')" style="font-size: 0.73rem; padding: 2px 3px; height: 25px; width: 100%;">
                             </td>
                             <td>
-                                <select class="cell-input" id="sub_meth_${rowKey}" onchange="markSubRowDirty('${sub.email}')">${provOpts}</select>
+                                <select class="cell-input" id="sub_meth_${rowKey}" onchange="markSubRowDirty('${sub.email}')" style="font-size: 0.71rem; padding: 2px 1px; height: 25px;">${provOpts}</select>
                             </td>
                             <td>
-                                <input type="date" class="cell-input" id="sub_exp_${rowKey}" value="${expDate}" onchange="markSubRowDirty('${sub.email}')">
+                                <input type="date" class="cell-input" id="sub_exp_${rowKey}" value="${expDate}" onchange="markSubRowDirty('${sub.email}')" style="font-size: 0.69rem; padding: 2px 1px; height: 25px; width: 100%;">
                             </td>
                             <td>
-                                <select class="cell-input" id="sub_pay_${rowKey}" onchange="markSubRowDirty('${sub.email}')">${payOpts}</select>
+                                <select class="cell-input" id="sub_pay_${rowKey}" onchange="markSubRowDirty('${sub.email}')" style="font-size: 0.71rem; padding: 2px 1px; height: 25px;">${payOpts}</select>
                             </td>
                             <td>
-                                <input type="text" class="cell-input" id="sub_trx_${rowKey}" value="${sub.trx_id || ''}" placeholder="TrxID" onchange="markSubRowDirty('${sub.email}')">
+                                <input type="text" class="cell-input" id="sub_trx_${rowKey}" value="${sub.trx_id || ''}" placeholder="TrxID" onchange="markSubRowDirty('${sub.email}')" style="font-size: 0.71rem; padding: 2px 3px; height: 25px; width: 100%;">
                             </td>
-                            <td style="text-align: center; width: 60px;">
-                                <div class="table-actions" style="justify-content: center;">
-                                    <button class="btn btn-primary" id="subsave_${rowKey}" onclick="saveInlineSubscriber('${sub.email}')" title="Save" style="padding: 0.35rem 0.5rem; font-size: 0.75rem; display: ${dirtySubRows.has(sub.email) ? 'inline-flex' : 'none'};">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg>
+                            <td style="text-align: center;">
+                                <div class="table-actions" style="justify-content: center; gap: 3px;">
+                                    <button class="btn-action-icon btn-action-paid" id="subsave_${rowKey}" onclick="saveInlineSubscriber('${sub.email}')" title="Save" style="display: ${dirtySubRows.has(sub.email) ? 'inline-flex' : 'none'};">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg>
                                     </button>
-                                    <button class="btn-action btn-action-edit" onclick="openEditCustomerModal('${sub.email}')" title="Full Dialog">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                    <button class="btn-action-icon btn-action-edit" onclick="openEditCustomerModal('${sub.email}')" title="Full Dialog">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                     </button>
-                                    <button class="btn-action btn-action-delete" onclick="actionDelete('${sub.email}')" title="Delete Customer">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                                    <button class="btn-action-icon btn-action-delete" onclick="actionDelete('${sub.email}')" title="Delete Customer">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
                                     </button>
                                 </div>
                             </td>
@@ -287,31 +288,31 @@
                 // Normal Mode (Full width layout with Amount & Method)
                 return `
                     <tr id="subrow_${rowKey}">
-                        <td>${cidBadge}</td>
+                        <td style="text-align: center;">${cidBadge}</td>
                         <td>
-                            <div class="customer-info">
-                                <span class="customer-email">${sub.email}</span>
-                                <span class="customer-name">${sub.name || 'Personal Account'}</span>
+                            <div class="customer-info" style="min-width: 0; overflow: hidden;">
+                                <span class="customer-email" title="${sub.email}" style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8rem; font-weight: 700;">${sub.email}</span>
+                                <span class="customer-name" title="${sub.name || 'Personal Account'}" style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; color: var(--text-muted);">${sub.name || 'Personal Account'}</span>
                             </div>
                         </td>
                         <td>${refBadge}</td>
                         <td>${teamBadge}</td>
-                        <td><span style="font-weight: 700;">${sub.package}</span></td>
+                        <td><span style="font-weight: 700; font-size: 0.76rem; white-space: nowrap;">${sub.package}</span></td>
                         <td>${amtCell}</td>
                         <td>${methBadge}</td>
-                        <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--text-muted);">${expDate}</span></td>
+                        <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">${expDate}</span></td>
                         <td>${statusBadge}</td>
                         <td>${trx}</td>
-                        <td style="text-align: center; width: 60px;">
-                            <div class="table-actions" style="justify-content: center;">
-                                <button class="btn-action btn-action-edit" onclick="openEditCustomerModal('${sub.email}')" title="Edit Customer Details">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <td style="text-align: center;">
+                            <div class="table-actions" style="justify-content: center; gap: 3px;">
+                                <button class="btn-action-icon btn-action-edit" onclick="openEditCustomerModal('${sub.email}')" title="Edit Customer Details">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                     </svg>
                                 </button>
-                                <button class="btn-action btn-action-delete" onclick="actionDelete('${sub.email}')" title="Delete Customer">
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                                <button class="btn-action-icon btn-action-delete" onclick="actionDelete('${sub.email}')" title="Delete Customer">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
                                 </button>
                             </div>
                         </td>

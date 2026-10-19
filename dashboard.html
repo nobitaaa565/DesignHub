@@ -441,14 +441,27 @@
 
                     <div class="table-card">
                         <div class="table-responsive">
-                            <table>
+                            <table class="subscribers-table">
+                                <colgroup>
+                                    <col style="width: 5.5%;">
+                                    <col style="width: 19.5%;">
+                                    <col style="width: 10%;">
+                                    <col style="width: 11.5%;">
+                                    <col style="width: 8%;">
+                                    <col style="width: 7%;">
+                                    <col style="width: 7%;">
+                                    <col style="width: 8.5%;">
+                                    <col style="width: 7.5%;">
+                                    <col style="width: 8.5%;">
+                                    <col style="width: 7%;">
+                                </colgroup>
                                 <thead>
                                     <tr>
-                                        <th style="width: 80px;" class="sortable-th" onclick="sortSubscribers('customer_id')" title="Sort by Customer ID">
+                                        <th class="sortable-th" onclick="sortSubscribers('customer_id')" title="Sort by Customer ID" style="text-align: center;">
                                             <div class="th-content">
                                                 <span>CID</span>
                                                 <span class="sort-icon-wrap" id="sortIcon_customer_id">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
                                                 </span>
                                             </div>
                                         </th>
@@ -456,7 +469,7 @@
                                             <div class="th-content">
                                                 <span>Subscriber</span>
                                                 <span class="sort-icon-wrap" id="sortIcon_subscriber">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
                                                 </span>
                                             </div>
                                         </th>
@@ -464,7 +477,7 @@
                                             <div class="th-content">
                                                 <span>Reference</span>
                                                 <span class="sort-icon-wrap" id="sortIcon_reference">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
                                                 </span>
                                             </div>
                                         </th>
@@ -472,7 +485,7 @@
                                             <div class="th-content">
                                                 <span>Team</span>
                                                 <span class="sort-icon-wrap" id="sortIcon_team">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
                                                 </span>
                                             </div>
                                         </th>
@@ -480,7 +493,7 @@
                                             <div class="th-content">
                                                 <span>Package</span>
                                                 <span class="sort-icon-wrap" id="sortIcon_package">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
                                                 </span>
                                             </div>
                                         </th>
@@ -488,7 +501,7 @@
                                             <div class="th-content">
                                                 <span>Amount</span>
                                                 <span class="sort-icon-wrap" id="sortIcon_amount">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
                                                 </span>
                                             </div>
                                         </th>
@@ -496,15 +509,15 @@
                                             <div class="th-content">
                                                 <span>Method</span>
                                                 <span class="sort-icon-wrap" id="sortIcon_method">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
                                                 </span>
                                             </div>
                                         </th>
                                         <th class="sortable-th" onclick="sortSubscribers('expires_at')" title="Sort by Expiry Date">
                                             <div class="th-content">
-                                                <span>Expires At</span>
+                                                <span>Expires</span>
                                                 <span class="sort-icon-wrap" id="sortIcon_expires_at">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
                                                 </span>
                                             </div>
                                         </th>
@@ -512,7 +525,7 @@
                                             <div class="th-content">
                                                 <span>Status</span>
                                                 <span class="sort-icon-wrap" id="sortIcon_status">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
                                                 </span>
                                             </div>
                                         </th>
@@ -520,11 +533,11 @@
                                             <div class="th-content">
                                                 <span>TrxID</span>
                                                 <span class="sort-icon-wrap" id="sortIcon_trx_id">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
                                                 </span>
                                             </div>
                                         </th>
-                                        <th style="text-align: center; width: 60px;">Actions</th>
+                                        <th style="text-align: center;">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="subscribersTbody">

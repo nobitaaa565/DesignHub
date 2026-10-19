@@ -3613,3 +3613,194 @@
         .donut-indicator-label {
             letter-spacing: -0.01em;
         }
+
+        /* ==================== SUBSCRIBERS TABLE AUTO-FIT (ZERO HORIZONTAL SCROLL) ==================== */
+        #viewSubscribers {
+            width: 100%;
+        }
+
+        #viewSubscribers .table-card {
+            width: 100%;
+            overflow: hidden;
+            background: var(--bg-card);
+            border-radius: var(--radius-card);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-card);
+        }
+
+        #viewSubscribers .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        @media (min-width: 900px) {
+            #viewSubscribers .table-responsive {
+                overflow-x: hidden;
+            }
+        }
+
+        #viewSubscribers table.subscribers-table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
+
+        #viewSubscribers table.subscribers-table th {
+            padding: 0.72rem 0.35rem;
+            font-size: 0.71rem;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: var(--bg-subtle);
+            vertical-align: middle;
+        }
+
+        #viewSubscribers table.subscribers-table td {
+            padding: 0.58rem 0.35rem;
+            font-size: 0.78rem;
+            border-bottom: 1px solid var(--border-subtle);
+            vertical-align: middle;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #viewSubscribers .th-content {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            white-space: nowrap;
+        }
+
+        #viewSubscribers .cid-badge {
+            padding: 0.16rem 0.36rem;
+            font-size: 0.7rem;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+
+        #viewSubscribers .team-tag {
+            padding: 0.16rem 0.42rem;
+            font-size: 0.71rem;
+            max-width: 100%;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #viewSubscribers .team-tag span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #viewSubscribers .ref-badge {
+            padding: 0.16rem 0.42rem;
+            font-size: 0.7rem;
+            max-width: 100%;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #viewSubscribers .ref-badge span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #viewSubscribers .provider-badge {
+            padding: 0.16rem 0.42rem;
+            font-size: 0.66rem;
+            border-radius: 5px;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+        }
+
+        #viewSubscribers .badge-status {
+            padding: 0.16rem 0.42rem;
+            font-size: 0.68rem;
+            gap: 0.25rem;
+            white-space: nowrap;
+        }
+
+        .trx-pill {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.71rem;
+            background: var(--bg-subtle);
+            padding: 2px 5px;
+            border-radius: 5px;
+            border: 1px solid var(--border);
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        /* Action Icon Buttons */
+        .btn-action-icon {
+            width: 25px;
+            height: 25px;
+            padding: 0;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+            background: #FFFFFF;
+            color: var(--text-body);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+
+        .btn-action-icon:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .btn-action-icon.btn-action-edit {
+            background: var(--blue-light);
+            color: var(--blue-primary);
+            border-color: rgba(0, 98, 255, 0.22);
+        }
+
+        .btn-action-icon.btn-action-edit:hover {
+            background: var(--blue-primary);
+            color: #FFFFFF;
+            border-color: var(--blue-primary);
+        }
+
+        .btn-action-icon.btn-action-delete {
+            color: var(--rose);
+            border-color: rgba(239, 68, 68, 0.22);
+        }
+
+        .btn-action-icon.btn-action-delete:hover {
+            background: var(--rose);
+            color: #FFFFFF;
+            border-color: var(--rose);
+        }
+
+        .btn-action-icon.btn-action-paid {
+            background: var(--emerald-light);
+            color: #047857;
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+
+        .btn-action-icon.btn-action-paid:hover {
+            background: #047857;
+            color: #FFFFFF;
+        }
