@@ -350,6 +350,84 @@
                 );
             }
 
+            // 3. SORT SUBSCRIBERS DYNAMICALLY BY ACTIVE COLUMN
+            if (typeof subSortColumn !== "undefined" && subSortColumn) {
+                const dir = (subSortDirection === "desc") ? -1 : 1;
+                filtered = [...filtered].sort((a, b) => {
+                    let valA, valB;
+
+                    if (subSortColumn === "customer_id") {
+                        valA = parseInt(String(a.customer_id || "800").replace(/\D/g, ""), 10) || 0;
+                        valB = parseInt(String(b.customer_id || "800").replace(/\D/g, ""), 10) || 0;
+                        return (valA - valB) * dir;
+                    }
+
+                    if (subSortColumn === "subscriber") {
+                        valA = ((a.name || "") + " " + (a.email || "")).toLowerCase().trim();
+                        valB = ((b.name || "") + " " + (b.email || "")).toLowerCase().trim();
+                        return valA.localeCompare(valB) * dir;
+                    }
+
+                    if (subSortColumn === "reference") {
+                        valA = (a.reference_name || "Page Lead").toLowerCase().trim();
+                        valB = (b.reference_name || "Page Lead").toLowerCase().trim();
+                        return valA.localeCompare(valB) * dir;
+                    }
+
+                    if (subSortColumn === "team") {
+                        valA = (a.team_name || "Carmella Elan").toLowerCase().trim();
+                        valB = (b.team_name || "Carmella Elan").toLowerCase().trim();
+                        return valA.localeCompare(valB) * dir;
+                    }
+
+                    if (subSortColumn === "package") {
+                        valA = (a.package || "").toLowerCase().trim();
+                        valB = (b.package || "").toLowerCase().trim();
+                        return valA.localeCompare(valB) * dir;
+                    }
+
+                    if (subSortColumn === "amount") {
+                        const getAmt = (item) => {
+                            let amt = parseFloat(item.amount || 0);
+                            if (item.payment_status === "PAID" && (!amt || isNaN(amt))) {
+                                const p = (item.package || "").toLowerCase();
+                                if (p.includes("6") || p.includes("12") || p.includes("year")) return 99;
+                                if (p.includes("3")) return 50;
+                                return 25;
+                            }
+                            return (item.payment_status === "PAID") ? amt : 0;
+                        };
+                        return (getAmt(a) - getAmt(b)) * dir;
+                    }
+
+                    if (subSortColumn === "method") {
+                        valA = (a.method || a.provider || "").toLowerCase().trim();
+                        valB = (b.method || b.provider || "").toLowerCase().trim();
+                        return valA.localeCompare(valB) * dir;
+                    }
+
+                    if (subSortColumn === "expires_at") {
+                        valA = (a.expires_at || "").toLowerCase().trim();
+                        valB = (b.expires_at || "").toLowerCase().trim();
+                        return valA.localeCompare(valB) * dir;
+                    }
+
+                    if (subSortColumn === "status") {
+                        valA = (a.payment_status || a.status || "").toLowerCase().trim();
+                        valB = (b.payment_status || b.status || "").toLowerCase().trim();
+                        return valA.localeCompare(valB) * dir;
+                    }
+
+                    if (subSortColumn === "trx_id") {
+                        valA = (a.trx_id || "").toLowerCase().trim();
+                        valB = (b.trx_id || "").toLowerCase().trim();
+                        return valA.localeCompare(valB) * dir;
+                    }
+
+                    return 0;
+                });
+            }
+
             filteredSubscribersCache = filtered;
 
             const totalRecords = filtered.length;
@@ -362,6 +440,7 @@
 
             renderSubscribersTable(pageItems);
             renderSubscribersPagination(totalRecords, totalPages);
+            try { updateSubTableSortIcons(); } catch(e) {}
         }
 
         function goToSubPage(p) {
@@ -942,3 +1021,42 @@
             showToast(`Exported ${filename}`, "success");
         }
 
+
+
+        // ==================== SUBSCRIBER TABLE COLUMN SORTING ====================
+        function sortSubscribers(col) {
+            if (typeof subSortColumn === "undefined") {
+                subSortColumn = "customer_id";
+                subSortDirection = "asc";
+            }
+            if (subSortColumn === col) {
+                subSortDirection = (subSortDirection === "asc") ? "desc" : "asc";
+            } else {
+                subSortColumn = col;
+                subSortDirection = "asc";
+            }
+            updateSubTableSortIcons();
+            subCurrentPage = 1;
+            filterSubscribers();
+        }
+
+        function updateSubTableSortIcons() {
+            const columns = ['customer_id', 'subscriber', 'reference', 'team', 'package', 'amount', 'method', 'expires_at', 'status', 'trx_id'];
+            columns.forEach(col => {
+                const wrap = document.getElementById(`sortIcon_${col}`);
+                const th = wrap ? wrap.closest('th') : null;
+                if (!wrap) return;
+
+                if (typeof subSortColumn !== "undefined" && subSortColumn === col) {
+                    if (th) th.classList.add('active-sort');
+                    if (subSortDirection === 'asc') {
+                        wrap.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="sort-icon active"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`;
+                    } else {
+                        wrap.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="sort-icon active"><path d="M12 5v14M5 12l7 7 7-7"/></svg>`;
+                    }
+                } else {
+                    if (th) th.classList.remove('active-sort');
+                    wrap.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>`;
+                }
+            });
+        }

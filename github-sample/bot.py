@@ -1974,8 +1974,15 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             provider = payload.get("provider", "bKash")
             team_name = payload.get("team_name", None)
             reference_name = payload.get("reference_name", "Page Lead")
+            cid_raw = payload.get("customer_id")
+            cid_val = None
+            if cid_raw is not None:
+                try:
+                    cid_val = int(str(cid_raw).replace("#", "").strip())
+                except Exception:
+                    cid_val = None
             if email:
-                sub = add_subscriber(email, pkg, name, team_name=team_name, reference_name=reference_name)
+                sub = add_subscriber(email, pkg, name, team_name=team_name, reference_name=reference_name, customer_id=cid_val)
                 if is_paid:
                     mark_paid(email, trx_id=trx_id, amount=amount, provider=provider)
                 res = {"status": "ok", "subscriber": sub}

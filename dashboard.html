@@ -444,16 +444,86 @@
                             <table>
                                 <thead>
                                     <tr>
-                                        <th style="width: 75px;">CID</th>
-                                        <th>Subscriber</th>
-                                        <th>Reference</th>
-                                        <th>Team</th>
-                                        <th>Package</th>
-                                        <th>Amount</th>
-                                        <th>Method</th>
-                                        <th>Expires At</th>
-                                        <th>Status</th>
-                                        <th>TrxID</th>
+                                        <th style="width: 80px;" class="sortable-th" onclick="sortSubscribers('customer_id')" title="Sort by Customer ID">
+                                            <div class="th-content">
+                                                <span>CID</span>
+                                                <span class="sort-icon-wrap" id="sortIcon_customer_id">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                </span>
+                                            </div>
+                                        </th>
+                                        <th class="sortable-th" onclick="sortSubscribers('subscriber')" title="Sort by Subscriber Name / Email">
+                                            <div class="th-content">
+                                                <span>Subscriber</span>
+                                                <span class="sort-icon-wrap" id="sortIcon_subscriber">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                </span>
+                                            </div>
+                                        </th>
+                                        <th class="sortable-th" onclick="sortSubscribers('reference')" title="Sort by Reference Lead">
+                                            <div class="th-content">
+                                                <span>Reference</span>
+                                                <span class="sort-icon-wrap" id="sortIcon_reference">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                </span>
+                                            </div>
+                                        </th>
+                                        <th class="sortable-th" onclick="sortSubscribers('team')" title="Sort by Canva Team">
+                                            <div class="th-content">
+                                                <span>Team</span>
+                                                <span class="sort-icon-wrap" id="sortIcon_team">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                </span>
+                                            </div>
+                                        </th>
+                                        <th class="sortable-th" onclick="sortSubscribers('package')" title="Sort by Plan Package">
+                                            <div class="th-content">
+                                                <span>Package</span>
+                                                <span class="sort-icon-wrap" id="sortIcon_package">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                </span>
+                                            </div>
+                                        </th>
+                                        <th class="sortable-th" onclick="sortSubscribers('amount')" title="Sort by Amount">
+                                            <div class="th-content">
+                                                <span>Amount</span>
+                                                <span class="sort-icon-wrap" id="sortIcon_amount">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                </span>
+                                            </div>
+                                        </th>
+                                        <th class="sortable-th" onclick="sortSubscribers('method')" title="Sort by Payment Provider">
+                                            <div class="th-content">
+                                                <span>Method</span>
+                                                <span class="sort-icon-wrap" id="sortIcon_method">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                </span>
+                                            </div>
+                                        </th>
+                                        <th class="sortable-th" onclick="sortSubscribers('expires_at')" title="Sort by Expiry Date">
+                                            <div class="th-content">
+                                                <span>Expires At</span>
+                                                <span class="sort-icon-wrap" id="sortIcon_expires_at">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                </span>
+                                            </div>
+                                        </th>
+                                        <th class="sortable-th" onclick="sortSubscribers('status')" title="Sort by Payment Status">
+                                            <div class="th-content">
+                                                <span>Status</span>
+                                                <span class="sort-icon-wrap" id="sortIcon_status">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                </span>
+                                            </div>
+                                        </th>
+                                        <th class="sortable-th" onclick="sortSubscribers('trx_id')" title="Sort by Transaction ID">
+                                            <div class="th-content">
+                                                <span>TrxID</span>
+                                                <span class="sort-icon-wrap" id="sortIcon_trx_id">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sort-icon"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+                                                </span>
+                                            </div>
+                                        </th>
                                         <th style="text-align: center; width: 60px;">Actions</th>
                                     </tr>
                                 </thead>

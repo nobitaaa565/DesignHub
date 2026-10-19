@@ -488,3 +488,40 @@
             font-size: 0.85rem;
         }
 
+
+
+        /* Interactive Table Column Sorting Header Styles */
+        .sortable-th {
+            cursor: pointer !important;
+            user-select: none;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .sortable-th:hover {
+            background: #F1F5F9 !important;
+            color: var(--blue-primary) !important;
+        }
+        .th-content {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            white-space: nowrap;
+        }
+        .sort-icon-wrap {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sort-icon {
+            opacity: 0.35;
+            transition: opacity 0.15s ease, color 0.15s ease, transform 0.15s ease;
+        }
+        .sortable-th:hover .sort-icon {
+            opacity: 0.75;
+        }
+        .sortable-th.active-sort {
+            color: var(--blue-primary) !important;
+        }
+        .sortable-th.active-sort .sort-icon.active {
+            opacity: 1 !important;
+            color: var(--blue-primary) !important;
+        }

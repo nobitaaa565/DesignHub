@@ -195,3 +195,6 @@ function getTeamExpiryInfo(teamName) {
         isExpired
     };
 }
+
+var subSortColumn = "customer_id";
+var subSortDirection = "asc";

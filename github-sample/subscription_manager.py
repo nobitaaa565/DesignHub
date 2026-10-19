@@ -341,39 +341,107 @@ def resolve_email(identifier: str) -> str:
 def get_customer_id_by_sender(sender_id: str = "", sender_name: str = "", email: str = "") -> int:
     """
     Returns the clean short customer_id (e.g. 800, 801, 802...) for a given sender or email.
-    If not already in DB, assigns the next sequential customer_id starting from 800.
+    Follows the exact website sequence.
+    Checks:
+    1. By email if provided.
+    2. By sender_id (Facebook or Instagram ID) in subscriptions and payments.
+    3. By customer name (sender_name) in subscriptions (exact or word match).
+    4. If new, finds the absolute MAX customer_id across subscriptions and payments,
+       assigns MAX + 1 (or 800 if none), and persists the record immediately so
+       subsequent queries or users receive the correct next sequential ID.
     """
     init_db()
     clean_email = email.lower().strip() if email else ""
+    if clean_email == "unknown":
+        clean_email = ""
     clean_sender = str(sender_id).strip() if sender_id else ""
+    clean_name = str(sender_name).strip() if sender_name else ""
 
     with get_db() as conn:
         c = conn.cursor()
-        # 1. By email
+        
+        # 1. Look up by email if provided
         if clean_email:
-            c.execute("SELECT customer_id FROM subscriptions WHERE email = ? AND customer_id >= 800", (clean_email,))
+            c.execute("SELECT customer_id, name, fb_sender_id FROM subscriptions WHERE email = ?", (clean_email,))
             row = c.fetchone()
             if row and row[0]:
-                if clean_sender:
-                    c.execute("UPDATE subscriptions SET fb_sender_id = ? WHERE email = ? AND (fb_sender_id IS NULL OR fb_sender_id = '')", (clean_sender, clean_email))
+                cid = row[0]
+                updates = []
+                params = []
+                if clean_sender and not row[2]:
+                    updates.append("fb_sender_id = ?")
+                    params.append(clean_sender)
+                if clean_name and not row[1]:
+                    updates.append("name = ?")
+                    params.append(clean_name)
+                if updates:
+                    params.append(clean_email)
+                    c.execute(f"UPDATE subscriptions SET {', '.join(updates)} WHERE email = ?", tuple(params))
                     conn.commit()
-                return row[0]
+                return cid
 
-        # 2. By fb_sender_id
+        # 2. Look up by sender_id (Facebook PSID or Instagram ID)
         if clean_sender:
-            c.execute("SELECT customer_id FROM subscriptions WHERE fb_sender_id = ? AND customer_id >= 800", (clean_sender,))
+            c.execute("SELECT customer_id, email, name FROM subscriptions WHERE fb_sender_id = ?", (clean_sender,))
             row = c.fetchone()
             if row and row[0]:
                 return row[0]
 
-        # 3. Next sequential ID starting at 800
-        c.execute("SELECT MAX(customer_id) FROM subscriptions WHERE customer_id >= 800")
-        max_row = c.fetchone()
-        next_id = 800 if (not max_row or max_row[0] is None) else (max_row[0] + 1)
+        # 3. Look up by customer name (e.g. "Arafat Hossain")
+        if clean_name:
+            # Exact match (case-insensitive)
+            c.execute("SELECT customer_id, email, fb_sender_id FROM subscriptions WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))", (clean_name,))
+            row = c.fetchone()
+            if row and row[0]:
+                cid = row[0]
+                if clean_sender and not row[2]:
+                    c.execute("UPDATE subscriptions SET fb_sender_id = ? WHERE customer_id = ?", (clean_sender, cid))
+                    conn.commit()
+                return cid
 
-        if clean_email:
-            c.execute("UPDATE subscriptions SET customer_id = ?, fb_sender_id = ? WHERE email = ?", (next_id, clean_sender, clean_email))
-            conn.commit()
+            # Word match (if first and last name match an existing subscriber)
+            name_words = [w.lower() for w in clean_name.split() if len(w) > 2]
+            if name_words:
+                c.execute("SELECT customer_id, name, fb_sender_id FROM subscriptions WHERE name IS NOT NULL AND name != ''")
+                for sub_row in c.fetchall():
+                    s_cid, s_name, s_sender = sub_row[0], (sub_row[1] or "").lower(), sub_row[2]
+                    s_words = [w for w in s_name.split() if len(w) > 2]
+                    if set(name_words) == set(s_words) or (len(name_words) >= 2 and all(w in s_words for w in name_words)):
+                        if clean_sender and not s_sender:
+                            c.execute("UPDATE subscriptions SET fb_sender_id = ? WHERE customer_id = ?", (clean_sender, s_cid))
+                            conn.commit()
+                        return s_cid
+
+        # 4. If brand new customer: Determine next sequential customer_id following the website sequence
+        c.execute("""
+            SELECT MAX(cid) FROM (
+                SELECT customer_id AS cid FROM subscriptions WHERE customer_id IS NOT NULL
+                UNION ALL
+                SELECT customer_id AS cid FROM payments WHERE customer_id IS NOT NULL
+            )
+        """)
+        max_row = c.fetchone()
+        max_val = max_row[0] if max_row and max_row[0] is not None else None
+        
+        if max_val is None or max_val < 800:
+            next_id = 800
+        else:
+            next_id = max_val + 1
+
+        # Persist this lead immediately in subscriptions so this customer_id is reserved
+        lead_email = clean_email or f"lead_{clean_sender or next_id}@messenger.lead"
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        exp_str = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+
+        c.execute("""
+            INSERT INTO subscriptions (email, name, package, days, added_at, expires_at, payment_status, status, customer_id, fb_sender_id, team_name, reference_name)
+            VALUES (?, ?, '1 Month', 30, ?, ?, 'PENDING', 'active', ?, ?, 'Carmella Elan', 'Page Lead')
+            ON CONFLICT(email) DO UPDATE SET
+                customer_id = COALESCE(subscriptions.customer_id, excluded.customer_id),
+                fb_sender_id = COALESCE(NULLIF(excluded.fb_sender_id, ''), subscriptions.fb_sender_id),
+                name = COALESCE(NULLIF(excluded.name, ''), subscriptions.name)
+        """, (lead_email, clean_name, now_str, exp_str, next_id, clean_sender))
+        conn.commit()
 
         return next_id
 
@@ -440,7 +508,7 @@ def delete_team(name: str) -> bool:
         return c.rowcount > 0
 
 
-def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id: str = "", team_name: str = None, reference_name: str = None) -> dict:
+def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id: str = "", team_name: str = None, reference_name: str = None, customer_id: int = None) -> dict:
     init_db()
     pkg_name, days, price = parse_package(package)
     now = datetime.now()
@@ -464,9 +532,19 @@ def add_subscriber(email: str, package: str = "1m", name: str = "", fb_sender_id
             final_team = assigned_team if team_name else (existing[2] or assigned_team)
             final_ref = (reference_name or "").strip() or (existing[3] or "Page Lead")
         else:
-            c.execute("SELECT MAX(customer_id) FROM subscriptions WHERE customer_id >= 800")
-            max_row = c.fetchone()
-            assigned_id = 800 if (not max_row or max_row[0] is None) else (max_row[0] + 1)
+            if customer_id and int(customer_id) >= 800:
+                assigned_id = int(customer_id)
+            else:
+                c.execute("""
+                    SELECT MAX(cid) FROM (
+                        SELECT customer_id AS cid FROM subscriptions WHERE customer_id IS NOT NULL
+                        UNION ALL
+                        SELECT customer_id AS cid FROM payments WHERE customer_id IS NOT NULL
+                    )
+                """)
+                max_row = c.fetchone()
+                max_val = max_row[0] if max_row and max_row[0] is not None else None
+                assigned_id = 800 if (max_val is None or max_val < 800) else (max_val + 1)
             sender_to_save = clean_sender
             final_team = assigned_team
 
