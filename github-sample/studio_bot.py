@@ -4,14 +4,11 @@ from __future__ import annotations
 Design Hub - Dedicated Facebook Post Scheduler & 1-Hour Reminder Bot (Bot-2)
 Telegram Bot: @designposterbot
 
-Complete Interactive Workflow:
-1. User calls /schedule (or menu button): Bot displays all 7 design reference images with titles & descriptions.
-2. User selects a design archetype.
-3. Bot asks for user's rough prompt/idea, then shortly enhances the prompt for Antigravity IDE.
-4. Bot asks for caption: user can provide their own OR choose '[🤖 You Choose / AI Generate]'.
-5. Bot asks for schedule date & time.
-6. Bot presents a Total Info Card in one place & saves the scheduled campaign.
-7. Background Daemon delivers proactive 1-Hour Advance Reminder with complete prompt & caption so user can prepare & publish!
+Features:
+- Single clean flow: eliminates duplicate confirmation messages and phantom schedules
+- Auto-collapses & cleans wizard messages: deletes all intermediate questions and user inputs upon finalizing schedule
+- Intelligent Bangla caption generator: properly understands 'you choose but in bangla' and crafts a high-converting Bengali caption
+- Exact 1-Hour Advance Reminder with tap-to-copy prompt & caption
 """
 
 import os
@@ -111,12 +108,12 @@ DESIGNS = [
     },
 ]
 
-USER_SESSIONS = {}
+# Track wizard sessions and active message IDs to collapse
+USER_SESSIONS: dict[int, dict] = {}
 LOCK_SOCKET = None
 
 
 def acquire_single_instance_lock(port: int = 49281) -> bool:
-    """Guarantees only one polling instance runs to prevent Telegram Conflict 409."""
     global LOCK_SOCKET
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -215,7 +212,7 @@ def enhance_short_prompt(style_id: int, user_idea: str) -> str:
 
     if GEMINI_API_KEY:
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={GEMINI_API_KEY}"
             system_instruction = (
                 f"You are the master design art director for Design Hub in Bangladesh. "
                 f"Design Archetype: {design['name']} ({design['desc']}). "
@@ -223,15 +220,15 @@ def enhance_short_prompt(style_id: int, user_idea: str) -> str:
                 f"Shortly enhance this into a concise 4-line prompt brief for Antigravity IDE. "
                 f"Format strictly as:\n"
                 f"• Style: Design {style_id} ({design['title']})\n"
-                f"• Offer: [Package & Price, e.g. Canva Pro 50 TK / 3 Months]\n"
+                f"• Offer: [Package & Price, e.g. Canva Pro 25 TK / 50 TK]\n"
                 f"• Key Visuals: [Hero subject, colors, and badge details]\n"
-                f"• Highlight Perks: [3 flagship features, e.g. Magic Studio, BG Remover, 100M+ Assets]\n"
+                f"• Highlight Perks: [3-4 flagship features, e.g. No Switch Team Hassle, 1TB Storage, Updated Designs, Magic Studio AI]\n"
                 f"Keep it punchy, crisp, and clean. No extra conversational fluff."
             )
             res = requests.post(
                 url,
                 json={"contents": [{"parts": [{"text": system_instruction}]}]},
-                timeout=12
+                timeout=8
             )
             if res.status_code == 200:
                 text = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
@@ -239,37 +236,40 @@ def enhance_short_prompt(style_id: int, user_idea: str) -> str:
         except Exception as e:
             logger.warning(f"Gemini prompt enhancement fallback: {e}")
 
-    # High quality fallback
-    return (
-        f"• Style: Design {style_id} ({design['title']})\n"
-        f"• Offer: {user_idea}\n"
-        f"• Key Visuals: 3D elements, high-contrast typography, and floating pricing badge\n"
-        f"• Highlight Perks: Canva Pro Official Access, Magic Studio AI, Instant Activation"
-    )
+    # Tailored structured brief fallback
+    lines = [
+        f"• Style: Design {style_id} ({design['title']})",
+        f"• Offer: {user_idea}",
+        f"• Key Visuals: 3D elements, high-contrast typography, and floating pricing badge",
+        f"• Highlight Perks: Canva Pro Official Access, No Team Switch Hassle, 1TB Storage, Magic Studio AI",
+    ]
+    return "\n".join(lines)
 
 
-def generate_facebook_caption(style_id: int, rough_prompt: str) -> str:
-    """Generates high-converting Bengali/English Facebook caption for Design Hub."""
+def generate_facebook_caption(style_id: int, rough_prompt: str, lang: str = "bangla") -> str:
+    """Generates high-converting Bengali Facebook caption tailored specifically to the offer details."""
     design = next((d for d in DESIGNS if d["id"] == style_id), DESIGNS[0])
 
     if GEMINI_API_KEY:
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={GEMINI_API_KEY}"
             prompt = (
-                f"Write a high-converting Facebook post caption in Bengali (with English key terms) for Design Hub Bangladesh. "
-                f"Campaign idea: '{rough_prompt}'. Design Style: {design['title']}. "
+                f"Write a high-converting Facebook post caption strictly in natural, professional Bengali for Design Hub Bangladesh. "
+                f"Offer & Features requested by user: '{rough_prompt}'. "
+                f"Design Archetype: {design['title']}. "
+                f"Ensure you highlight whatever features the user mentioned (e.g. no switch team hassle, 1TB cloud storage, updated designs, starting at 25 tk). "
                 f"Include:\n"
-                f"1. Catchy headline with emojis\n"
-                f"2. Package pricing (e.g. Canva Pro 50 TK / 3 Months or 1 Year 99 TK)\n"
-                f"3. Bullet points of perks (Magic Studio AI, Background Remover, 100M+ Premium Templates, Personal Email Activation)\n"
-                f"4. Call to Action: Inbox us or WhatsApp for instant activation within 2 minutes\n"
-                f"5. Relevant hashtags (#CanvaPro #DesignHub #CanvaProBangladesh #GraphicDesign)\n"
-                f"Keep it engaging, professional, and ready to post directly to Facebook."
+                f"1. Attractive headline with emojis\n"
+                f"2. Bulleted highlights of the offer\n"
+                f"3. Core Canva Pro premium perks (Magic Studio AI, BG Remover, 100M+ assets)\n"
+                f"4. Ordering CTA (inbox or comment)\n"
+                f"5. #CanvaPro #DesignHub #CanvaProBangladesh #GraphicDesign\n"
+                f"Return ONLY the caption text, ready to paste."
             )
             res = requests.post(
                 url,
                 json={"contents": [{"parts": [{"text": prompt}]}]},
-                timeout=12
+                timeout=8
             )
             if res.status_code == 200:
                 caption = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
@@ -277,19 +277,38 @@ def generate_facebook_caption(style_id: int, rough_prompt: str) -> str:
         except Exception as e:
             logger.warning(f"Gemini caption generation fallback: {e}")
 
-    # High quality default caption
+    # High quality dynamic fallback in natural Bengali
+    perk_bullets = []
+    lower_p = rough_prompt.lower()
+
+    if "25" in lower_p:
+        perk_bullets.append("✨ মাত্র ২৫ টাকা থেকেই শুরু সেরা সাবস্ক্রিপশন অফার!")
+    elif "50" in lower_p:
+        perk_bullets.append("✨ মাত্র ৫০ টাকায় পাচ্ছেন ৩ মাসের ধামাকা অফার!")
+    else:
+        perk_bullets.append(f"✨ বিশেষ অফার: {rough_prompt.splitlines()[0]}")
+
+    if "switch" in lower_p or "hastle" in lower_p or "hassle" in lower_p:
+        perk_bullets.append("⚡ বারবার টিম সুইচ করার কোনো ঝামেলা নেই (No Switch Team Hassle)!")
+    if "1tb" in lower_p or "storage" in lower_p:
+        perk_bullets.append("📂 ১ TB বিশাল পার্সোনাল ক্লাউড স্টোরেজ!")
+    if "update" in lower_p or "design" in lower_p:
+        perk_bullets.append("🔄 সবসময় সব লেটেস্ট ও আপডেটেড ডিজাইন অ্যাক্সেস!")
+
+    perk_bullets.append("🔒 আপনার পার্সোনাল ইমেইলেই ১০০% অফিসিয়াল ও সেফ অ্যাক্টিভেশন!")
+
+    perk_text = "\n".join(f"• {b}" for b in perk_bullets)
+
     return (
-        f"🎨 আপনার ডিজাইনিং স্কিলকে নিয়ে যান পরবর্তী লেভেলে Canva Pro এর সাথে! 🚀\n\n"
-        f"📌 অফার ডিটেইলস:\n"
-        f"✨ {rough_prompt}\n"
-        f"⚡ আপনার পার্সোনাল ইমেইলেই অ্যাক্টিভেশন\n"
-        f"🔒 অফিসিয়াল ও ১০০% নিরাপদ সাবস্ক্রিপশন\n\n"
-        f"💎 Canva Pro প্রিমিয়াম ফিচারসমূহ:\n"
-        f"• Magic Studio AI ফুল অ্যাক্সেস\n"
-        f"• 1-Click Background Remover\n"
-        f"• 100M+ প্রিমিয়াম ফটো, ভিডিও ও টেমপ্লেট\n"
-        f"• Brand Kit & Unlimited Cloud Storage\n\n"
-        f"📲 অর্ডার করতে এখনই পেজে মেসেজ করুন অথবা কমেন্ট করুন!\n\n"
+        f"🎨 আপনার ডিজাইনিংকে নিয়ে যান অনন্য উচ্চতায় Canva Pro এর সাথে! 🚀\n\n"
+        f"📌 অফারের প্রধান সুবিধাসমূহ:\n"
+        f"{perk_text}\n\n"
+        f"💎 Canva Pro প্রিমিয়াম পাওয়ার:\n"
+        f"• Magic Studio AI ফুল আনলকড অ্যাক্সেস\n"
+        f"• 1-Click Background Remover & Magic Eraser\n"
+        f"• 100M+ প্রিমিয়াম ফটো, গ্রাফিক্স, ভিডিও ও অডিও\n"
+        f"• Brand Kit & Unlimited Premium Fonts\n\n"
+        f"📲 অফারটি সীমিত সময়ের জন্য! অ্যাক্টিভেশন করতে এখনই পেজে মেসেজ করুন অথবা কমেন্ট করুন।\n\n"
         f"#CanvaPro #DesignHub #CanvaProBangladesh #GraphicDesign #MagicStudio"
     )
 
@@ -303,19 +322,16 @@ def parse_target_datetime(text: str) -> tuple[datetime | None, str]:
     raw = text.strip()
     lower = raw.lower()
 
-    # Relative 'in X mins'
     m_in_m = re.search(r'\bin\s+(\d+)\s*(?:m|min|mins|minute|minutes)\b', lower)
     if m_in_m:
         mins = int(m_in_m.group(1))
         return (now + timedelta(minutes=mins), "")
 
-    # Relative 'in X hours'
     m_in_h = re.search(r'\bin\s+(\d+)\s*(?:h|hr|hrs|hour|hours)\b', lower)
     if m_in_h:
         hours = int(m_in_h.group(1))
         return (now + timedelta(hours=hours), "")
 
-    # Relative 'in X days'
     m_in_d = re.search(r'\bin\s+(\d+)\s*(?:d|day|days)\b', lower)
     if m_in_d:
         days = int(m_in_d.group(1))
@@ -349,7 +365,6 @@ def parse_target_datetime(text: str) -> tuple[datetime | None, str]:
             lower = lower.replace(day_name, "").strip()
             break
 
-    # Time regex: '8pm', '8:30pm', '20:00', '8 am'
     m_time = re.search(r'(\d{1,2})(?::(\d{2}))?\s*(am|pm)?', lower)
     if m_time:
         hour = int(m_time.group(1))
@@ -404,9 +419,9 @@ def format_countdown(target_ts: int) -> str:
 # SEND DESIGNS GALLERY
 # =====================================================================
 
-async def send_all_designs(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
-    """Sends all 7 design reference master images with names and select buttons."""
-    await context.bot.send_message(
+async def send_all_designs(chat_id: int, context: ContextTypes.DEFAULT_TYPE, user_id: int | None = None):
+    """Sends all 7 design reference master images with names and registers message IDs to collapse later."""
+    header_msg = await context.bot.send_message(
         chat_id=chat_id,
         text=(
             "🎨 *Available Facebook Poster Designs for Design Hub:*\n"
@@ -415,6 +430,13 @@ async def send_all_designs(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
         ),
         parse_mode="Markdown"
     )
+
+    wizard_ids = [header_msg.message_id]
+    if user_id:
+        USER_SESSIONS[user_id] = {
+            "step": "waiting_design_choice",
+            "wizard_msg_ids": wizard_ids,
+        }
 
     for d in DESIGNS:
         img_path = WORKSPACE_DIR / d["image"]
@@ -428,23 +450,32 @@ async def send_all_designs(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
             ]
         ]
 
-        if img_path.exists():
-            with open(img_path, "rb") as photo:
-                await context.bot.send_photo(
+        try:
+            if img_path.exists():
+                with open(img_path, "rb") as photo:
+                    p_msg = await context.bot.send_photo(
+                        chat_id=chat_id,
+                        photo=photo,
+                        caption=caption,
+                        parse_mode="Markdown",
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                    wizard_ids.append(p_msg.message_id)
+            else:
+                p_msg = await context.bot.send_message(
                     chat_id=chat_id,
-                    photo=photo,
-                    caption=caption,
+                    text=caption,
                     parse_mode="Markdown",
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
-        else:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=caption,
-                parse_mode="Markdown",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-        await asyncio.sleep(0.3)
+                wizard_ids.append(p_msg.message_id)
+        except Exception as e:
+            logger.warning(f"Error sending design photo: {e}")
+
+        await asyncio.sleep(0.2)
+
+    if user_id and user_id in USER_SESSIONS:
+        USER_SESSIONS[user_id]["wizard_msg_ids"] = wizard_ids
 
 
 # =====================================================================
@@ -454,7 +485,7 @@ async def send_all_designs(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
 def make_caption_choice_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("🤖 You Choose / AI Generate", callback_data="caption_ai_choose"),
+            InlineKeyboardButton("🤖 You Choose (Bangla AI Caption)", callback_data="caption_ai_choose"),
         ],
         [
             InlineKeyboardButton("✏️ I will type my caption below", callback_data="caption_user_types"),
@@ -495,7 +526,7 @@ def make_total_info_card(schedule: dict) -> str:
         f"🎉 *FACEBOOK POST SCHEDULED & ALARM SET!*\n"
         f"──────────────────────────────\n"
         f"🎨 *Design Archetype:* {schedule['design_name']}\n"
-        f"🗓️ *Scheduled Post Time:* `{target_dt.strftime('%A, %d %b %Y - %I:%M %p')}` ({countdown})\n"
+        f"🗓️ *Scheduled Post Time:* `{target_dt.strftime('%A, %d %b %Y — %I:%M %p')}` ({countdown})\n"
         f"⏰ *1-Hour Advance Reminder:* `{remind_1h_dt.strftime('%I:%M %p')}`\n\n"
         f"📋 *Enhanced Prompt (for Antigravity):*\n"
         f"```text\n{schedule['enhanced_prompt']}\n```\n\n"
@@ -553,16 +584,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Starts the Facebook Post scheduling flow by sending all 7 designs."""
     if not await check_auth(update):
         return
-    await send_all_designs(update.effective_chat.id, context)
+    await send_all_designs(update.effective_chat.id, context, user_id=update.effective_user.id)
 
 
 async def cmd_designs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_auth(update):
         return
-    await send_all_designs(update.effective_chat.id, context)
+    await send_all_designs(update.effective_chat.id, context, user_id=update.effective_user.id)
 
 
 async def cmd_schedules(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -573,7 +603,8 @@ async def cmd_schedules(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def show_active_schedules(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
     schedules = load_schedules()
-    active = [s for s in schedules if s.get("status") == "active"]
+    # Filter only valid active schedules
+    active = [s for s in schedules if s.get("status") == "active" and s.get("caption")]
     active.sort(key=lambda x: x.get("target_ts", 0))
 
     if not active:
@@ -598,9 +629,9 @@ async def show_active_schedules(chat_id: int, context: ContextTypes.DEFAULT_TYPE
 
         card = (
             f"📌 *{s['design_name']}*\n"
-            f"🗓️ *Post Time:* `{target_dt.strftime('%A, %d %b - %I:%M %p')}` ({countdown})\n"
+            f"🗓️ *Post Time:* `{target_dt.strftime('%A, %d %b — %I:%M %p')}` ({countdown})\n"
             f"🔔 *1h Pre-Alarm:* {alarm_status}\n\n"
-            f"📋 *Prompt Brief:*\n`{s['enhanced_prompt'][:120]}...`\n"
+            f"📋 *Prompt Brief:*\n`{s['enhanced_prompt'][:140]}...`\n"
         )
 
         kb = InlineKeyboardMarkup([
@@ -628,7 +659,7 @@ async def cmd_clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_auth(update):
         return
     schedules = load_schedules()
-    kept = [s for s in schedules if s.get("status") == "active"]
+    kept = [s for s in schedules if s.get("status") == "active" and s.get("caption")]
     removed_count = len(schedules) - len(kept)
     save_schedules(kept)
     await update.message.reply_text(
@@ -696,14 +727,14 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
 
     if data == "start_schedule_flow" or data == "show_all_designs":
-        await send_all_designs(chat_id, context)
+        await send_all_designs(chat_id, context, user_id=user_id)
 
     elif data == "view_schedules":
         await show_active_schedules(chat_id, context)
 
     elif data == "clear_past":
         schedules = load_schedules()
-        kept = [s for s in schedules if s.get("status") == "active"]
+        kept = [s for s in schedules if s.get("status") == "active" and s.get("caption")]
         save_schedules(kept)
         await query.message.reply_text("🧹 Past completed and cancelled schedules cleared.", parse_mode="Markdown")
 
@@ -715,7 +746,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "3️⃣ Type your rough offer or prompt idea ➡️ the bot shortly enhances it.\n"
             "4️⃣ Type your Facebook caption or tap `[🤖 You Choose / AI Generate]`.\n"
             "5️⃣ Set your target post date & time.\n"
-            "6️⃣ The bot saves the schedule and creates a Total Info Card.\n"
+            "6️⃣ The bot collapses all wizard messages and displays a clean Total Info Card.\n"
             "7️⃣ **Exact 1 hour before post time**, the bot sends you an auto-message with the prompt & caption ready to paste into Antigravity and Facebook!"
         )
         await query.message.reply_text(help_text, parse_mode="Markdown")
@@ -723,30 +754,42 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("select_design:"):
         style_id = int(data.split(":")[1])
         design = next((d for d in DESIGNS if d["id"] == style_id), DESIGNS[0])
+
+        existing_ids = USER_SESSIONS.get(user_id, {}).get("wizard_msg_ids", [])
+
+        # Prompt message
+        p_msg = await query.message.reply_text(
+            f"🎯 *{design['name']} Selected!*\n\n"
+            f"✍️ *Step 1 of 3: What is your rough prompt / idea for this poster?*\n"
+            f"_(e.g. 'Canva Pro 25 tk, switch team hassle not present, 1tb storage, all updated design')_",
+            parse_mode="Markdown"
+        )
+
+        existing_ids.append(p_msg.message_id)
         USER_SESSIONS[user_id] = {
             "step": "waiting_prompt",
             "style_id": style_id,
             "design_name": design["name"],
+            "wizard_msg_ids": existing_ids,
         }
-        await query.message.reply_text(
-            f"🎯 *{design['name']} Selected!*\n\n"
-            f"✍️ *Step 1 of 3: What is your rough prompt / idea for this poster?*\n"
-            f"_(e.g. 'Canva Pro 50 TK for 3 months with Magic Studio AI and student discount')_",
-            parse_mode="Markdown"
-        )
 
     elif data == "caption_ai_choose":
-        session = USER_SESSIONS.get(user_id, {})
+        session = USER_SESSIONS.get(user_id)
+        if not session or session.get("step") not in ("waiting_caption_choice", "waiting_caption_text"):
+            return
+
         style_id = session.get("style_id", 1)
         rough_prompt = session.get("rough_prompt", "Canva Pro Official Access")
+        wizard_ids = session.get("wizard_msg_ids", [])
 
-        await query.message.reply_text("⏳ *Crafting high-converting Facebook caption...*", parse_mode="Markdown")
-        caption = generate_facebook_caption(style_id, rough_prompt)
+        wait_msg = await query.message.reply_text("⏳ *Crafting high-converting Facebook caption in Bengali...*", parse_mode="Markdown")
+        wizard_ids.append(wait_msg.message_id)
+
+        caption = generate_facebook_caption(style_id, rough_prompt, lang="bangla")
         session["caption"] = caption
         session["step"] = "waiting_time"
-        USER_SESSIONS[user_id] = session
 
-        await query.message.reply_text(
+        time_msg = await query.message.reply_text(
             f"📝 *Generated Facebook Caption:*\n"
             f"──────────────────────────────\n"
             f"{caption}\n"
@@ -756,32 +799,52 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown",
             reply_markup=make_preset_time_keyboard()
         )
+        wizard_ids.append(time_msg.message_id)
+        session["wizard_msg_ids"] = wizard_ids
+        USER_SESSIONS[user_id] = session
 
     elif data == "caption_user_types":
-        session = USER_SESSIONS.get(user_id, {})
+        session = USER_SESSIONS.get(user_id)
+        if not session:
+            return
         session["step"] = "waiting_caption_text"
-        USER_SESSIONS[user_id] = session
-        await query.message.reply_text(
+        m = await query.message.reply_text(
             "✍️ *Type your custom Facebook caption below:*",
             parse_mode="Markdown"
         )
+        session.setdefault("wizard_msg_ids", []).append(m.message_id)
+        USER_SESSIONS[user_id] = session
 
     elif data.startswith("set_time:"):
         time_str = data.split(":", 1)[1]
+        # Remove keyboard from prompt message to prevent duplicate clicking
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
         await finalize_schedule_flow(chat_id, user_id, context, time_str)
 
     elif data == "prompt_custom_time":
-        session = USER_SESSIONS.get(user_id, {})
+        session = USER_SESSIONS.get(user_id)
+        if not session:
+            return
         session["step"] = "waiting_time"
         USER_SESSIONS[user_id] = session
-        await query.message.reply_text(
+        m = await query.message.reply_text(
             "✍️ *Type your scheduled time below:*\n"
             "_(e.g. `tomorrow 8pm`, `today 10:30pm`, `in 3 hours`, `friday 5pm`)_",
             parse_mode="Markdown"
         )
+        session.setdefault("wizard_msg_ids", []).append(m.message_id)
 
     elif data == "cancel_flow":
-        USER_SESSIONS.pop(user_id, None)
+        session = USER_SESSIONS.pop(user_id, None)
+        if session:
+            for mid in session.get("wizard_msg_ids", []):
+                try:
+                    await context.bot.delete_message(chat_id=chat_id, message_id=mid)
+                except Exception:
+                    pass
         await query.message.reply_text("❌ Scheduling flow cancelled.")
 
     elif data.startswith("view_detail:"):
@@ -826,7 +889,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 new_target_ts = current_target + (mins * 60)
                 new_target_dt = datetime.fromtimestamp(new_target_ts)
                 s["target_ts"] = new_target_ts
-                s["target_time_str"] = new_target_dt.strftime("%A, %d %b %Y - %I:%M %p")
+                s["target_time_str"] = new_target_dt.strftime("%A, %d %b %Y — %I:%M %p")
                 s["remind_1h_ts"] = new_target_ts - 3600
                 s["remind_1h_sent"] = False
                 s["post_due_sent"] = False
@@ -856,12 +919,15 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
     if session and session.get("step") == "waiting_prompt":
         style_id = session.get("style_id", 1)
         session["rough_prompt"] = text
+        wizard_ids = session.get("wizard_msg_ids", [])
+        wizard_ids.append(update.message.message_id)
 
-        await update.message.reply_text("⏳ *Shortly enhancing your prompt brief for Antigravity...*", parse_mode="Markdown")
+        wait_msg = await update.message.reply_text("⏳ *Shortly enhancing your prompt brief for Antigravity...*", parse_mode="Markdown")
+        wizard_ids.append(wait_msg.message_id)
+
         enhanced = enhance_short_prompt(style_id, text)
         session["enhanced_prompt"] = enhanced
         session["step"] = "waiting_caption_choice"
-        USER_SESSIONS[user_id] = session
 
         review_prompt = (
             f"✨ *Enhanced Prompt Brief (for Antigravity):*\n"
@@ -869,51 +935,73 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
             f"{enhanced}\n"
             f"──────────────────────────────\n\n"
             f"📝 *Step 2 of 3: Now, what caption would you like for this Facebook post?*\n\n"
-            f"• Tap **[🤖 You Choose / AI Generate]** to let me craft a high-converting caption, OR\n"
+            f"• Tap **[🤖 You Choose (Bangla AI Caption)]** to let me craft a high-converting caption, OR\n"
             f"• Type your own custom Facebook caption directly below!"
         )
 
-        await update.message.reply_text(
+        p_msg = await update.message.reply_text(
             review_prompt,
             parse_mode="Markdown",
             reply_markup=make_caption_choice_keyboard()
         )
+        wizard_ids.append(p_msg.message_id)
+        session["wizard_msg_ids"] = wizard_ids
+        USER_SESSIONS[user_id] = session
         return
 
-    # 2. Step 2: User typed their own custom caption (or typed 'you choose')
+    # 2. Step 2: User typed caption text (or instructed AI in Bangla)
     elif session and session.get("step") in ("waiting_caption_choice", "waiting_caption_text"):
-        if text.lower() in ("you choose", "ai choose", "choose", "auto"):
-            style_id = session.get("style_id", 1)
-            rough_prompt = session.get("rough_prompt", "Canva Pro Official Access")
-            caption = generate_facebook_caption(style_id, rough_prompt)
+        wizard_ids = session.get("wizard_msg_ids", [])
+        wizard_ids.append(update.message.message_id)
+
+        lower_text = text.lower()
+        is_ai_trigger = (
+            any(k in lower_text for k in ["you choose", "ai choose", "choose", "auto", "generate", "ai"])
+            or "bangla" in lower_text
+            or "বাংলা" in text
+        )
+
+        style_id = session.get("style_id", 1)
+        rough_prompt = session.get("rough_prompt", "Canva Pro Official Access")
+
+        if is_ai_trigger:
+            wait_m = await update.message.reply_text("⏳ *Generating high-converting Bengali caption for you...*", parse_mode="Markdown")
+            wizard_ids.append(wait_m.message_id)
+            caption = generate_facebook_caption(style_id, rough_prompt, lang="bangla")
         else:
             caption = text
 
         session["caption"] = caption
         session["step"] = "waiting_time"
-        USER_SESSIONS[user_id] = session
 
-        await update.message.reply_text(
-            f"✅ *Facebook Caption Saved!*\n\n"
+        time_msg = await update.message.reply_text(
+            f"✅ *Facebook Caption Saved:*\n"
+            f"──────────────────────────────\n"
+            f"{caption}\n"
+            f"──────────────────────────────\n\n"
             f"⏰ *Step 3 of 3: When do you want to publish this post on Facebook?*\n"
             f"Choose a preset below or type any custom time (e.g. `today 9:30pm`, `tomorrow 8pm`, `in 3 hours`):",
             parse_mode="Markdown",
             reply_markup=make_preset_time_keyboard()
         )
+        wizard_ids.append(time_msg.message_id)
+        session["wizard_msg_ids"] = wizard_ids
+        USER_SESSIONS[user_id] = session
         return
 
     # 3. Step 3: User typed scheduled time
     elif session and session.get("step") == "waiting_time":
+        session.setdefault("wizard_msg_ids", []).append(update.message.message_id)
         await finalize_schedule_flow(chat_id, user_id, context, text)
         return
 
     # 4. Natural language triggers
     lower = text.lower()
     if any(k in lower for k in ["schedule facebook", "schedule post", "schedule", "post"]):
-        await send_all_designs(chat_id, context)
+        await send_all_designs(chat_id, context, user_id=user_id)
         return
     elif any(k in lower for k in ["designs", "show design", "all design"]):
-        await send_all_designs(chat_id, context)
+        await send_all_designs(chat_id, context, user_id=user_id)
         return
     elif any(k in lower for k in ["schedules", "reminders", "active post"]):
         await show_active_schedules(chat_id, context)
@@ -924,21 +1012,32 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def finalize_schedule_flow(chat_id: int, user_id: int, context: ContextTypes.DEFAULT_TYPE, time_str: str):
-    """Calculates timestamps, saves the Total Info Card, and registers the 1-hour pre-alarm."""
-    session = USER_SESSIONS.get(user_id, {})
+    """
+    Atomically finalizes schedule, deletes all wizard messages to collapse the chat,
+    and sends a single Total Info Summary Card.
+    """
+    # 1. ATOMIC POP: Prevents duplicate execution on double-click or simultaneous input
+    session = USER_SESSIONS.pop(user_id, None)
+    if not session or not session.get("design_name") or session.get("step") not in ("waiting_time", "waiting_caption_choice", "waiting_caption_text"):
+        logger.warning(f"Ignoring duplicate/stray finalize call for user {user_id}")
+        return
+
+    target_dt, err = parse_target_datetime(time_str)
+    if err or not target_dt:
+        # Re-insert session so user can retry entering time
+        USER_SESSIONS[user_id] = session
+        err_msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"⚠️ {err}\n\nPlease try again (e.g. `today 9pm`, `tomorrow 10am`, `in 2 hours`):"
+        )
+        session.setdefault("wizard_msg_ids", []).append(err_msg.message_id)
+        return
+
     style_id = session.get("style_id", 1)
     design_name = session.get("design_name", f"Design {style_id}")
     rough_prompt = session.get("rough_prompt", "")
     enhanced_prompt = session.get("enhanced_prompt", "")
     caption = session.get("caption", "")
-
-    target_dt, err = parse_target_datetime(time_str)
-    if err or not target_dt:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"⚠️ {err}\n\nPlease try again (e.g. `today 9pm`, `tomorrow 10am`, `in 2 hours`):"
-        )
-        return
 
     now_ts = int(time.time())
     target_ts = int(target_dt.timestamp())
@@ -955,9 +1054,9 @@ async def finalize_schedule_flow(chat_id: int, user_id: int, context: ContextTyp
         "rough_prompt": rough_prompt,
         "enhanced_prompt": enhanced_prompt,
         "caption": caption,
-        "target_time_str": target_dt.strftime("%A, %d %b %Y - %I:%M %p"),
+        "target_time_str": target_dt.strftime("%A, %d %b %Y — %I:%M %p"),
         "target_ts": target_ts,
-        "remind_1h_str": datetime.fromtimestamp(remind_1h_ts).strftime("%A, %d %b %Y - %I:%M %p"),
+        "remind_1h_str": datetime.fromtimestamp(remind_1h_ts).strftime("%A, %d %b %Y — %I:%M %p"),
         "remind_1h_ts": remind_1h_ts,
         "remind_1h_sent": remind_1h_sent,
         "post_due_sent": False,
@@ -965,14 +1064,22 @@ async def finalize_schedule_flow(chat_id: int, user_id: int, context: ContextTyp
         "created_at": datetime.now().strftime("%Y-%m-%d %I:%M %p"),
     }
 
+    # Save to persistent storage
     schedules = load_schedules()
+    # Filter any accidental empty duplicates before adding
+    schedules = [s for s in schedules if s.get("caption") or s.get("rough_prompt")]
     schedules.append(schedule_record)
     save_schedules(schedules)
 
-    # Clear user session
-    USER_SESSIONS.pop(user_id, None)
+    # 2. CLEAR ALL WIZARD MESSAGES (Collapse session into a clean chat)
+    wizard_msg_ids = session.get("wizard_msg_ids", [])
+    for mid in wizard_msg_ids:
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=mid)
+        except Exception:
+            pass
 
-    # Send Total Info Summary Card
+    # 3. SEND SINGLE CLEAN TOTAL INFO CARD
     card_text = make_total_info_card(schedule_record)
     kb = InlineKeyboardMarkup([
         [
@@ -1006,7 +1113,7 @@ async def reminder_daemon_loop(application):
             updated = False
 
             for s in schedules:
-                if s.get("status") != "active":
+                if s.get("status") != "active" or not s.get("caption"):
                     continue
 
                 chat_id = s.get("chat_id")
