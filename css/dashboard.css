@@ -3563,3 +3563,46 @@
             opacity: 1 !important;
             color: var(--blue-primary) !important;
         }
+
+
+        /* Subscribers Plan Share Mini Indications & Hover Focus */
+        .donut-mini-indicators {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.65rem;
+            padding-top: 0.65rem;
+            border-top: 1px solid var(--border-subtle);
+        }
+        .donut-indicator-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-subtle);
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+        }
+        .donut-indicator-pill:hover,
+        .donut-indicator-pill.active-pill {
+            background: #FFFFFF;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+        }
+        .donut-indicator-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .donut-indicator-label {
+            letter-spacing: -0.01em;
+        }

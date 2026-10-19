@@ -177,6 +177,20 @@
         
         // ==================== SUBSCRIBERS PLAN SHARE (DONUT CHART & TEAM FILTER) ====================
         // donutSelectedTeam hoisted
+        var activeDonutHoverIndex = null;
+        var donutCanvasListenersAttached = false;
+        var lastDonutSlices = [];
+        var lastDonutCenter = { cx: 0, cy: 0, innerR: 0, outerR: 0 };
+
+        function setDonutSliceHover(idx) {
+            activeDonutHoverIndex = idx;
+            drawPackageDonutChart(1.0);
+        }
+
+        function clearDonutSliceHover() {
+            activeDonutHoverIndex = null;
+            drawPackageDonutChart(1.0);
+        }
 
         function toggleDonutTeamDropdown(e) {
             if (e) e.stopPropagation();
@@ -250,75 +264,180 @@
                 ctx.textAlign = "center";
                 ctx.fillText("No members enrolled in this team", w / 2, h / 2);
                 if (legendEl) {
-                    legendEl.className = "donut-legend-grid";
-                    legendEl.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem;">No active subscription plans for ${donutSelectedTeam}</div>`;
+                    legendEl.className = "donut-mini-indicators";
+                    legendEl.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem;">No active subscription plans for ${donutSelectedTeam}</div>`;
                 }
                 return;
             }
 
             const slices = [
-                { label: "1 Month (৳25)", count: m1, color: "#0059EF" },
-                { label: "3 Months (৳50)", count: m3, color: "#6B67ED" },
-                { label: "6 Months (৳99)", count: m6, color: "#069F70" }
+                { label: "1 Month (৳25)", displayName: "1 Month", count: m1, color: "#0059EF" },
+                { label: "3 Months (৳50)", displayName: "3 Months", count: m3, color: "#6B67ED" },
+                { label: "6 Months (৳99)", displayName: "6 Months", count: m6, color: "#069F70" }
             ].filter(s => s.count > 0);
+
+            slices.forEach(s => {
+                s.pct = Math.round((s.count / total) * 100);
+            });
 
             const cx = w / 2;
             const cy = h / 2 - 2;
             const outerR = Math.min(cx, cy) - 10;
             const innerR = outerR * 0.62;
 
+            lastDonutCenter = { cx, cy, innerR, outerR };
+            lastDonutSlices = slices;
+
             const prog = Math.max(0, Math.min(1, animProgress));
             const sweepLimit = Math.PI * 2 * prog;
             let currentAngle = -Math.PI / 2;
             const baseStart = -Math.PI / 2;
 
-            slices.forEach(slice => {
+            const hasAnyHover = (activeDonutHoverIndex !== null && activeDonutHoverIndex >= 0 && activeDonutHoverIndex < slices.length);
+
+            slices.forEach((slice, idx) => {
                 const sliceAngle = (slice.count / total) * (Math.PI * 2);
                 const sStart = currentAngle;
                 const sEnd = sStart + sliceAngle;
+
+                slice.normStart = currentAngle - baseStart;
+                slice.normEnd = slice.normStart + sliceAngle;
+
                 currentAngle += sliceAngle;
 
                 const maxAllowed = baseStart + sweepLimit;
                 if (maxAllowed > sStart) {
                     const drawEnd = Math.min(sEnd, maxAllowed);
-                    ctx.beginPath();
-                    ctx.arc(cx, cy, outerR, sStart, drawEnd);
-                    ctx.arc(cx, cy, innerR, drawEnd, sStart, true);
-                    ctx.closePath();
-                    ctx.fillStyle = slice.color;
-                    ctx.fill();
+                    const isHovered = (activeDonutHoverIndex === idx);
+
+                    ctx.save();
+                    if (hasAnyHover) {
+                        if (isHovered) {
+                            // MAIN FOCUS: slightly expanded radius, rich color, subtle shadow
+                            const popOuterR = outerR + 5;
+                            const popInnerR = innerR - 2;
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, popOuterR, sStart, drawEnd);
+                            ctx.arc(cx, cy, popInnerR, drawEnd, sStart, true);
+                            ctx.closePath();
+                            ctx.shadowColor = slice.color;
+                            ctx.shadowBlur = 10;
+                            ctx.fillStyle = slice.color;
+                            ctx.fill();
+                        } else {
+                            // OUT OF FOCUS: soft subdued opacity
+                            ctx.globalAlpha = 0.22;
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, outerR, sStart, drawEnd);
+                            ctx.arc(cx, cy, innerR, drawEnd, sStart, true);
+                            ctx.closePath();
+                            ctx.fillStyle = slice.color;
+                            ctx.fill();
+                        }
+                    } else {
+                        // Normal state
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, outerR, sStart, drawEnd);
+                        ctx.arc(cx, cy, innerR, drawEnd, sStart, true);
+                        ctx.closePath();
+                        ctx.fillStyle = slice.color;
+                        ctx.fill();
+                    }
+                    ctx.restore();
                 }
             });
 
-            // Center Badge: Dynamic counting up animation!
-            const displayCount = Math.round(total * prog);
-            ctx.fillStyle = "#0F172A";
-            ctx.font = "800 20px 'JetBrains Mono', monospace";
-            ctx.textAlign = "center";
-            ctx.fillText(displayCount.toString(), cx, cy + 3);
+            // Center Badge: Dynamic hover focus or total count
+            if (hasAnyHover && slices[activeDonutHoverIndex]) {
+                const hSlice = slices[activeDonutHoverIndex];
 
-            ctx.fillStyle = "#8E9BAE";
-            ctx.font = "700 9.5px 'Plus Jakarta Sans', sans-serif";
-            ctx.fillText("MEMBERS", cx, cy + 18);
+                // Plan Name (e.g. "1 Month")
+                ctx.fillStyle = "#64748B";
+                ctx.font = "700 11.5px 'Plus Jakarta Sans', sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(hSlice.displayName, cx, cy - 13);
 
-            // Update Custom Legend on bottom of card with appropriate 2x2 grid tiles
+                // Percentage (e.g. "33%")
+                ctx.fillStyle = hSlice.color;
+                ctx.font = "800 24px 'JetBrains Mono', monospace";
+                ctx.textAlign = "center";
+                ctx.fillText(`${hSlice.pct}%`, cx, cy + 9);
+
+                // Count (e.g. "1 Member" / "2 Members")
+                ctx.fillStyle = "#0F172A";
+                ctx.font = "700 10.5px 'JetBrains Mono', monospace";
+                ctx.textAlign = "center";
+                ctx.fillText(`${hSlice.count} ${hSlice.count === 1 ? 'MEMBER' : 'MEMBERS'}`, cx, cy + 24);
+            } else {
+                // Default center badge
+                const displayCount = Math.round(total * prog);
+                ctx.fillStyle = "#0F172A";
+                ctx.font = "800 22px 'JetBrains Mono', monospace";
+                ctx.textAlign = "center";
+                ctx.fillText(displayCount.toString(), cx, cy + 3);
+
+                ctx.fillStyle = "#8E9BAE";
+                ctx.font = "700 9.5px 'Plus Jakarta Sans', sans-serif";
+                ctx.fillText("MEMBERS", cx, cy + 18);
+            }
+
+            // Update Mini Indications under Donut (Only "1 Month" format as requested!)
             if (legendEl) {
-                legendEl.className = "donut-legend-grid";
-                legendEl.innerHTML = slices.map(s => {
-                    const pct = Math.round((s.count / total) * 100);
+                legendEl.className = "donut-mini-indicators";
+                legendEl.innerHTML = slices.map((s, idx) => {
+                    const isHovered = (activeDonutHoverIndex === idx);
                     return `
-                        <div class="donut-legend-tile">
-                            <div class="donut-legend-info">
-                                <span class="donut-legend-dot" style="background: ${s.color};"></span>
-                                <span class="donut-legend-title">${s.label}</span>
-                            </div>
-                            <div class="donut-legend-metrics">
-                                <span class="donut-legend-num">${s.count}</span>
-                                <span class="donut-legend-pct-pill" style="color: ${s.color}; background: ${s.color}15; border: 1px solid ${s.color}25;">${pct}%</span>
-                            </div>
+                        <div class="donut-indicator-pill ${isHovered ? 'active-pill' : ''}" 
+                             style="${isHovered ? `border-color: ${s.color}; background: ${s.color}15; color: ${s.color};` : ''}"
+                             onmouseenter="setDonutSliceHover(${idx})"
+                             onmouseleave="clearDonutSliceHover()">
+                            <span class="donut-indicator-dot" style="background: ${s.color};"></span>
+                            <span class="donut-indicator-label">${s.displayName}</span>
                         </div>
                     `;
                 }).join('');
+            }
+
+            // Attach hover event listeners to packageCanvas once
+            if (!donutCanvasListenersAttached) {
+                donutCanvasListenersAttached = true;
+
+                canvas.addEventListener("mousemove", (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    const dx = mouseX - lastDonutCenter.cx;
+                    const dy = mouseY - lastDonutCenter.cy;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    let hovered = null;
+                    if (dist >= lastDonutCenter.innerR - 6 && dist <= lastDonutCenter.outerR + 10) {
+                        let angle = Math.atan2(dy, dx);
+                        let relAngle = angle - (-Math.PI / 2);
+                        while (relAngle < 0) relAngle += Math.PI * 2;
+                        while (relAngle >= Math.PI * 2) relAngle -= Math.PI * 2;
+
+                        for (let i = 0; i < lastDonutSlices.length; i++) {
+                            const sl = lastDonutSlices[i];
+                            if (relAngle >= sl.normStart && relAngle <= sl.normEnd) {
+                                hovered = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (activeDonutHoverIndex !== hovered) {
+                        activeDonutHoverIndex = hovered;
+                        drawPackageDonutChart(1.0);
+                    }
+                });
+
+                canvas.addEventListener("mouseleave", () => {
+                    if (activeDonutHoverIndex !== null) {
+                        activeDonutHoverIndex = null;
+                        drawPackageDonutChart(1.0);
+                    }
+                });
             }
         }
 

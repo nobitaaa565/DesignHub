@@ -29,11 +29,18 @@
             const btn = document.getElementById("btnRefresh");
             if (btn) btn.classList.add("syncing");
 
+            // Immediately reset lastSyncTimestamp and show "Synced just now"
+            lastSyncTimestamp = Date.now();
+            updateRelativeSyncTime();
+
             try {
                 await loadDashboardData(false);
             } catch (err) {
                 console.warn("Manual sync fallback:", err);
             }
+
+            lastSyncTimestamp = Date.now();
+            updateRelativeSyncTime();
 
             filterSubscribers();
             filterPayments();
@@ -44,6 +51,8 @@
 
             setTimeout(() => {
                 if (btn) btn.classList.remove("syncing");
+                lastSyncTimestamp = Date.now();
+                updateRelativeSyncTime();
                 showToast("System synchronized with live cloud database", "success");
             }, 500);
         }
@@ -173,6 +182,8 @@
                 updateRelativeSyncTime();
             } catch (err) {
                 console.warn("Dashboard sync using offline/local cache:", err);
+                lastSyncTimestamp = Date.now();
+                updateRelativeSyncTime();
                 const isScoped = (typeof selectedTeams !== "undefined" && selectedTeams.size > 0 && selectedTeams.size < allTeams.length);
                 const scopedSubs = isScoped ? allSubscribers.filter(s => selectedTeams.has(s.team_name || "Carmella Elan")) : allSubscribers;
                 const scopedPays = isScoped ? allPayments.filter(p => selectedTeams.has(p.team_name || "Carmella Elan")) : allPayments;
