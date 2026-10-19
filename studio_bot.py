@@ -43,7 +43,7 @@ from telegram.ext import (
 WORKSPACE_DIR = Path(__file__).resolve().parent
 load_dotenv(WORKSPACE_DIR / ".env")
 
-STUDIO_BOT_TOKEN = os.getenv("STUDIO_BOT_TOKEN") or "8948969587:AAFCqGJDH2qG_En5szzPAfqJ6jxl5pFpbow"
+STUDIO_BOT_TOKEN = os.getenv("STUDIO_BOT_TOKEN", "").strip()
 ALLOWED_USER_ID = os.getenv("TELEGRAM_ALLOWED_USER_ID")
 REMINDERS_FILE = WORKSPACE_DIR / "reminders.json"
 

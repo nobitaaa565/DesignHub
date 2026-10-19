@@ -2113,7 +2113,7 @@ def start_studio_bot_daemon():
     studio_script = Path(__file__).resolve().parent / "studio_bot.py"
     if not studio_script.exists():
         return
-    token = os.getenv("STUDIO_BOT_TOKEN") or "8948969587:AAFCqGJDH2qG_En5szzPAfqJ6jxl5pFpbow"
+    token = os.getenv("STUDIO_BOT_TOKEN", "").strip()
     if not token:
         return
     try:
