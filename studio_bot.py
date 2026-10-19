@@ -124,8 +124,8 @@ DESIGNS = [
         "id": 10,
         "name": "Design 10: 3D Hardcover Book, Isometric Metaphor & Cyber Relational Schema",
         "title": "3D Hardcover Book, Isometric Metaphor & Cyber Relational Schema",
-        "image": "designs/design-10_reference/reference.jpg",
-        "desc": "Deep cyber navy backdrop, 3D hardcover book with isometric world art, floating neon SQL table schema cards, arrow price pill [ মাত্র ৳১১১ ], and glowing cart CTA.",
+        "image": "designs/design-10_reference/canva_book_cyber_master_design10.jpg",
+        "desc": "Deep cyber navy backdrop, 3D hardcover book with isometric designer studio, floating holographic cards, two-tone cyan title, and [ মাত্র ২৫ টাকা ] price arrow.",
     },
     {
         "id": 11,
