@@ -106,6 +106,13 @@ DESIGNS = [
         "image": "designs/design-7_reference/canva_pro_bento_promo_1080x1350.jpg",
         "desc": "Split bento grid, rich gradient card, stark-white embossed [ মাত্র ৫০ টাকা ] ticket pill, 5 stacked feature cards.",
     },
+    {
+        "id": 8,
+        "name": "Design 8: High-Impact Commercial Hardware & SaaS Showcase",
+        "title": "High-Impact Commercial Hardware & SaaS Showcase",
+        "image": "designs/design-8_reference/reference.jpg",
+        "desc": "Bengali commercial product showcase, central hardware/device mockup on wooden counter, dashed coupon badge [ ফ্রি ট্রায়াল / অফার ], and hotline footer.",
+    },
 ]
 
 # Track wizard sessions and active message IDs to collapse
