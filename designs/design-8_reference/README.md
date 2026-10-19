@@ -1,20 +1,19 @@
-# Design 8: High-Impact Commercial Hardware & SaaS Showcase
+# Design 8: Commercial Hardware Centerpiece & Dual Pill Hotline Footer
 
-## Benchmark Reference
-- **File:** `reference.jpg` / `restaurant_pos_commercial_promo.jpg`
-- **Category:** Commercial B2B & B2C SaaS / Hardware Product Showcase
-- **Format:** Square (1:1, 1080x1080) & Facebook Portrait (4:5, 1080x1350)
+**Directory:** `designs/design-8_reference/`
 
-## Visual Architecture
-1. **Headline Zone (Top-Right):**
-   - High-contrast, bold Bengali headline (`রেস্টুরেন্টের জন্য POS সফটওয়্যার খুঁজছেন ?`).
-   - Thematic category subtitle with red emphasis pill (`দেশের প্রথম AI powered রেস্টুরেন্ট সফটওয়্যার ChillyPOS`).
-2. **Hero Device Centerpiece (Center):**
-   - Tangible hardware or device setup (touchscreen POS terminal with live dashboard UI, thermal receipt printer with receipt paper output, cash drawer).
-   - Dynamic luminous neon rim/energy beam circling the machine for futuristic energy.
-3. **Surrounding Contextual Props:**
-   - Appetizing food plates (kebabs, grilled chicken, fresh salads) garnishing the wooden counter.
-4. **Offer Badge (Left Side):**
-   - Prominent square dashed-border coupon badge (`ফ্রি ট্রায়াল করুন` / `মাত্র ২৫ টাকা`).
-5. **Contact Footer (Bottom):**
-   - Clean dark footer bar: website URL on the left (`www.chillypos.com`) and red hotline call pill on the right (`01338 540 542`).
+## Visual Archetype & DNA
+- **Aesthetic:** High-impact commercial B2B/B2C SaaS retail launch aesthetic.
+- **Background & Ambiance:** Warm, polished dark wood or slate studio counter with soft directional key lights and ambient cinematic edge glow.
+- **Layout Architecture (Geometry G):**
+  1. **Top-Right Headline:** Bold two-tone Bengali inquiry headline (e.g. `ডিজাইন করতে হিমশিম খাচ্ছেন ?`) with high-contrast red/cyan accent tag `Canva Pro Ultimate Solution`.
+  2. **Hero Centerpiece:** Photorealistic 3D hardware/device setup (iPad Pro / workstation with Magic Keyboard displaying vibrant Canva interface) with an energetic luminous neon beam circling the device.
+  3. **Left Offer Container:** Square dashed-border callout coupon badge with bold price `[ মাত্র ২৫ টাকা ]` and trust line `ইনস্ট্যান্ট এক্টিভেশন`.
+  4. **Bottom Contact Footer:** Sleek dark horizontal footer bar: website URL on left (`designhub.com.bd`) and red hotline call pill on right (`01338 540 542`).
+
+## Context Triggers
+- Commercial launches, hardware/software bundles, B2B workflows, and high-converting retail promotions.
+
+## Core Rule
+- `reference.jpg`: Reference blueprint showing layout geometry and energy lines.
+- **Always generate 100% original artwork from scratch** using pure text prompts tailored for Design Hub and Canva Pro.

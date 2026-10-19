@@ -129,10 +129,10 @@ DESIGNS = [
     },
     {
         "id": 11,
-        "name": "Design 11: 3D Tech Mascot, Server Tower & Big Blue Price Badge",
-        "title": "3D Tech Mascot, Server Tower & Big Blue Price Badge",
-        "image": "designs/design-11_reference/reference.jpg",
-        "desc": "Crisp white & royal blue tech studio, 3D robot mascot pointing at server tower, giant [ 1690 টাকা/বার্ষিক ] blue badge, and 3-card uptime feature stack.",
+        "name": "Design 11: 3D Tech Mascot, Server Tower & Giant Blue Price Pill",
+        "title": "3D Tech Mascot, Server Tower & Giant Blue Price Pill",
+        "image": "designs/design-11_reference/canva_pro_robot_server_design11_master.jpg",
+        "desc": "High-key white & royal blue tech studio, 3D robot mascot pointing at server tower, 3D Canva tile, giant [ ৳ ২৫ ] badge, and 3-card trust stack.",
     },
 ]
 

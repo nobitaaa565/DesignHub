@@ -1,25 +1,26 @@
-# Design 11: 3D Tech Mascot, Server Tower & Big Blue Price Badge
+# Design 11: 3D Tech Mascot, Server Tower & Giant Blue Price Pill
 
-## Benchmark Reference
-- **File:** `reference.jpg` / `cloud_hosting_robot_server_promo.jpg`
-- **Category:** Web Hosting, Cloud Infrastructure, Tech Bundles, SaaS Domains & Servers
-- **Format:** Square (1:1, 1080x1080) & Facebook Portrait (4:5, 1080x1350)
+**Directory:** `designs/design-11_reference/`
 
-## Visual Architecture
-1. **Background & Branding:**
-   - Crisp, high-key white and ice-blue tech studio background with minimalist tech circuit corner accents.
-   - Branded tech logo centered at the top (`HOSTNIL` with blue node icon).
-2. **Hero Centerpiece (Center-Right):**
-   - Sleek enterprise server tower rack with glowing blue LED drive bays.
-   - Adorable 3D white & blue robot mascot with smiling blue digital eyes, standing on an illuminated circular pedestal and gesturing toward the server.
-3. **Headline (Top-Left):**
-   - High-contrast Bengali offer headline: `১০ জিবি হোস্টিং ও .com ডোমেইন` with vibrant royal blue emphasis on `হোস্টিং`.
-4. **Giant Price Badge (Lower-Left):**
-   - Massive rounded royal blue container with huge white numbers (`1690` / `মাত্র ২৫ টাকা`) and white sub-pill (`টাকা / বার্ষিক`), paired with `— value for money —`.
-5. **Feature Stack (Upper-Right):**
-   - 3 clean white cards with royal blue icons:
-     • `99.9% UPTIME` (clock gauge)
-     • `NVMe STORAGE` (chipset)
-     • `24/7 SUPPORT` (headset)
-6. **Contact Footer (Bottom):**
-   - Clean white capsule pill footer containing phone hotline (`01978-559696`), website (`hostnil.com`), and social tag (`Host Nil`).
+## Visual Archetype & DNA
+- **Aesthetic:** High-key, friendly commercial cloud infrastructure and creative tool bundle.
+- **Background & Ambiance:** Pristine high-key white and ice-blue studio space with minimalist circuit trace corner accents.
+- **Layout Architecture (Geometry J):**
+  1. **Top-Left Header:** Reserved clean area for programmatic overlay of official `designuhb-logo.png`. High-contrast bold typography: `CANVA PRO & 1TB CLOUD` with subline `100M+ Assets & Magic Studio AI`.
+  2. **Center-Right Hero Duo:**
+     - Sleek 3D enterprise server tower with glowing blue LED drive bays and brushed chrome casing.
+     - Friendly, charming 3D Pixar/Disney-style white and royal-blue robot mascot with digital smiling cyan LED eyes, standing on an illuminated circular floor pedestal and pointing toward the offer.
+     - Floating tactile 3D squircle tile featuring the official Canva gradient.
+  3. **Upper-Right Feature Stack:** Stack of 3 rounded white micro-cards with royal blue icons:
+     - 🔒 `100% Private (No Others Can View)`
+     - 📂 `1 TB Cloud Storage`
+     - ⚡ `Zero Expire Hassle`
+  4. **Lower-Left Giant Price Pill:** Massive rounded royal blue container with oversized white price numbers `৳ 25`, white sub-pill `শুরু মাত্র`, and trust line `— value for money —`.
+  5. **Bottom Contact Bar:** Clean rounded capsule footer: `Hotline: 01338-540 542 • Web: designhub.com.bd • fb.com/DesignHubBD`.
+
+## Context Triggers
+- Cloud storage bundles, enterprise team upgrades, friendly automated tech offerings, high-trust Bangladeshi consumer offers.
+
+## Core Rule
+- `reference.jpg`: Layout and visual archetype reference.
+- **Never pass reference images into diffusion!** Always generate 100% original brand artwork from text prompts, then composite the official brand logo.
