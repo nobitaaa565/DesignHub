@@ -29,6 +29,7 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     BotCommand,
+    MenuButtonCommands,
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -913,13 +914,19 @@ async def reminder_daemon_loop(application):
 
 async def post_init(application):
     commands = [
-        BotCommand("start", "Open task scheduler dashboard"),
-        BotCommand("remind", "Set reminder: /remind <time> - <task>"),
-        BotCommand("tasks", "View all active scheduled tasks"),
-        BotCommand("clear", "Clear completed tasks"),
-        BotCommand("help", "Scheduler help & usage guide"),
+        BotCommand("start", "🚀 Open Task Scheduler Dashboard"),
+        BotCommand("remind", "⏰ Set Reminder: /remind <time> - <task>"),
+        BotCommand("tasks", "📋 View Active Tasks & Alarms"),
+        BotCommand("clear", "🧹 Clear Completed Tasks"),
+        BotCommand("help", "💡 Usage Guide & Time Formats"),
+        BotCommand("listusers", "👥 View Authorized Users"),
+        BotCommand("adduser", "➕ Authorize Team Member: /adduser <id>"),
     ]
     await application.bot.set_my_commands(commands)
+    try:
+        await application.bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+    except Exception as e:
+        logger.warning(f"Could not set chat menu button: {e}")
     asyncio.create_task(reminder_daemon_loop(application))
     logger.info("Bot-2 commands registered & scheduler daemon active.")
 
