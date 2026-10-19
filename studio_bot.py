@@ -113,6 +113,13 @@ DESIGNS = [
         "image": "designs/design-8_reference/reference.jpg",
         "desc": "Bengali commercial product showcase, central hardware/device mockup on wooden counter, dashed coupon badge [ ফ্রি ট্রায়াল / অফার ], and hotline footer.",
     },
+    {
+        "id": 9,
+        "name": "Design 9: Modern Tech Desk, Laptop Mockup & 3D Glass Token",
+        "title": "Modern Tech Desk, Laptop Mockup & 3D Glass Token",
+        "image": "designs/design-9_reference/reference.jpg",
+        "desc": "Emerald green & ivory studio desk, open laptop with live UI, 3D glossy glass app token on desk, prominent [ ৳১৫০ / মাস ] price badge, and pill feature tags.",
+    },
 ]
 
 # Track wizard sessions and active message IDs to collapse
