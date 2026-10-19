@@ -227,7 +227,7 @@
                 const refBadge = `<span class="ref-badge ${isPageLead ? 'ref-badge-page' : 'ref-badge-custom'}" title="${refName}">${refIcon}<span>${refName}</span></span>`;
 
                 if (subQuickEditActive) {
-                    const refOpts = (allReferences || ["Page Lead"]).map(r => `<option value="${r}" ${r.toLowerCase() === refName.toLowerCase() ? 'selected' : ''}>${r}</option>`).join('');
+                    const refOpts = ["Page Lead", "WhatsApp", "Instagram", "Hridoy"].map(r => `<option value="${r}" ${r.toLowerCase() === refName.toLowerCase() ? 'selected' : ''}>${r}</option>`).join('');
                     const teamOpts = allTeams.map(t => `<option value="${t}" ${t === (sub.team_name || 'Carmella Elan') ? 'selected' : ''}>${t}</option>`).join('');
                     const pkgOpts = ["1 Month", "3 Months", "6 Months"].map(p => `<option value="${p}" ${p.toLowerCase().includes((sub.package || '').toLowerCase()) ? 'selected' : ''}>${p}</option>`).join('');
                     const provOpts = ["bkash", "nagad", "rocket", "bank", "other"].map(pr => `<option value="${pr}" ${pr === methRaw ? 'selected' : ''}>${pr.toUpperCase()}</option>`).join('');

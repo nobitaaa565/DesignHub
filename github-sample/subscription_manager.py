@@ -1232,25 +1232,8 @@ def delete_subscriber(email: str) -> bool:
 
 
 def get_all_references() -> list:
-    """Returns list of reference sources (defaulting to 'Page Lead')."""
-    init_db()
-    with get_db() as conn:
-        c = conn.cursor()
-        refs = []
-        try:
-            c.execute("SELECT value FROM settings WHERE key = 'reference_names'")
-            row = c.fetchone()
-            if row and row[0]:
-                refs = json.loads(row[0])
-        except Exception:
-            refs = []
-        try:
-            c.execute("SELECT DISTINCT reference_name FROM subscriptions WHERE reference_name IS NOT NULL AND reference_name != ''")
-            db_refs = [r[0] for r in c.fetchall()]
-        except Exception:
-            db_refs = []
-        combined = list(dict.fromkeys(["Page Lead", "Admin Direct", "WhatsApp", "Personal Referral"] + refs + db_refs))
-        return combined
+    """Returns list of reference sources strictly restricted to the 4 official channels."""
+    return ["Page Lead", "WhatsApp", "Instagram", "Hridoy"]
 
 
 def add_reference(ref_name: str) -> list:

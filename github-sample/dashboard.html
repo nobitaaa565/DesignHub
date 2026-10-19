@@ -806,20 +806,13 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                        <label class="form-label" style="margin-bottom: 0;">Reference Name</label>
-                        <div style="display: flex; gap: 0.6rem;">
-                            <button type="button" onclick="openEditReferencePrompt('edit')" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.2rem;">
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                <span>Edit Name</span>
-                            </button>
-                            <button type="button" onclick="openAddReferencePrompt('edit')" style="font-size: 0.75rem; color: var(--blue-primary); font-weight: 700; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.2rem;">
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                                <span>+ New</span>
-                            </button>
-                        </div>
-                    </div>
-                    <select id="editReference" class="form-select" onchange="onEditReferenceChange()"></select>
+                    <label class="form-label">Reference Name</label>
+                    <select id="editReference" class="form-select">
+                        <option value="Page Lead">Page Lead</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Instagram">Instagram</option>
+                        <option value="Hridoy">Hridoy</option>
+                    </select>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -1073,14 +1066,13 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                        <label class="form-label" style="margin-bottom: 0;">Reference Source / Referrer</label>
-                        <button type="button" onclick="openAddReferencePrompt('add')" style="font-size: 0.75rem; color: var(--blue-primary); font-weight: 700; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.25rem;">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            <span>+ New Reference</span>
-                        </button>
-                    </div>
-                    <select id="addReference" class="form-select" onchange="onAddReferenceChange()"></select>
+                    <label class="form-label">Reference Source / Referrer</label>
+                    <select id="addReference" class="form-select">
+                        <option value="Page Lead">Page Lead</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Instagram">Instagram</option>
+                        <option value="Hridoy">Hridoy</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Rate / Payment Amount (BDT ৳) *</label>

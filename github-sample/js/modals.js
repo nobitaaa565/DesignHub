@@ -1780,21 +1780,19 @@
         function populateReferenceSelects() {
             const addSel = document.getElementById("addReference");
             const editSel = document.getElementById("editReference");
-            if (!Array.isArray(allReferences) || allReferences.length === 0) {
-                allReferences = ["Page Lead", "Admin Direct", "WhatsApp", "Personal Referral"];
-            }
-            const opts = allReferences.map(r => `<option value="${r}">${r}</option>`).join('') +
-                         `<option value="__add__">+ Add New Reference...</option>`;
+            allReferences = ["Page Lead", "WhatsApp", "Instagram", "Hridoy"];
+            saveStoredData("dh_references", allReferences);
+            const opts = allReferences.map(r => `<option value="${r}">${r}</option>`).join('');
             if (addSel) {
                 const cur = addSel.value;
                 addSel.innerHTML = opts;
-                if (cur && cur !== "__add__" && allReferences.includes(cur)) addSel.value = cur;
+                if (cur && allReferences.includes(cur)) addSel.value = cur;
                 else addSel.value = "Page Lead";
             }
             if (editSel) {
                 const cur = editSel.value;
                 editSel.innerHTML = opts;
-                if (cur && cur !== "__add__" && allReferences.includes(cur)) editSel.value = cur;
+                if (cur && allReferences.includes(cur)) editSel.value = cur;
                 else editSel.value = "Page Lead";
             }
         }

@@ -86,7 +86,7 @@
 
                 // Synchronize reference sources with live database
                 if (dataSubs && Array.isArray(dataSubs.references) && dataSubs.references.length > 0) {
-                    allReferences = Array.from(new Set(["Page Lead", ...dataSubs.references]));
+                    allReferences = ["Page Lead", "WhatsApp", "Instagram", "Hridoy"];
                     saveStoredData("dh_references", allReferences);
                 }
 
