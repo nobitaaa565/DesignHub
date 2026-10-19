@@ -118,6 +118,7 @@ var healthPeriod = "days";
 var healthOffset = 0;
 var activeHealthHoverIndex = null;
 var activeHealthMouseX = null;
+var activeHealthMouseY = null;
 var healthCanvasListenersAttached = false;
 var donutSelectedTeam = "all";
 var currentDrawerFilter = "all";

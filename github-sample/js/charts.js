@@ -121,6 +121,31 @@
             if (revMenu) revMenu.classList.remove("active");
         }
 
+        var healthTransitionAnimId = null;
+
+        function animateHealthTransition(duration = 360) {
+            if (healthTransitionAnimId) cancelAnimationFrame(healthTransitionAnimId);
+            activeHealthHoverIndex = null;
+            activeHealthMouseX = null;
+            activeHealthMouseY = null;
+
+            const startTime = performance.now();
+            function step(now) {
+                const elapsed = now - startTime;
+                const rawProg = Math.min(1, elapsed / duration);
+                const ease = 1 - Math.pow(1 - rawProg, 3); // easeOutCubic
+                drawAttendanceBarChart(ease);
+
+                if (rawProg < 1) {
+                    healthTransitionAnimId = requestAnimationFrame(step);
+                } else {
+                    healthTransitionAnimId = null;
+                    drawAttendanceBarChart(1.0);
+                }
+            }
+            healthTransitionAnimId = requestAnimationFrame(step);
+        }
+
         function setHealthPeriod(period, e) {
             if (e) e.stopPropagation();
             // Normalize period: 'days', 'week', 'month'
@@ -143,8 +168,7 @@
             const menu = document.getElementById("healthPeriodMenu");
             if (menu) menu.classList.remove("active");
 
-            activeHealthHoverIndex = null;
-            drawAttendanceBarChart();
+            animateHealthTransition(380);
         }
 
         function scrollHealthPeriod(dir) {
@@ -159,8 +183,7 @@
                     return; // Already at most recent
                 }
             }
-            activeHealthHoverIndex = null;
-            drawAttendanceBarChart();
+            animateHealthTransition(320);
         }
 
         // Close dropdowns on outside click
@@ -181,15 +204,78 @@
         var donutCanvasListenersAttached = false;
         var lastDonutSlices = [];
         var lastDonutCenter = { cx: 0, cy: 0, innerR: 0, outerR: 0 };
+        var donutSliceFocus = [0, 0, 0];
+        var donutHoverAnimId = null;
+        var donutTransitionAnimId = null;
+        var donutTransitionProgress = 1.0;
+
+        function animateDonutHover() {
+            if (donutHoverAnimId) cancelAnimationFrame(donutHoverAnimId);
+
+            function step() {
+                let needsNext = false;
+                const speed = 0.22;
+
+                for (let i = 0; i < lastDonutSlices.length; i++) {
+                    if (donutSliceFocus[i] === undefined) donutSliceFocus[i] = 0;
+                    const target = (activeDonutHoverIndex === i) ? 1.0 : 0.0;
+                    const diff = target - donutSliceFocus[i];
+                    if (Math.abs(diff) > 0.005) {
+                        donutSliceFocus[i] += diff * speed;
+                        needsNext = true;
+                    } else {
+                        donutSliceFocus[i] = target;
+                    }
+                }
+
+                drawPackageDonutChart(donutTransitionProgress);
+
+                if (needsNext) {
+                    donutHoverAnimId = requestAnimationFrame(step);
+                } else {
+                    donutHoverAnimId = null;
+                }
+            }
+            donutHoverAnimId = requestAnimationFrame(step);
+        }
+
+        function animateDonutTransition(duration = 400) {
+            if (donutTransitionAnimId) cancelAnimationFrame(donutTransitionAnimId);
+            if (donutHoverAnimId) cancelAnimationFrame(donutHoverAnimId);
+            activeDonutHoverIndex = null;
+            donutSliceFocus = [0, 0, 0];
+
+            const startTime = performance.now();
+            function step(now) {
+                const elapsed = now - startTime;
+                const rawProg = Math.min(1, elapsed / duration);
+                donutTransitionProgress = 1 - Math.pow(1 - rawProg, 3); // easeOutCubic
+
+                drawPackageDonutChart(donutTransitionProgress);
+
+                if (rawProg < 1) {
+                    donutTransitionAnimId = requestAnimationFrame(step);
+                } else {
+                    donutTransitionAnimId = null;
+                    donutTransitionProgress = 1.0;
+                    drawPackageDonutChart(1.0);
+                }
+            }
+            donutTransitionAnimId = requestAnimationFrame(step);
+        }
 
         function setDonutSliceHover(idx) {
-            activeDonutHoverIndex = idx;
-            drawPackageDonutChart(1.0);
+            if (activeDonutHoverIndex !== idx) {
+                activeDonutHoverIndex = idx;
+                animateDonutHover();
+            }
         }
 
         function clearDonutSliceHover() {
-            activeDonutHoverIndex = null;
-            drawPackageDonutChart(1.0);
+            if (activeDonutHoverIndex !== null) {
+                activeDonutHoverIndex = null;
+                animateDonutHover();
+            }
         }
 
         function toggleDonutTeamDropdown(e) {
@@ -200,7 +286,7 @@
             menu.innerHTML = `
                 <div class="cute-dropdown-item ${donutSelectedTeam === 'all' ? 'active' : ''}" onclick="setDonutTeam('all', event)">All Teams</div>
                 ${allTeams.map(t => `
-                    <div class="cute-dropdown-item ${donutSelectedTeam === t ? 'active' : ''}" onclick="setDonutTeam('${t.replace(/'/g, "\\'")}', event)">${t}</div>
+                    <div class="cute-dropdown-item ${donutSelectedTeam === t ? 'active' : ''}" onclick="setDonutTeam('${t.replace(/'/g, "\'")}', event)">${t}</div>
                 `).join('')}
             `;
             menu.classList.toggle("active");
@@ -218,7 +304,7 @@
             if (lbl) lbl.textContent = t === 'all' ? 'All Teams' : t;
             const menu = document.getElementById("donutTeamMenu");
             if (menu) menu.classList.remove("active");
-            drawPackageDonutChart();
+            animateDonutTransition(400);
         }
 
         function drawPackageDonutChart(animProgress = 1.0) {
@@ -293,7 +379,9 @@
             let currentAngle = -Math.PI / 2;
             const baseStart = -Math.PI / 2;
 
-            const hasAnyHover = (activeDonutHoverIndex !== null && activeDonutHoverIndex >= 0 && activeDonutHoverIndex < slices.length);
+            // Ensure focus array matches slices length
+            while (donutSliceFocus.length < slices.length) donutSliceFocus.push(0);
+            const maxFocus = Math.max(...donutSliceFocus, 0);
 
             slices.forEach((slice, idx) => {
                 const sliceAngle = (slice.count / total) * (Math.PI * 2);
@@ -308,25 +396,25 @@
                 const maxAllowed = baseStart + sweepLimit;
                 if (maxAllowed > sStart) {
                     const drawEnd = Math.min(sEnd, maxAllowed);
-                    const isHovered = (activeDonutHoverIndex === idx);
+                    const focus = donutSliceFocus[idx] || 0;
 
                     ctx.save();
-                    if (hasAnyHover) {
-                        if (isHovered) {
-                            // MAIN FOCUS: slightly expanded radius, rich color, subtle shadow
-                            const popOuterR = outerR + 5;
-                            const popInnerR = innerR - 2;
+                    if (maxFocus > 0.01) {
+                        if (focus > 0.01) {
+                            // MAIN FOCUS: smoothly expanded radius, rich color, soft glowing shadow
+                            const popOuterR = outerR + 5 * focus;
+                            const popInnerR = innerR - 2 * focus;
                             ctx.beginPath();
                             ctx.arc(cx, cy, popOuterR, sStart, drawEnd);
                             ctx.arc(cx, cy, popInnerR, drawEnd, sStart, true);
                             ctx.closePath();
                             ctx.shadowColor = slice.color;
-                            ctx.shadowBlur = 10;
+                            ctx.shadowBlur = Math.round(12 * focus);
                             ctx.fillStyle = slice.color;
                             ctx.fill();
                         } else {
-                            // OUT OF FOCUS: soft subdued opacity
-                            ctx.globalAlpha = 0.22;
+                            // OUT OF FOCUS: smoothly dimmed opacity down to 0.22
+                            ctx.globalAlpha = Math.max(0.22, 1.0 - (0.78 * maxFocus));
                             ctx.beginPath();
                             ctx.arc(cx, cy, outerR, sStart, drawEnd);
                             ctx.arc(cx, cy, innerR, drawEnd, sStart, true);
@@ -335,7 +423,8 @@
                             ctx.fill();
                         }
                     } else {
-                        // Normal state
+                        // Normal state: all slices crisp and fully visible
+                        ctx.globalAlpha = 1.0;
                         ctx.beginPath();
                         ctx.arc(cx, cy, outerR, sStart, drawEnd);
                         ctx.arc(cx, cy, innerR, drawEnd, sStart, true);
@@ -347,9 +436,16 @@
                 }
             });
 
-            // Center Badge: Dynamic hover focus or total count
-            if (hasAnyHover && slices[activeDonutHoverIndex]) {
-                const hSlice = slices[activeDonutHoverIndex];
+            // Center Badge: Dynamic hover focus or default total members
+            const activeHoverIdx = (activeDonutHoverIndex !== null && activeDonutHoverIndex >= 0 && activeDonutHoverIndex < slices.length) 
+                ? activeDonutHoverIndex 
+                : donutSliceFocus.findIndex(f => f > 0.4);
+
+            if (maxFocus > 0.05 && activeHoverIdx !== -1 && slices[activeHoverIdx]) {
+                const hSlice = slices[activeHoverIdx];
+
+                ctx.save();
+                ctx.globalAlpha = Math.min(1, maxFocus);
 
                 // Plan Name (e.g. "1 Month")
                 ctx.fillStyle = "#64748B";
@@ -368,7 +464,10 @@
                 ctx.font = "700 10.5px 'JetBrains Mono', monospace";
                 ctx.textAlign = "center";
                 ctx.fillText(`${hSlice.count} ${hSlice.count === 1 ? 'MEMBER' : 'MEMBERS'}`, cx, cy + 24);
+                ctx.restore();
             } else {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, 1 - maxFocus);
                 // Default center badge
                 const displayCount = Math.round(total * prog);
                 ctx.fillStyle = "#0F172A";
@@ -379,23 +478,46 @@
                 ctx.fillStyle = "#8E9BAE";
                 ctx.font = "700 9.5px 'Plus Jakarta Sans', sans-serif";
                 ctx.fillText("MEMBERS", cx, cy + 18);
+                ctx.restore();
             }
 
-            // Update Mini Indications under Donut (Only "1 Month" format as requested!)
+            // Update Mini Indications under Donut (Only "1 Month" format, never destroying DOM on hover!)
             if (legendEl) {
-                legendEl.className = "donut-mini-indicators";
-                legendEl.innerHTML = slices.map((s, idx) => {
-                    const isHovered = (activeDonutHoverIndex === idx);
-                    return `
-                        <div class="donut-indicator-pill ${isHovered ? 'active-pill' : ''}" 
-                             style="${isHovered ? `border-color: ${s.color}; background: ${s.color}15; color: ${s.color};` : ''}"
-                             onmouseenter="setDonutSliceHover(${idx})"
-                             onmouseleave="clearDonutSliceHover()">
+                const legendKey = `${donutSelectedTeam}-${slices.length}-${slices.map(s => s.displayName + s.count).join('|')}`;
+                if (legendEl.dataset.legendKey !== legendKey) {
+                    legendEl.dataset.legendKey = legendKey;
+                    legendEl.className = "donut-mini-indicators";
+                    legendEl.innerHTML = slices.map((s, idx) => `
+                        <div class="donut-indicator-pill" 
+                             data-index="${idx}">
                             <span class="donut-indicator-dot" style="background: ${s.color};"></span>
                             <span class="donut-indicator-label">${s.displayName}</span>
                         </div>
-                    `;
-                }).join('');
+                    `).join('');
+
+                    legendEl.querySelectorAll(".donut-indicator-pill").forEach(pill => {
+                        const idx = parseInt(pill.getAttribute("data-index"), 10);
+                        pill.addEventListener("mouseenter", () => setDonutSliceHover(idx));
+                        pill.addEventListener("mouseleave", () => clearDonutSliceHover());
+                    });
+                }
+
+                // Update class and style on existing pills without rebuilding DOM
+                const pills = legendEl.querySelectorAll(".donut-indicator-pill");
+                pills.forEach((p, idx) => {
+                    const isHovered = (activeDonutHoverIndex === idx || donutSliceFocus[idx] > 0.4);
+                    p.classList.toggle("active-pill", isHovered);
+                    if (isHovered && slices[idx]) {
+                        p.style.borderColor = slices[idx].color;
+                        p.style.background = `${slices[idx].color}15`;
+                        p.style.color = slices[idx].color;
+                    } else {
+                        p.style.borderColor = "";
+                        p.style.background = "";
+                        p.style.color = "";
+                    }
+                });
+                legendEl.classList.toggle("has-hover", activeDonutHoverIndex !== null || maxFocus > 0.05);
             }
 
             // Attach hover event listeners to packageCanvas once
@@ -411,7 +533,8 @@
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
                     let hovered = null;
-                    if (dist >= lastDonutCenter.innerR - 6 && dist <= lastDonutCenter.outerR + 10) {
+                    // Only hover when strictly on the ring
+                    if (dist >= lastDonutCenter.innerR && dist <= lastDonutCenter.outerR + 5) {
                         let angle = Math.atan2(dy, dx);
                         let relAngle = angle - (-Math.PI / 2);
                         while (relAngle < 0) relAngle += Math.PI * 2;
@@ -428,14 +551,32 @@
 
                     if (activeDonutHoverIndex !== hovered) {
                         activeDonutHoverIndex = hovered;
-                        drawPackageDonutChart(1.0);
+                        animateDonutHover();
                     }
                 });
 
-                canvas.addEventListener("mouseleave", () => {
+                const clearDonut = () => {
                     if (activeDonutHoverIndex !== null) {
                         activeDonutHoverIndex = null;
-                        drawPackageDonutChart(1.0);
+                        animateDonutHover();
+                    }
+                };
+
+                canvas.addEventListener("mouseleave", clearDonut);
+                if (parent) parent.addEventListener("mouseleave", clearDonut);
+                const card = canvas.closest('.cute-card');
+                if (card) card.addEventListener("mouseleave", clearDonut);
+
+                // Document-level mouse move safety: if mouse moved outside canvas and legend, clear hover immediately!
+                document.addEventListener("mousemove", (e) => {
+                    if (activeDonutHoverIndex !== null) {
+                        const cRect = canvas.getBoundingClientRect();
+                        const lRect = legendEl ? legendEl.getBoundingClientRect() : null;
+                        const inC = (e.clientX >= cRect.left && e.clientX <= cRect.right && e.clientY >= cRect.top && e.clientY <= cRect.bottom);
+                        const inL = lRect ? (e.clientX >= lRect.left && e.clientX <= lRect.right && e.clientY >= lRect.top && e.clientY <= lRect.bottom) : false;
+                        if (!inC && !inL) {
+                            clearDonut();
+                        }
                     }
                 });
             }
@@ -765,7 +906,6 @@
                                  (healthPeriod === 'monthly' || healthPeriod === 'month') ? 'month' : 'week';
 
             if (activePeriod === 'days') {
-                // Window size: 7 recent days shifted by healthOffset * 7
                 const baseShift = healthOffset * 7;
                 for (let i = 6; i >= 0; i--) {
                     const d = new Date(now);
@@ -788,7 +928,6 @@
                     });
                 }
             } else if (activePeriod === 'month') {
-                // Window size: 6 recent months shifted by healthOffset * 6
                 const baseShift = healthOffset * 6;
                 for (let i = 5; i >= 0; i--) {
                     const d = new Date(now.getFullYear(), now.getMonth() - (baseShift + i), 1);
@@ -819,7 +958,7 @@
                     });
                 }
             } else {
-                // Default: Recent Weeks (5 weeks window shifted by healthOffset * 5)
+                // Default: Recent Weeks
                 const baseShift = healthOffset * 5;
                 for (let i = 4; i >= 0; i--) {
                     const endD = new Date(now);
@@ -901,27 +1040,43 @@
 
             const barCoords = [];
 
-            if (activeHealthMouseX !== null) {
-                buckets.forEach((b, idx) => {
-                    const cx = paddingLeft + slotW * idx + slotW / 2;
-                    if (Math.abs(cx - activeHealthMouseX) <= slotW / 2) {
-                        activeHealthHoverIndex = idx;
-                    }
-                });
+            // CRITICAL: Always reset hover index to null before testing mouse position!
+            activeHealthHoverIndex = null;
+            if (activeHealthMouseX !== null && activeHealthMouseY !== null) {
+                // Only hover if cursor is strictly within the bar chart drawing bounds vertically
+                if (activeHealthMouseY >= paddingTop - 8 && activeHealthMouseY <= baseY + 24) {
+                    buckets.forEach((b, idx) => {
+                        const cx = paddingLeft + slotW * idx + slotW / 2;
+                        const reach = Math.min(barW / 2 + 5, slotW / 2);
+                        if (Math.abs(cx - activeHealthMouseX) <= reach) {
+                            activeHealthHoverIndex = idx;
+                        }
+                    });
+                }
             }
 
             const prog = Math.max(0, Math.min(1, animProgress));
             buckets.forEach((b, idx) => {
                 const cx = paddingLeft + slotW * idx + slotW / 2;
-                const paidH = (b.paid / yCeil) * drawH * prog;
-                const pendingH = (b.pending / yCeil) * drawH * prog;
-                const totalBarH = Math.max(4 * prog, paidH + pendingH);
+                
+                // Elegant cascading wave animation per bar
+                let barProg = 1.0;
+                if (prog < 1.0) {
+                    const stagger = 0.22;
+                    const startRatio = (idx / Math.max(1, buckets.length)) * stagger;
+                    const localRaw = Math.max(0, Math.min(1, (prog - startRatio) / (1 - startRatio)));
+                    barProg = 1 - Math.pow(1 - localRaw, 3);
+                }
+
+                const paidH = (b.paid / yCeil) * drawH * barProg;
+                const pendingH = (b.pending / yCeil) * drawH * barProg;
+                const totalBarH = Math.max(4 * barProg, paidH + pendingH);
 
                 barCoords.push({ cx, baseY, barW, totalBarH, paidH, pendingH, data: b });
 
                 const isHovered = (activeHealthHoverIndex === idx);
 
-                // Draw Capsule Bar Background Track (Subtle soft gray slot)
+                // Draw Capsule Bar Background Track (Subtle soft slot)
                 ctx.fillStyle = isHovered ? "#E2E8F0" : "#F8FAFC";
                 ctx.beginPath();
                 ctx.roundRect(cx - barW / 2, paddingTop, barW, drawH, 10);
@@ -947,7 +1102,7 @@
 
                 // If hovered, draw subtle glowing outline around the active bar
                 if (isHovered) {
-                    ctx.strokeStyle = "rgba(0, 98, 255, 0.6)";
+                    ctx.strokeStyle = "rgba(0, 98, 255, 0.7)";
                     ctx.lineWidth = 2;
                     ctx.beginPath();
                     ctx.roundRect(cx - barW / 2 - 1, baseY - totalBarH - 1, barW + 2, totalBarH + 2, 10);
@@ -1003,12 +1158,32 @@
                 canvas.addEventListener("mousemove", (e) => {
                     const rect = canvas.getBoundingClientRect();
                     activeHealthMouseX = e.clientX - rect.left;
-                    drawAttendanceBarChart();
+                    activeHealthMouseY = e.clientY - rect.top;
+                    drawAttendanceBarChart(1.0);
                 });
 
-                canvas.addEventListener("mouseleave", () => {
-                    activeHealthMouseX = null;
-                    drawAttendanceBarChart();
+                const clearHealthHover = () => {
+                    if (activeHealthMouseX !== null || activeHealthMouseY !== null || activeHealthHoverIndex !== null) {
+                        activeHealthMouseX = null;
+                        activeHealthMouseY = null;
+                        activeHealthHoverIndex = null;
+                        drawAttendanceBarChart(1.0);
+                    }
+                };
+
+                canvas.addEventListener("mouseleave", clearHealthHover);
+                if (parent) parent.addEventListener("mouseleave", clearHealthHover);
+                const card = canvas.closest('.cute-card');
+                if (card) card.addEventListener("mouseleave", clearHealthHover);
+
+                // Document-level mouse move safety: if mouse moved outside canvas, clear hover immediately!
+                document.addEventListener("mousemove", (e) => {
+                    if (activeHealthHoverIndex !== null) {
+                        const rect = canvas.getBoundingClientRect();
+                        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+                            clearHealthHover();
+                        }
+                    }
                 });
 
                 // Horizontal mouse wheel / trackpad scroll
@@ -1024,10 +1199,8 @@
                     if (now - wheelDebounceTimer > 180 && Math.abs(accumulatedDelta) > 20) {
                         wheelDebounceTimer = now;
                         if (accumulatedDelta > 0) {
-                            // Scrolled right -> move forward in time (closer to current date)
                             scrollHealthPeriod(1);
                         } else {
-                            // Scrolled left -> move backward into past
                             scrollHealthPeriod(-1);
                         }
                         accumulatedDelta = 0;
@@ -1051,10 +1224,8 @@
                         const diffX = touchEndX - touchStartX;
                         if (Math.abs(diffX) > 30) {
                             if (diffX > 0) {
-                                // Swiped right -> scroll left (earlier)
                                 scrollHealthPeriod(-1);
                             } else {
-                                // Swiped left -> scroll right (later)
                                 scrollHealthPeriod(1);
                             }
                         }
@@ -1063,4 +1234,5 @@
                 }, { passive: true });
             }
         }
+
 
