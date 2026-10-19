@@ -1,14 +1,16 @@
 # Design 2: Atmospheric Dark Mode & Floating 3D Elements
 
-**Directory:** `designs/design2_dark_mode_3d/`
+**Directory:** `designs/design-2_reference/`
 
 ## Visual Archetype & DNA
-- Deep obsidian and dark navy background illuminated by vibrant cyan, violet, and amber rim lights.
-- Floating 3D creative assets: Official 3D Canva squircle tile, glowing typography glyphs ('Aa'), color swatch fans, neon sparkles.
-- Sleek frosted-glass controls: Horizontal glass docks, glowing neon coupon borders, illuminated CTA buttons.
-- Ideal for: Pro designers, tech campaigns, night-owl creatives, feature launches.
+- **Aesthetic:** Deep obsidian navy to charcoal background with subtle smooth vignette and soft rim lighting.
+- **Hero Subject:** Floating 3D creative assets (stylus, color swatches, typography glyphs, 3D Canva tile).
+- **Title Highlighting:**
+  - Condensed white headline with focal keyword in glowing cyan-to-purple gradient (`#00F2FE` -> `#7D2AE8`).
+  - Floating 3D Canva Pro squircle token positioned adjacent to the title as an eye-catching visual anchor.
+- **Offer Containers:** Sleek frosted-glass dock card with glowing 1px border.
+- **Standard Contact Bar:**
+  `Hotline: 01571425035 • Web: designhub.com.bd • fb.com/DesignHub`
 
-## Files
-- `reference.jpg`: Original master reference design.
-- `dynamic_horizontal_promo_1080x1350.jpg`: Top headline, centered hero, and bottom horizontal glass dock (1080x1350).
-- `autonomous_campaign_promo_1080x1350.jpg`: Dark-mode creative campaign poster (1080x1350).
+## Ideal For
+Feature launches, all-in-one capabilities, pro designers, and modern tech appeal.

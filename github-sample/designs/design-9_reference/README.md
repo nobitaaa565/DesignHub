@@ -4,16 +4,15 @@
 
 ## Visual Archetype & DNA
 - **Aesthetic:** Minimalist modern Apple/OpenAI-inspired tech workspace.
-- **Background & Ambiance:** Split architectural studio backdrop: soft ivory cream matte desk on the left, paired with an elegant sweeping architectural curve in deep forest/emerald green on the right with soft rim lighting.
-- **Layout Architecture (Geometry H):**
-  1. **Top-Left Headline:** Tagline `SMARTER IDEAS EVERYDAY` above bold dark emerald title `CANVA PRO & 1TB CLOUD`. Sleek pill feature tags: `⚡ 100M+ Assets`, `✨ Magic Studio AI`, `📄 1TB Storage`.
-  2. **Center-Right Hero:** Sleek modern laptop (MacBook Pro) open at a 3/4 perspective angle displaying the colorful Canva Pro web editor.
-  3. **Foreground Centerpiece:** A heavy, tangible 3D rounded glass squircle app token (emerald green glass with beveled reflections and cursive Canva emblem) resting on the desk in front of the laptop.
-  4. **Lower-Left Price Card:** Large dark emerald container with yellow `ONLY` accent tag, stark-white `৳ 25` price, and `PER MONTH` subtitle, paired with rounded pill button `Order Now >`.
+- **Background & Ambiance:** Split architectural studio backdrop: soft ivory cream matte desk on the left, paired with an elegant sweeping architectural curve in deep forest/emerald green on the right.
+- **Title Highlighting:**
+  - Tagline `SMARTER IDEAS EVERYDAY` above bold two-tone headline `CANVA PRO & 1TB CLOUD` (`CANVA PRO` in dark emerald, `& 1TB CLOUD` in electric cyan highlight). Floating pill tags: `⚡ 100M+ Assets`, `✨ Magic Studio AI`, `📄 1TB Storage`.
+- **Layout Architecture:**
+  - Center-Right: Modern silver laptop open displaying the Canva Pro editor.
+  - Foreground Center: Tactile 3D glass squircle token with beveled reflections and cursive Canva emblem resting on desk.
+  - Lower-Left: Large dark emerald price container with yellow `ONLY` tag, stark-white `৳ 25` price, and `PER MONTH` subtitle.
+- **Standard Contact Bar:**
+  `Hotline: 01571425035 • Web: designhub.com.bd • fb.com/DesignHub`
 
-## Context Triggers
-- High-end SaaS subscriptions, AI productivity tools, and designer studio packages.
-
-## Core Rule
-- `reference.jpg`: Reference blueprint showing desk split, laptop angle, and 3D glass token.
-- **Always generate 100% original artwork from scratch** without passing reference images into diffusion.
+## Ideal For
+High-end SaaS subscriptions, AI productivity tools, and designer studio packages.

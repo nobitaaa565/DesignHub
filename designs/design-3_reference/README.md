@@ -1,12 +1,16 @@
 # Design 3: Ultra-Premium Glassmorphism Pricing Tiles
 
-**Directory:** `designs/design3_glassmorphism_pricing/`
+**Directory:** `designs/design-3_reference/`
 
 ## Visual Archetype & DNA
-- Dramatic overhead cinematic spotlight on dark luxury obsidian backdrop.
-- Three floating frosted-glass cards with metallic beveled rims and 1px specular reflections.
-- Elevated Center Hero Card with metallic gold 'Best Value' star badge.
-- Ideal for: Direct sales, tier comparisons, subscription plan launches, flash discounts.
+- **Aesthetic:** Dark luxury stage with top spotlight beam illuminating 3 frosted glass cards.
+- **Hero Subject:** 3-card tier comparison with elevated center hero card.
+- **Title Highlighting:**
+  - Frosted glass headline with warm golden amber `#F59E0B` glow on the value hook (`ULTIMATE VALUE`).
+  - Floating 3D Canva badge centered directly above the headline.
+- **Offer Containers:** Frosted glassmorphism cards with translucent blur and crisp borders.
+- **Standard Contact Bar:**
+  `Hotline: 01571425035 • Web: designhub.com.bd • fb.com/DesignHub`
 
-## Files
-- `reference.jpg`: Original master reference design.
+## Ideal For
+Tier comparisons, direct sales, plan upgrades, and transparent pricing.

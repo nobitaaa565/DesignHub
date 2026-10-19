@@ -264,13 +264,14 @@ def enhance_short_prompt(style_id: int, user_idea: str) -> str:
         except Exception as e:
             logger.warning(f"Gemini prompt enhancement fallback: {e}")
 
-    # Tailored structured brief fallback with 5 Core Value Pillars
+    # Tailored structured brief fallback with 5 Core Value Pillars & Title Highlighting
     lines = [
         f"• Style: Design {style_id} ({design['title']})",
+        f"• Title Highlighting: High-focus two-tone color contrast with primary keyword pill tag",
         f"• Offer: {user_idea}",
         f"• 5 Core Pillars: 🔒 100% Private & Secure (others cannot see your designs) | ⚡ Zero Expire Hassle (no team expiry before due date) | 🔄 Extend Policy (keeps designs permanently safe) | 📂 1TB Cloud Storage | ✨ 100M+ Designs & Assets",
         f"• Key Visuals: 3D creative elements, high-contrast typography, and floating pricing badge",
-        f"• Flagship Power: Canva Pro Official Access, Magic Studio AI, Instant Activation",
+        f"• Contact Footer: Hotline: 01571425035 • fb.com/DesignHub",
     ]
     return "\n".join(lines)
 

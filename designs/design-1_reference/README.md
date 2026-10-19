@@ -1,13 +1,16 @@
 # Design 1: Clean & Bright Studio Character
 
-**Directory:** `designs/design1_studio_character/`
+**Directory:** `designs/design-1_reference/`
 
 ## Visual Archetype & DNA
-- High-key off-white to warm ivory daylight studio lighting with diffused floor contact shadows.
-- Friendly, charming 3D Pixar/Disney-style creative characters.
-- Structured commercial typography: prominent headline, dashed discount coupon box, trust pills, and solid CTA buttons.
-- Ideal for: Beginner promos, student deals, friendly walkthroughs, and creative motivation.
+- **Aesthetic:** High-key off-white to warm ivory daylight studio lighting with diffused floor contact shadows.
+- **Hero Subject:** Friendly, charming 3D Pixar/Disney-style creative characters.
+- **Title Highlighting:**
+  - Bold, dark charcoal header (e.g. `ডিজাইন হবে`) paired with an electric cyan/amber pill tag (e.g. `[ একদম সহজ ]`).
+  - High typographic contrast (title keyword sized 1.5x larger than secondary text).
+- **Offer Containers:** Dashed discount coupon box, trust pills, and solid CTA buttons.
+- **Standard Contact Bar:**
+  `Hotline: 01571425035 • Web: designhub.com.bd • fb.com/DesignHub`
 
-## Files
-- `reference.jpg`: Original master reference design.
-- `make_ideas_happen_motivation.jpg`: Reverse-split motivational Facebook portrait poster (1080x1350).
+## Ideal For
+Beginner promos, student deals, friendly walkthroughs, and creative motivation.
