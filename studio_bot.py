@@ -127,6 +127,13 @@ DESIGNS = [
         "image": "designs/design-10_reference/reference.jpg",
         "desc": "Deep cyber navy backdrop, 3D hardcover book with isometric world art, floating neon SQL table schema cards, arrow price pill [ মাত্র ৳১১১ ], and glowing cart CTA.",
     },
+    {
+        "id": 11,
+        "name": "Design 11: 3D Tech Mascot, Server Tower & Big Blue Price Badge",
+        "title": "3D Tech Mascot, Server Tower & Big Blue Price Badge",
+        "image": "designs/design-11_reference/reference.jpg",
+        "desc": "Crisp white & royal blue tech studio, 3D robot mascot pointing at server tower, giant [ 1690 টাকা/বার্ষিক ] blue badge, and 3-card uptime feature stack.",
+    },
 ]
 
 # Track wizard sessions and active message IDs to collapse
