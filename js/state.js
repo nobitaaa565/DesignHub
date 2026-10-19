@@ -15,6 +15,60 @@ function saveStoredData(key, val) {
     } catch (e) {}
 }
 
+// Reconcile and purge any orphaned payment records from deleted customers
+function reconcilePaymentsWithSubscribers() {
+    if (!Array.isArray(allSubscribers) || allSubscribers.length === 0) {
+        if (Array.isArray(allPayments) && allPayments.length > 0) {
+            allPayments = [];
+            saveStoredData("dh_payments", allPayments);
+        }
+        return;
+    }
+
+    const activeEmails = new Set();
+    const activeNames = new Set();
+    const activeCids = new Set();
+
+    allSubscribers.forEach(s => {
+        if (s.email) {
+            const e = String(s.email).toLowerCase().trim();
+            activeEmails.add(e);
+            if (e.includes("@")) {
+                activeEmails.add(e.split("@")[0].trim());
+            }
+        }
+        if (s.name) {
+            activeNames.add(String(s.name).toLowerCase().trim());
+        }
+        if (s.customer_id) {
+            activeCids.add(String(s.customer_id).replace('#', '').trim());
+        }
+    });
+
+    const initialLen = allPayments.length;
+    allPayments = allPayments.filter(p => {
+        const pe = String(p.customer_email || p.email || "").toLowerCase().trim();
+        const pn = String(p.name || "").toLowerCase().trim();
+        const pc = String(p.customer_id || "").replace('#', '').trim();
+        const peUser = pe.includes("@") ? pe.split("@")[0].trim() : pe;
+
+        const isMatch = (
+            (pe && activeEmails.has(pe)) ||
+            (peUser && activeEmails.has(peUser)) ||
+            (pc && activeCids.has(pc)) ||
+            (pn && activeNames.has(pn)) ||
+            (pn && activeEmails.has(pn)) ||
+            (pe && activeNames.has(pe))
+        );
+
+        return isMatch;
+    });
+
+    if (allPayments.length !== initialLen) {
+        saveStoredData("dh_payments", allPayments);
+    }
+}
+
 // Global State (Synchronized dynamically with live database + local persistence)
 var allTeams = loadStoredData("dh_teams", ["Carmella Elan"]);
 if (!Array.isArray(allTeams) || allTeams.length === 0) {
@@ -22,6 +76,7 @@ if (!Array.isArray(allTeams) || allTeams.length === 0) {
 }
 var allSubscribers = loadStoredData("dh_subscribers", []);
 var allPayments = loadStoredData("dh_payments", []);
+reconcilePaymentsWithSubscribers();
 var allReferences = loadStoredData("dh_references", ["Page Lead", "Admin Direct", "WhatsApp", "Personal Referral"]);
 if (!Array.isArray(allReferences) || allReferences.length === 0) {
     allReferences = ["Page Lead", "Admin Direct", "WhatsApp", "Personal Referral"];

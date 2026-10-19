@@ -112,6 +112,11 @@
         }
 
         function initDashboard() {
+            // Reconcile allPayments against allSubscribers immediately on boot
+            if (typeof reconcilePaymentsWithSubscribers === "function") {
+                try { reconcilePaymentsWithSubscribers(); } catch(e) {}
+            }
+
             // Render all UI elements IMMEDIATELY with defensive try-catches
             try { updateOverviewKPICards(); } catch(e) { console.error("KPICards:", e); }
             try { renderTeamPopoverOptions(); } catch(e) { console.error("TeamPopover:", e); }

@@ -368,8 +368,30 @@
                 });
             }
 
+            // Compute realistic Y-axis scale based on clean multiples of 25 (e.g. 25, 50, 75, 100, 150...)
             const maxEarnings = Math.max(...points.map(p => p.earnings), 0);
-            const maxVal = maxEarnings > 0 ? maxEarnings * 1.22 : 1000; // Headroom for clean hover tags
+
+            // Candidate step sizes holding strict multiples of 25 (e.g. 25, 50, 75, 100, 150, 200, 300...)
+            const candidateSteps = [25, 50, 75, 100, 125, 150, 200, 250, 300, 500, 1000, 2500, 5000];
+            let step = 25;
+            let gridLines = 4;
+
+            const rawTargetMax = maxEarnings > 0 ? maxEarnings * 1.18 : 100;
+            const targetMax = Math.max(100, rawTargetMax);
+
+            for (const s of candidateSteps) {
+                if (s * 4 >= targetMax) {
+                    step = s;
+                    break;
+                }
+            }
+            if (step * 4 < targetMax) {
+                step = Math.ceil(targetMax / (4 * 25)) * 25;
+            }
+
+            // Number of intervals (between 3 and 5)
+            gridLines = Math.min(5, Math.max(3, Math.ceil(targetMax / step)));
+            const maxVal = step * gridLines;
 
             const paddingLeft = 52;
             const paddingRight = 32;
@@ -379,10 +401,9 @@
             const drawH = h - paddingTop - paddingBottom;
             if (drawW <= 10 || drawH <= 10) return;
 
-            // Draw Background Horizontal Grid Lines
+            // Draw Background Horizontal Grid Lines with clean multiples of 25
             ctx.strokeStyle = "#F1F5F9";
             ctx.lineWidth = 1;
-            const gridLines = 4;
             for (let i = 0; i <= gridLines; i++) {
                 const y = paddingTop + (drawH / gridLines) * i;
                 ctx.beginPath();
@@ -390,12 +411,13 @@
                 ctx.lineTo(w - paddingRight, y);
                 ctx.stroke();
 
-                // Axis label in BDT (৳)
-                const val = Math.round(maxVal * (1 - i / gridLines));
+                // Axis label in BDT (৳) holding strict multiple of 25 pattern (25, 50, 75, 100...)
+                const val = step * (gridLines - i);
                 ctx.fillStyle = "#8E9BAE";
                 ctx.font = "600 10px 'JetBrains Mono', monospace";
                 ctx.textAlign = "right";
-                ctx.fillText(`৳${val >= 1000 ? (val / 1000).toFixed(0) + 'K' : val}`, paddingLeft - 8, y + 3.5);
+                const labelText = val >= 10000 ? `${(val / 1000).toFixed(0)}K` : val.toLocaleString('en-US');
+                ctx.fillText(`৳${labelText}`, paddingLeft - 8, y + 3.5);
             }
 
             // Calculate Canvas Coordinates for each point (smooth rising opening animation)

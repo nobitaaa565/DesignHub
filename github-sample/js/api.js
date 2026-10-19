@@ -81,6 +81,11 @@
                     saveStoredData("dh_references", allReferences);
                 }
 
+                // Reconcile payments against active subscribers to purge deleted customer transactions
+                if (typeof reconcilePaymentsWithSubscribers === "function") {
+                    try { reconcilePaymentsWithSubscribers(); } catch(e) {}
+                }
+
                 // Synchronize Canva teams with live database
                 let sTeams = [];
                 if (dataSubs && Array.isArray(dataSubs.teams)) sTeams = dataSubs.teams;
