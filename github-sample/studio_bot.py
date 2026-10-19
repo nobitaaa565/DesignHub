@@ -236,12 +236,13 @@ def enhance_short_prompt(style_id: int, user_idea: str) -> str:
         except Exception as e:
             logger.warning(f"Gemini prompt enhancement fallback: {e}")
 
-    # Tailored structured brief fallback
+    # Tailored structured brief fallback with 5 Core Value Pillars
     lines = [
         f"• Style: Design {style_id} ({design['title']})",
         f"• Offer: {user_idea}",
-        f"• Key Visuals: 3D elements, high-contrast typography, and floating pricing badge",
-        f"• Highlight Perks: Canva Pro Official Access, No Team Switch Hassle, 1TB Storage, Magic Studio AI",
+        f"• 5 Core Pillars: 🔒 100% Private & Secure (others cannot see your designs) | ⚡ Zero Expire Hassle (no team expiry before due date) | 🔄 Extend Policy (keeps designs permanently safe) | 📂 1TB Cloud Storage | ✨ 100M+ Designs & Assets",
+        f"• Key Visuals: 3D creative elements, high-contrast typography, and floating pricing badge",
+        f"• Flagship Power: Canva Pro Official Access, Magic Studio AI, Instant Activation",
     ]
     return "\n".join(lines)
 
@@ -277,39 +278,37 @@ def generate_facebook_caption(style_id: int, rough_prompt: str, lang: str = "ban
         except Exception as e:
             logger.warning(f"Gemini caption generation fallback: {e}")
 
-    # High quality dynamic fallback in natural Bengali
+    # High quality dynamic fallback in natural, double-checked Bengali
     perk_bullets = []
     lower_p = rough_prompt.lower()
 
     if "25" in lower_p:
-        perk_bullets.append("✨ মাত্র ২৫ টাকা থেকেই শুরু সেরা সাবস্ক্রিপশন অফার!")
+        perk_bullets.append("✨ মাত্র ২৫ টাকা থেকেই শুরু Canva Pro স্পেশাল সাবস্ক্রিপশন!")
     elif "50" in lower_p:
-        perk_bullets.append("✨ মাত্র ৫০ টাকায় পাচ্ছেন ৩ মাসের ধামাকা অফার!")
+        perk_bullets.append("✨ মাত্র ৫০ টাকায় পাচ্ছেন ৩ মাসের সেরা সাবস্ক্রিপশন অফার!")
     else:
-        perk_bullets.append(f"✨ বিশেষ অফার: {rough_prompt.splitlines()[0]}")
+        first_line = rough_prompt.splitlines()[0]
+        perk_bullets.append(f"✨ বিশেষ অফার: {first_line}")
 
-    if "switch" in lower_p or "hastle" in lower_p or "hassle" in lower_p:
-        perk_bullets.append("⚡ বারবার টিম সুইচ করার কোনো ঝামেলা নেই (No Switch Team Hassle)!")
-    if "1tb" in lower_p or "storage" in lower_p:
-        perk_bullets.append("📂 ১ TB বিশাল পার্সোনাল ক্লাউড স্টোরেজ!")
-    if "update" in lower_p or "design" in lower_p:
-        perk_bullets.append("🔄 সবসময় সব লেটেস্ট ও আপডেটেড ডিজাইন অ্যাক্সেস!")
-
-    perk_bullets.append("🔒 আপনার পার্সোনাল ইমেইলেই ১০০% অফিসিয়াল ও সেফ অ্যাক্টিভেশন!")
+    # 5 Flagship Pillars (Double-Checked Bengali Spellings)
+    perk_bullets.append("🔒 সম্পূর্ণ নিরাপদ ও প্রাইভেট — আপনার ডিজাইন অন্য কেউ দেখতে পারবে না, ১০০% সুরক্ষিত!")
+    perk_bullets.append("⚡ নো টিম এক্সপায়ার হ্যাসেল — মেয়াদ শেষ হওয়ার আগে টিম বন্ধ হওয়ার কোনো সুযোগ নেই!")
+    perk_bullets.append("🔄 সহজ এক্সটেন্ড পলিসি — যেকোনো সময় মেয়াদ বাড়িয়ে নিন, ডিজাইন থাকবে আজীবন সুরক্ষিত!")
+    perk_bullets.append("📂 ১ TB বিশাল ক্লাউড স্টোরেজ — ফাইল, ব্র্যান্ড কিট ও হাই-রেস ছবি ব্যাকআপের নিশ্চয়তা!")
+    perk_bullets.append("✨ ১০০M+ প্রিমিয়াম রিসোর্স — আনলিমিটেড ডিজাইন, টেমপ্লেট, ভিডিও, ফটো ও ফন্টস আনলকড!")
 
     perk_text = "\n".join(f"• {b}" for b in perk_bullets)
 
     return (
-        f"🎨 আপনার ডিজাইনিংকে নিয়ে যান অনন্য উচ্চতায় Canva Pro এর সাথে! 🚀\n\n"
-        f"📌 অফারের প্রধান সুবিধাসমূহ:\n"
+        f"🎨 আপনার ডিজাইনিংকে নিয়ে যান পেশাদার উচ্চতায় Canva Pro এর সাথে! 🚀\n\n"
+        f"📌 কেন Design Hub থেকে Canva Pro নিবেন?\n"
         f"{perk_text}\n\n"
-        f"💎 Canva Pro প্রিমিয়াম পাওয়ার:\n"
-        f"• Magic Studio AI ফুল আনলকড অ্যাক্সেস\n"
-        f"• 1-Click Background Remover & Magic Eraser\n"
-        f"• 100M+ প্রিমিয়াম ফটো, গ্রাফিক্স, ভিডিও ও অডিও\n"
-        f"• Brand Kit & Unlimited Premium Fonts\n\n"
-        f"📲 অফারটি সীমিত সময়ের জন্য! অ্যাক্টিভেশন করতে এখনই পেজে মেসেজ করুন অথবা কমেন্ট করুন।\n\n"
-        f"#CanvaPro #DesignHub #CanvaProBangladesh #GraphicDesign #MagicStudio"
+        f"💎 সাথে থাকছে আরও আকর্ষণীয় প্রিমিয়াম ফিচারসমূহ:\n"
+        f"• Magic Studio AI ফুল পাওয়ার আনলকড\n"
+        f"• ১-ক্লিকে Background Remover & Magic Eraser\n"
+        f"• অফিসিয়াল ও ভেরিফায়েড অ্যাক্টিভেশন\n\n"
+        f"📲 অফারটি সীমিত সময়ের জন্য! অর্ডার করতে এখনই আমাদের পেজে ইনবক্স করুন অথবা কমেন্ট করুন।\n\n"
+        f"#CanvaPro #DesignHub #CanvaProBangladesh #GraphicDesign #DesignSecurity"
     )
 
 
