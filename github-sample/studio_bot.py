@@ -120,6 +120,13 @@ DESIGNS = [
         "image": "designs/design-9_reference/reference.jpg",
         "desc": "Emerald green & ivory studio desk, open laptop with live UI, 3D glossy glass app token on desk, prominent [ ৳১৫০ / মাস ] price badge, and pill feature tags.",
     },
+    {
+        "id": 10,
+        "name": "Design 10: 3D Hardcover Book, Isometric Metaphor & Cyber Relational Schema",
+        "title": "3D Hardcover Book, Isometric Metaphor & Cyber Relational Schema",
+        "image": "designs/design-10_reference/reference.jpg",
+        "desc": "Deep cyber navy backdrop, 3D hardcover book with isometric world art, floating neon SQL table schema cards, arrow price pill [ মাত্র ৳১১১ ], and glowing cart CTA.",
+    },
 ]
 
 # Track wizard sessions and active message IDs to collapse
