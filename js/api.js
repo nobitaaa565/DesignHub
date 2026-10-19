@@ -86,6 +86,17 @@
                     try { reconcilePaymentsWithSubscribers(); } catch(e) {}
                 }
 
+                // Synchronize Canva team metadata (created_at & 2-year expiry)
+                if (dataSubs && dataSubs.teams_meta && typeof dataSubs.teams_meta === "object") {
+                    if (!allTeamMeta || typeof allTeamMeta !== "object") allTeamMeta = {};
+                    Object.keys(dataSubs.teams_meta).forEach(t => {
+                        if (dataSubs.teams_meta[t] && dataSubs.teams_meta[t].created_at) {
+                            allTeamMeta[t] = Object.assign({}, allTeamMeta[t] || {}, dataSubs.teams_meta[t]);
+                        }
+                    });
+                    saveStoredData("dh_teams_meta", allTeamMeta);
+                }
+
                 // Synchronize Canva teams with live database
                 let sTeams = [];
                 if (dataSubs && Array.isArray(dataSubs.teams)) sTeams = dataSubs.teams;

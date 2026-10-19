@@ -26,6 +26,8 @@ from canva_worker import invite_canva_member, kick_canva_member, is_canva_authen
 from facebook_funnel import handle_incoming_customer_message, send_payment_confirmed_to_customer, send_expiry_reminder_to_customer, send_subscription_ended_to_customer, notify_owner_user_joined_canva, load_replied_ids, save_replied_ids
 from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 from subscription_manager import (
+    get_all_teams_meta,
+    set_team_created_at,
     delete_subscriber,
     create_expiring_invite,
     extract_email_from_token,
@@ -1770,6 +1772,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                 "stats": get_db_stats(team_filter),
                 "subscribers": list_subscribers(team_filter=team_filter),
                 "teams": get_all_teams(),
+                "teams_meta": get_all_teams_meta(),
                 "team_name": get_canva_team_name(),
                 "active_team": team_filter if team_filter.lower() != "all" else get_canva_team_name(),
                 "earnings": get_total_earnings(team_filter),
@@ -1798,6 +1801,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             self.end_headers()
             data = {
                 "teams": get_all_teams(),
+                "teams_meta": get_all_teams_meta(),
                 "active_team": get_canva_team_name()
             }
             self.wfile.write(json.dumps(data).encode("utf-8"))
@@ -1861,6 +1865,19 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                 "link": f"https://designhub-1any.onrender.com/join/{link_info['token']}",
                 "expires_at": link_info["expires_at"]
             }
+
+        elif self.path == "/api/team/update_dates":
+            team_name = payload.get("team_name", "").strip()
+            created_at = payload.get("created_at", "").strip()
+            if team_name and created_at:
+                try:
+                    from subscription_manager import set_team_created_at
+                    set_team_created_at(team_name, created_at)
+                    res = {"status": "ok", "team_name": team_name, "created_at": created_at}
+                except Exception as e:
+                    res = {"status": "error", "message": str(e)}
+            else:
+                res = {"status": "error", "message": "team_name and created_at required"}
 
         elif self.path == "/api/team/update":
             team_name = payload.get("team_name", "").strip()

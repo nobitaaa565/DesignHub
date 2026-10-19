@@ -1426,3 +1426,36 @@ def consume_expiring_invite(token: str, is_bot_prefetch: bool = False) -> dict:
         logger.error(f"Error parsing signed token: {e}")
 
     return {"valid": False, "reason": "invalid", "message": "Invalid invitation link."}
+
+
+def set_team_created_at(name: str, created_at_str: str) -> bool:
+    """Updates the created_at timestamp for a Canva Team."""
+    init_db()
+    clean_name = str(name).strip()
+    clean_date = str(created_at_str).strip()
+    if not clean_name or not clean_date:
+        return False
+    with get_db() as conn:
+        c = conn.cursor()
+        if IS_POSTGRES:
+            c.execute("UPDATE teams SET created_at = %s WHERE name = %s", (clean_date, clean_name))
+        else:
+            c.execute("UPDATE teams SET created_at = ? WHERE name = ?", (clean_date, clean_name))
+        conn.commit()
+        return c.rowcount > 0
+
+
+def get_all_teams_meta() -> dict:
+    """Returns metadata mapping team_name -> { created_at, expires_at }."""
+    init_db()
+    res = {}
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("SELECT name, created_at FROM teams")
+        for row in c.fetchall():
+            t_name = (row[0] or "").strip()
+            if not t_name:
+                continue
+            c_at = str(row[1])[:10] if row[1] else ""
+            res[t_name] = {"created_at": c_at}
+    return res

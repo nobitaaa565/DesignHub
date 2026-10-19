@@ -3506,3 +3506,23 @@
                 grid-template-columns: 1fr;
             }
         }
+
+
+        /* Urgent Renewal Cards (< 5 Days Left) */
+        .event-card.card-urgent-renew {
+            background: #FEF2F2 !important;
+            border-color: #FECACA !important;
+        }
+        .event-card.card-urgent-renew:hover {
+            background: #FEE2E2 !important;
+            border-color: #F87171 !important;
+            box-shadow: 0 6px 16px rgba(239, 68, 68, 0.12) !important;
+        }
+
+        .health-nav-btn {
+            transition: all 0.15s ease;
+        }
+        .health-nav-btn:hover:not([disabled]) {
+            background: rgba(0, 0, 0, 0.08) !important;
+            transform: scale(1.08);
+        }

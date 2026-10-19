@@ -339,15 +339,26 @@
                                         <span class="legend-dot" style="background: var(--purple);"></span>
                                         <span>Pending</span>
                                     </span>
+                                    <!-- Smooth Scroll Navigation Chevrons -->
+                                    <div class="health-nav-group" style="display: inline-flex; align-items: center; gap: 0.2rem; background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: 999px; padding: 2px 4px;">
+                                        <button type="button" class="health-nav-btn" onclick="scrollHealthPeriod(-1)" title="Previous (Scroll Left / Earlier)" style="background: none; border: none; cursor: pointer; padding: 3px 6px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: var(--text-dark);">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                                        </button>
+                                        <button type="button" class="health-nav-btn" id="healthNavNextBtn" onclick="scrollHealthPeriod(1)" title="Next (Scroll Right / Later)" style="background: none; border: none; cursor: pointer; padding: 3px 6px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: var(--text-dark); opacity: 0.35;">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                                        </button>
+                                    </div>
+
+                                    <!-- Filter Dropdown: Days, Week, Month -->
                                     <div class="cute-pill-dropdown" id="healthPeriodBtn" onclick="toggleHealthPeriodDropdown(event)" title="Change Health Period">
-                                        <span id="healthPeriodLabel">Weekly</span>
+                                        <span id="healthPeriodLabel">Days</span>
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                             <polyline points="6 9 12 15 18 9"/>
                                         </svg>
                                         <div class="cute-dropdown-menu" id="healthPeriodMenu">
-                                            <div class="cute-dropdown-item" onclick="setHealthPeriod('daily', event)">Daily (7 Days)</div>
-                                            <div class="cute-dropdown-item active" onclick="setHealthPeriod('weekly', event)">Weekly (Days)</div>
-                                            <div class="cute-dropdown-item" onclick="setHealthPeriod('monthly', event)">Monthly (4 Weeks)</div>
+                                            <div class="cute-dropdown-item active" onclick="setHealthPeriod('days', event)">Days (Recent Days)</div>
+                                            <div class="cute-dropdown-item" onclick="setHealthPeriod('week', event)">Week (Recent Weeks)</div>
+                                            <div class="cute-dropdown-item" onclick="setHealthPeriod('month', event)">Month (Recent Months)</div>
                                         </div>
                                     </div>
                                 </div>
@@ -889,6 +900,55 @@
                 <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('addTeamModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Create Team</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Modal: Edit Canva Team Dates -->
+    <div class="modal-overlay" id="editTeamModal">
+        <div class="modal" style="max-width: 440px;">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    <span>Edit Canva Team Dates</span>
+                </h3>
+                <button class="modal-close" onclick="closeModal('editTeamModal')">&times;</button>
+            </div>
+            <form id="editTeamForm" onsubmit="handleSaveTeamDates(event)">
+                <input type="hidden" id="editTeamName">
+                <div class="form-group">
+                    <label class="form-label">Canva Team</label>
+                    <div id="editTeamNameDisplay" style="font-weight: 800; font-size: 1.1rem; color: var(--text-dark); padding: 0.35rem 0;"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Created Date *</label>
+                    <input type="date" id="editTeamCreatedAt" class="form-input" required oninput="previewTeamExpiry()" onchange="previewTeamExpiry()">
+                    <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; display: block;">
+                        Set when this Canva Pro team was registered or initiated.
+                    </span>
+                </div>
+                
+                <!-- Automatic 2-Year Expiry Display Box -->
+                <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; padding: 1rem; margin-top: 1rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                        <span style="font-size: 0.74rem; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.04em;">Calculated Expiry (2 Years)</span>
+                        <span style="background: #DCFCE7; color: #15803D; font-weight: 700; font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 6px;">2-Year Validity</span>
+                    </div>
+                    <div style="font-size: 1.25rem; font-weight: 800; color: #14532D; font-family: 'JetBrains Mono', monospace;" id="editTeamExpiryDisplay">
+                        --
+                    </div>
+                    <div style="font-size: 0.78rem; font-weight: 600; color: #166534; margin-top: 0.35rem;" id="editTeamDaysRemainingDisplay">
+                        --
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editTeamModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
                 </div>
             </form>
         </div>

@@ -114,7 +114,8 @@ var drawChartsDebounceTimer = null;
 var revTimeframe = "30d";
 var activeRevHoverX = null;
 var revCanvasListenersAttached = false;
-var healthPeriod = "weekly";
+var healthPeriod = "days";
+var healthOffset = 0;
 var activeHealthHoverIndex = null;
 var activeHealthMouseX = null;
 var healthCanvasListenersAttached = false;
@@ -140,4 +141,57 @@ function getPackageRate(pkg, customAmt) {
     if (p.includes("6") || p.includes("12")) return 99;
     if (p.includes("3")) return 50;
     return 25;
+}
+
+var allTeamMeta = loadStoredData("dh_teams_meta", {});
+if (!allTeamMeta || typeof allTeamMeta !== "object") {
+    allTeamMeta = {};
+}
+
+function getTeamExpiryInfo(teamName) {
+    if (!allTeamMeta || typeof allTeamMeta !== "object") allTeamMeta = {};
+    let meta = allTeamMeta[teamName] || {};
+    let createdDateStr = meta.created_at;
+
+    if (!createdDateStr) {
+        // Fallback: earliest subscriber date in this team, or today
+        const teamSubs = (typeof allSubscribers !== "undefined" && Array.isArray(allSubscribers)) 
+            ? allSubscribers.filter(s => (s.team_name || "Carmella Elan") === teamName && (s.added_at || s.joined_at))
+            : [];
+        if (teamSubs.length > 0) {
+            const sortedDates = teamSubs.map(s => (s.added_at || s.joined_at).substring(0, 10)).sort();
+            createdDateStr = sortedDates[0];
+        } else {
+            const d = new Date();
+            createdDateStr = d.toISOString().substring(0, 10);
+        }
+        allTeamMeta[teamName] = { created_at: createdDateStr };
+        saveStoredData("dh_teams_meta", allTeamMeta);
+    }
+
+    // Calculate strictly 2 years from created_at
+    const parts = createdDateStr.split('-');
+    let expiryDateStr = "";
+    if (parts.length === 3) {
+        const yr = parseInt(parts[0], 10) + 2;
+        expiryDateStr = `${yr}-${parts[1]}-${parts[2]}`;
+    } else {
+        const cDate = new Date(createdDateStr);
+        cDate.setFullYear(cDate.getFullYear() + 2);
+        expiryDateStr = cDate.toISOString().substring(0, 10);
+    }
+
+    const expDate = new Date(expiryDateStr + "T23:59:59");
+    const nowDate = new Date();
+    const diffMs = expDate - nowDate;
+    const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const isExpired = daysRemaining < 0;
+
+    return {
+        createdAt: createdDateStr,
+        expiresAt: expiryDateStr,
+        daysRemaining: isExpired ? 0 : daysRemaining,
+        rawDays: daysRemaining,
+        isExpired
+    };
 }

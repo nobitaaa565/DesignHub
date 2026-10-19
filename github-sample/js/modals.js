@@ -729,10 +729,13 @@
                 const expDate = new Date(s.expires_at);
                 const daysLeft = Math.ceil((expDate - new Date()) / (1000 * 60 * 60 * 24));
                 const daysBadge = daysLeft < 0 ? 'Expired' : `${daysLeft} Days Left`;
+                const isUrgent = daysLeft < 5;
 
                 return `
-                    <div class="event-card" onclick="openExtendModal('${s.email}')">
-                        <div class="event-date-pill">
+                    <div class="event-card ${isUrgent ? 'card-urgent-renew' : ''}" 
+                         style="${isUrgent ? 'background: #FEF2F2 !important; border-color: #FECACA !important;' : ''}"
+                         onclick="openExtendModal('${s.email}')">
+                        <div class="event-date-pill" style="${isUrgent ? 'background: #FEE2E2 !important; color: #DC2626 !important;' : ''}">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                             </svg>
@@ -1037,6 +1040,36 @@
                         <div style="background: var(--bg-subtle); padding: 0.6rem 0.75rem; border-radius: 10px; text-align: center;">
                             <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; letter-spacing: 0.04em;">PENDING</div>
                             <div style="font-size: 1.05rem; font-weight: 800; color: #D97706;">${team.pending}</div>
+                        </div>
+                    </div>
+
+                    <!-- 2-Year Automatic Expiry & Created Date Banner -->
+                    <div style="margin-top: 0.85rem; display: flex; align-items: center; justify-content: space-between; padding: 0.55rem 0.85rem; background: var(--bg-subtle); border-radius: 10px; font-size: 0.78rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.45rem;">
+                            <span style="color: var(--text-muted); font-weight: 600;">Created:</span>
+                            <span style="font-weight: 700; color: var(--text-dark); font-family: 'JetBrains Mono', monospace;">${(getTeamExpiryInfo(team.teamName)).createdAt}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.45rem;">
+                            <span style="color: var(--text-muted); font-weight: 600;">Expires (2 Yrs):</span>
+                            <span style="font-weight: 800; color: ${(getTeamExpiryInfo(team.teamName)).isExpired ? '#DC2626' : '#047857'}; font-family: 'JetBrains Mono', monospace;">
+                                ${(getTeamExpiryInfo(team.teamName)).expiresAt}
+                            </span>
+                            <button class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.5rem; margin-left: 0.35rem;" onclick="openEditTeamDatesModal('${team.teamName}')">Edit Date</button>
+                        </div>
+                    </div>
+
+                    <!-- 2-Year Automatic Expiry & Created Date Banner -->
+                    <div style="margin-top: 0.85rem; display: flex; align-items: center; justify-content: space-between; padding: 0.55rem 0.85rem; background: var(--bg-subtle); border-radius: 10px; font-size: 0.78rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.45rem;">
+                            <span style="color: var(--text-muted); font-weight: 600;">Created:</span>
+                            <span style="font-weight: 700; color: var(--text-dark); font-family: 'JetBrains Mono', monospace;">${(getTeamExpiryInfo(team.teamName)).createdAt}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.45rem;">
+                            <span style="color: var(--text-muted); font-weight: 600;">Expires (2 Yrs):</span>
+                            <span style="font-weight: 800; color: ${(getTeamExpiryInfo(team.teamName)).isExpired ? '#DC2626' : '#047857'}; font-family: 'JetBrains Mono', monospace;">
+                                ${(getTeamExpiryInfo(team.teamName)).expiresAt}
+                            </span>
+                            <button class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.5rem; margin-left: 0.35rem;" onclick="openEditTeamDatesModal('${team.teamName}')">Edit Date</button>
                         </div>
                     </div>
                 </div>
@@ -1419,14 +1452,32 @@
                                 <span>${health.activePaid} Active Paid</span>
                                 <span>${health.pending} Pending</span>
                             </div>
+
+                            <!-- Team Validity Dates (Created & 2-Year Expiry) -->
+                            <div style="margin-top: 0.75rem; padding: 0.5rem 0.65rem; background: var(--bg-subtle); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; font-size: 0.73rem;">
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.64rem; font-weight: 700; text-transform: uppercase;">Created</div>
+                                    <div style="font-weight: 700; color: var(--text-dark); font-family: 'JetBrains Mono', monospace;">${(getTeamExpiryInfo(health.teamName)).createdAt}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="color: var(--text-muted); font-size: 0.64rem; font-weight: 700; text-transform: uppercase;">Expires (2 Yrs)</div>
+                                    <div style="font-weight: 800; color: ${(getTeamExpiryInfo(health.teamName)).isExpired ? '#DC2626' : ((getTeamExpiryInfo(health.teamName)).rawDays < 60 ? '#D97706' : '#047857')}; font-family: 'JetBrains Mono', monospace;">
+                                        ${(getTeamExpiryInfo(health.teamName)).expiresAt}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div style="display: flex; gap: 0.5rem; margin-top: 1.15rem; border-top: 1px solid var(--border-subtle); padding-top: 0.85rem;">
-                            <button class="btn btn-secondary" style="flex: 1; font-size: 0.76rem; padding: 0.45rem 0.65rem;" onclick="filterToSpecificTeam('${health.teamName}')" title="View Members">
+                        <div style="display: flex; gap: 0.45rem; margin-top: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 0.85rem;">
+                            <button class="btn btn-secondary" style="flex: 1; font-size: 0.76rem; padding: 0.45rem 0.5rem;" onclick="filterToSpecificTeam('${health.teamName}')" title="View Members">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                                 <span>Members</span>
                             </button>
-                            <button class="btn btn-secondary btn-action-delete" style="font-size: 0.76rem; padding: 0.45rem 0.65rem;" onclick="actionDeleteTeam('${health.teamName}')" title="Delete Team">
+                            <button class="btn btn-secondary" style="font-size: 0.76rem; padding: 0.45rem 0.55rem;" onclick="openEditTeamDatesModal('${health.teamName}')" title="Edit Created Date & 2-Year Expiry">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                <span>Edit Date</span>
+                            </button>
+                            <button class="btn btn-secondary btn-action-delete" style="font-size: 0.76rem; padding: 0.45rem 0.55rem;" onclick="actionDeleteTeam('${health.teamName}')" title="Delete Team">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
                             </button>
                         </div>
@@ -1464,6 +1515,22 @@
             const bodyEl = document.getElementById("teamHealthModalBody");
             if (bodyEl) {
                 bodyEl.innerHTML = `
+                    <!-- Team Validity Strip -->
+                    <div style="background: var(--bg-subtle); border-radius: 12px; padding: 0.85rem 1rem; border: 1px solid var(--border); margin-bottom: 1.15rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                        <div>
+                            <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Team Validity (2 Years)</div>
+                            <div style="font-size: 0.95rem; font-weight: 800; color: var(--text-dark); margin-top: 0.2rem;">
+                                Created: <span style="font-family: 'JetBrains Mono', monospace;">${(getTeamExpiryInfo(health.teamName)).createdAt}</span> • Expires: <span style="color: ${(getTeamExpiryInfo(health.teamName)).isExpired ? '#DC2626' : '#047857'}; font-family: 'JetBrains Mono', monospace;">${(getTeamExpiryInfo(health.teamName)).expiresAt}</span>
+                            </div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
+                                ${(getTeamExpiryInfo(health.teamName)).isExpired ? 'Account validity expired' : `${(getTeamExpiryInfo(health.teamName)).daysRemaining} days remaining`}
+                            </div>
+                        </div>
+                        <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;" onclick="closeModal('teamHealthModal'); openEditTeamDatesModal('${health.teamName}')">
+                            Edit Created Date
+                        </button>
+                    </div>
+
                     <div style="background: ${health.bg}; border: 1px solid ${health.border}; border-radius: 14px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
                         <div>
                             <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: ${health.color}; letter-spacing: 0.05em;">Current Health Tier</div>
@@ -1670,6 +1737,17 @@
             if (!allTeams.includes(team_name)) {
                 allTeams.push(team_name);
                 saveStoredData("dh_teams", allTeams);
+            }
+            if (!allTeamMeta || typeof allTeamMeta !== "object") allTeamMeta = {};
+            if (!allTeamMeta[team_name]) {
+                const todayStr = new Date().toISOString().substring(0, 10);
+                const parts = todayStr.split("-");
+                const yr = parseInt(parts[0], 10) + 2;
+                allTeamMeta[team_name] = {
+                    created_at: todayStr,
+                    expires_at: `${yr}-${parts[1]}-${parts[2]}`
+                };
+                saveStoredData("dh_teams_meta", allTeamMeta);
             }
 
             closeModal("addTeamModal");
@@ -2347,4 +2425,98 @@
             } catch (err) {
                 console.warn("Server sync error for delete:", err);
             }
+        }
+
+
+        // ==================== EDIT CANVA TEAM CREATED DATE & 2-YEAR EXPIRY ====================
+        function openEditTeamDatesModal(teamName) {
+            const info = getTeamExpiryInfo(teamName);
+            const teamNameInput = document.getElementById("editTeamName");
+            const teamNameDisplay = document.getElementById("editTeamNameDisplay");
+            const createdAtInput = document.getElementById("editTeamCreatedAt");
+
+            if (teamNameInput) teamNameInput.value = teamName;
+            if (teamNameDisplay) teamNameDisplay.textContent = teamName;
+            if (createdAtInput) createdAtInput.value = info.createdAt;
+
+            previewTeamExpiry();
+            openModal("editTeamModal");
+        }
+
+        function previewTeamExpiry() {
+            const createdInput = document.getElementById("editTeamCreatedAt");
+            const expEl = document.getElementById("editTeamExpiryDisplay");
+            const remEl = document.getElementById("editTeamDaysRemainingDisplay");
+            if (!createdInput || !createdInput.value) {
+                if (expEl) expEl.textContent = "--";
+                if (remEl) remEl.textContent = "--";
+                return;
+            }
+
+            const createdVal = createdInput.value;
+            const parts = createdVal.split('-');
+            let expiryStr = "";
+            if (parts.length === 3) {
+                const yr = parseInt(parts[0], 10) + 2;
+                expiryStr = `${yr}-${parts[1]}-${parts[2]}`;
+            } else {
+                const c = new Date(createdVal);
+                c.setFullYear(c.getFullYear() + 2);
+                expiryStr = c.toISOString().substring(0, 10);
+            }
+
+            if (expEl) expEl.textContent = expiryStr;
+
+            const expDate = new Date(expiryStr + "T23:59:59");
+            const diff = expDate - new Date();
+            const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+            if (remEl) {
+                if (days < 0) {
+                    remEl.textContent = `Team expired ${Math.abs(days)} days ago`;
+                    remEl.style.color = "#DC2626";
+                } else {
+                    remEl.textContent = `${days} days remaining (2 full years validity)`;
+                    remEl.style.color = "#166534";
+                }
+            }
+        }
+
+        async function handleSaveTeamDates(e) {
+            if (e) e.preventDefault();
+            const teamName = document.getElementById("editTeamName")?.value;
+            const createdVal = document.getElementById("editTeamCreatedAt")?.value;
+            if (!teamName || !createdVal) return;
+
+            if (!allTeamMeta || typeof allTeamMeta !== "object") allTeamMeta = {};
+            
+            const parts = createdVal.split('-');
+            let expiryStr = "";
+            if (parts.length === 3) {
+                const yr = parseInt(parts[0], 10) + 2;
+                expiryStr = `${yr}-${parts[1]}-${parts[2]}`;
+            } else {
+                const c = new Date(createdVal);
+                c.setFullYear(c.getFullYear() + 2);
+                expiryStr = c.toISOString().substring(0, 10);
+            }
+
+            allTeamMeta[teamName] = {
+                created_at: createdVal,
+                expires_at: expiryStr
+            };
+            saveStoredData("dh_teams_meta", allTeamMeta);
+
+            // Persist to backend database
+            try {
+                fetch("/api/team/update_dates", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ team_name: teamName, created_at: createdVal, expires_at: expiryStr })
+                }).catch(() => {});
+            } catch (err) {}
+
+            closeModal("editTeamModal");
+            renderTeamsGrid();
+            renderTeamsCarousel();
+            showToast(`Created date updated: ${teamName} expires on ${expiryStr} (2 Years)`, "success");
         }

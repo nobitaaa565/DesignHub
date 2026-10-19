@@ -123,19 +123,42 @@
 
         function setHealthPeriod(period, e) {
             if (e) e.stopPropagation();
+            // Normalize period: 'days', 'week', 'month'
+            if (period === 'daily') period = 'days';
+            if (period === 'weekly') period = 'week';
+            if (period === 'monthly') period = 'month';
             healthPeriod = period;
-            const labels = { daily: "Daily (7 Days)", weekly: "Weekly (Days)", monthly: "Monthly (4 Weeks)" };
+            healthOffset = 0; // Reset scroll window to most recent
+
+            const labels = { days: "Days", week: "Week", month: "Month" };
             const lbl = document.getElementById("healthPeriodLabel");
-            if (lbl) lbl.textContent = labels[period] || "Weekly";
+            if (lbl) lbl.textContent = labels[period] || "Days";
 
             document.querySelectorAll("#healthPeriodMenu .cute-dropdown-item").forEach(item => {
                 item.classList.remove("active");
+                const itemText = (item.textContent || "").toLowerCase();
+                if (itemText.includes(period)) item.classList.add("active");
             });
-            if (e && e.target) e.target.classList.add("active");
 
             const menu = document.getElementById("healthPeriodMenu");
             if (menu) menu.classList.remove("active");
 
+            activeHealthHoverIndex = null;
+            drawAttendanceBarChart();
+        }
+
+        function scrollHealthPeriod(dir) {
+            // dir < 0: scroll left / past (increase offset)
+            // dir > 0: scroll right / future (decrease offset towards 0)
+            if (dir < 0) {
+                healthOffset += 1;
+            } else if (dir > 0) {
+                if (healthOffset > 0) {
+                    healthOffset -= 1;
+                } else {
+                    return; // Already at most recent
+                }
+            }
             activeHealthHoverIndex = null;
             drawAttendanceBarChart();
         }
@@ -234,9 +257,9 @@
             }
 
             const slices = [
-                { label: "1 Month (৳25)", count: m1, color: "#0062FF" },
-                { label: "3 Months (৳50)", count: m3, color: "#7C3AED" },
-                { label: "6 Months (৳99)", count: m6, color: "#0D9488" }
+                { label: "1 Month (৳25)", count: m1, color: "#0059EF" },
+                { label: "3 Months (৳50)", count: m3, color: "#6B67ED" },
+                { label: "6 Months (৳99)", count: m6, color: "#069F70" }
             ].filter(s => s.count > 0);
 
             const cx = w / 2;
@@ -578,7 +601,7 @@
             }
         }
 
-        // ==================== SUBSCRIPTION HEALTH (CAPSULE BARS WITH DYNAMIC NUMBERS) ====================
+        // ==================== SUBSCRIPTION HEALTH (CAPSULE BARS WITH DYNAMIC NUMBERS & SMOOTH SCROLL) ====================
         function drawAttendanceBarChart(animProgress = 1.0) {
             const canvas = document.getElementById("attendanceCanvas");
             if (!canvas) return;
@@ -600,42 +623,103 @@
             ctx.scale(dpr, dpr);
             ctx.clearRect(0, 0, w, h);
 
+            // Update Next navigation chevron button state based on healthOffset
+            const nextBtn = document.getElementById("healthNavNextBtn");
+            if (nextBtn) {
+                if (healthOffset === 0) {
+                    nextBtn.style.opacity = "0.35";
+                    nextBtn.style.cursor = "not-allowed";
+                    nextBtn.setAttribute("disabled", "true");
+                } else {
+                    nextBtn.style.opacity = "1";
+                    nextBtn.style.cursor = "pointer";
+                    nextBtn.removeAttribute("disabled");
+                }
+            }
+
             // Build dynamic data buckets strictly from REAL allSubscribers and allPayments
             let buckets = [];
             const now = new Date();
 
-            if (healthPeriod === 'daily') {
+            // Normalize healthPeriod
+            const activePeriod = (healthPeriod === 'daily' || healthPeriod === 'days') ? 'days' : 
+                                 (healthPeriod === 'monthly' || healthPeriod === 'month') ? 'month' : 'week';
+
+            if (activePeriod === 'days') {
+                // Window size: 7 recent days shifted by healthOffset * 7
+                const baseShift = healthOffset * 7;
                 for (let i = 6; i >= 0; i--) {
                     const d = new Date(now);
-                    d.setDate(d.getDate() - i);
+                    d.setDate(d.getDate() - (baseShift + i));
                     const y = d.getFullYear();
                     const m = String(d.getMonth() + 1).padStart(2, '0');
                     const day = String(d.getDate()).padStart(2, '0');
                     const dateStr = `${y}-${m}-${day}`;
                     const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const fullLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
                     const dayPaid = allPayments.filter(p => p.paid_at && p.paid_at.startsWith(dateStr)).length;
                     const dayPending = allSubscribers.filter(s => s.payment_status === 'PENDING' && ((s.added_at && s.added_at.startsWith(dateStr)) || (s.joined_at && s.joined_at.startsWith(dateStr)))).length;
 
                     buckets.push({
                         label,
+                        fullLabel,
                         paid: dayPaid,
                         pending: dayPending
                     });
                 }
-            } else if (healthPeriod === 'monthly') {
-                const weekLabels = ["Week 1", "Week 2", "Week 3", "Week 4"];
-                const currentMonth = now.getMonth();
-                const currentYear = now.getFullYear();
+            } else if (activePeriod === 'month') {
+                // Window size: 6 recent months shifted by healthOffset * 6
+                const baseShift = healthOffset * 6;
+                for (let i = 5; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - (baseShift + i), 1);
+                    const targetYear = d.getFullYear();
+                    const targetMonth = d.getMonth();
+                    const label = d.toLocaleDateString('en-US', { month: 'short' });
+                    const fullLabel = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-                buckets = weekLabels.map((lbl, idx) => {
-                    const startDay = idx * 7 + 1;
-                    const endDay = idx === 3 ? 31 : (idx + 1) * 7;
+                    const monthPaid = allPayments.filter(p => {
+                        if (!p.paid_at) return false;
+                        const pd = new Date(p.paid_at.replace(' ', 'T'));
+                        return pd.getFullYear() === targetYear && pd.getMonth() === targetMonth;
+                    }).length;
+
+                    const monthPending = allSubscribers.filter(s => {
+                        if (s.payment_status !== 'PENDING') return false;
+                        const dateStr = s.added_at || s.joined_at;
+                        if (!dateStr) return false;
+                        const sd = new Date(dateStr.replace(' ', 'T'));
+                        return sd.getFullYear() === targetYear && sd.getMonth() === targetMonth;
+                    }).length;
+
+                    buckets.push({
+                        label,
+                        fullLabel,
+                        paid: monthPaid,
+                        pending: monthPending
+                    });
+                }
+            } else {
+                // Default: Recent Weeks (5 weeks window shifted by healthOffset * 5)
+                const baseShift = healthOffset * 5;
+                for (let i = 4; i >= 0; i--) {
+                    const endD = new Date(now);
+                    endD.setDate(endD.getDate() - (baseShift + i) * 7);
+                    endD.setHours(23, 59, 59, 999);
+
+                    const startD = new Date(endD);
+                    startD.setDate(startD.getDate() - 6);
+                    startD.setHours(0, 0, 0, 0);
+
+                    const sLbl = startD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const eLbl = endD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const label = `${sLbl}-${endD.getDate()}`;
+                    const fullLabel = `${sLbl} - ${eLbl}, ${endD.getFullYear()}`;
 
                     const weekPaid = allPayments.filter(p => {
                         if (!p.paid_at) return false;
                         const pd = new Date(p.paid_at.replace(' ', 'T'));
-                        return pd.getFullYear() === currentYear && pd.getMonth() === currentMonth && pd.getDate() >= startDay && pd.getDate() <= endDay;
+                        return pd >= startD && pd <= endD;
                     }).length;
 
                     const weekPending = allSubscribers.filter(s => {
@@ -643,42 +727,16 @@
                         const dateStr = s.added_at || s.joined_at;
                         if (!dateStr) return false;
                         const sd = new Date(dateStr.replace(' ', 'T'));
-                        return sd.getFullYear() === currentYear && sd.getMonth() === currentMonth && sd.getDate() >= startDay && sd.getDate() <= endDay;
+                        return sd >= startD && sd <= endD;
                     }).length;
 
-                    return {
-                        label: lbl,
+                    buckets.push({
+                        label,
+                        fullLabel,
                         paid: weekPaid,
                         pending: weekPending
-                    };
-                });
-            } else {
-                // Default: Weekly (Mon - Sun of current week)
-                const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-                const dayIndices = [1, 2, 3, 4, 5, 6, 0]; // Monday = 1, Sunday = 0
-
-                buckets = weekDays.map((lbl, i) => {
-                    const targetDayIndex = dayIndices[i];
-                    const dayPaid = allPayments.filter(p => {
-                        if (!p.paid_at) return false;
-                        const pd = new Date(p.paid_at.replace(' ', 'T'));
-                        return pd.getDay() === targetDayIndex;
-                    }).length;
-
-                    const dayPending = allSubscribers.filter(s => {
-                        if (s.payment_status !== 'PENDING') return false;
-                        const dateStr = s.added_at || s.joined_at;
-                        if (!dateStr) return false;
-                        const sd = new Date(dateStr.replace(' ', 'T'));
-                        return sd.getDay() === targetDayIndex;
-                    }).length;
-
-                    return {
-                        label: lbl,
-                        paid: dayPaid,
-                        pending: dayPending
-                    };
-                });
+                    });
+                }
             }
 
             // Determine dynamic highest number on height bar
@@ -699,7 +757,7 @@
             const drawH = h - paddingTop - paddingBottom;
             if (drawW <= 10 || drawH <= 10) return;
 
-            // Draw Background Horizontal Grid Lines with Direct Integer Numbers (NO PERCENTAGES!)
+            // Draw Background Horizontal Grid Lines with Direct Integer Numbers
             ctx.strokeStyle = "#F1F5F9";
             ctx.lineWidth = 1;
             const gridLines = 4;
@@ -719,13 +777,11 @@
             }
 
             const slotW = drawW / buckets.length;
-            // INCREASED BAR WIDTH: Much bolder and wider capsule bars as requested by user!
-            const barW = Math.min(52, Math.max(34, slotW * 0.65));
+            const barW = Math.min(52, Math.max(32, slotW * 0.62));
             const baseY = paddingTop + drawH;
 
             const barCoords = [];
 
-        // activeHealthHoverIndex hoisted
             if (activeHealthMouseX !== null) {
                 buckets.forEach((b, idx) => {
                     const cx = paddingLeft + slotW * idx + slotW / 2;
@@ -738,7 +794,6 @@
             const prog = Math.max(0, Math.min(1, animProgress));
             buckets.forEach((b, idx) => {
                 const cx = paddingLeft + slotW * idx + slotW / 2;
-                const totalSubs = b.paid + b.pending;
                 const paidH = (b.paid / yCeil) * drawH * prog;
                 const pendingH = (b.pending / yCeil) * drawH * prog;
                 const totalBarH = Math.max(4 * prog, paidH + pendingH);
@@ -782,7 +837,7 @@
 
                 // Bottom Period Label
                 ctx.fillStyle = isHovered ? "#0062FF" : "#8E9BAE";
-                ctx.font = isHovered ? "800 11px 'Plus Jakarta Sans', sans-serif" : "700 10.5px 'Plus Jakarta Sans', sans-serif";
+                ctx.font = isHovered ? "800 11px 'Plus Jakarta Sans', sans-serif" : "700 10px 'Plus Jakarta Sans', sans-serif";
                 ctx.textAlign = "center";
                 ctx.fillText(b.label, cx, baseY + 18);
             });
@@ -791,8 +846,8 @@
             if (activeHealthHoverIndex !== null && barCoords[activeHealthHoverIndex]) {
                 const hBar = barCoords[activeHealthHoverIndex];
                 const b = hBar.data;
-                const tipW = 120;
-                const tipH = 50;
+                const tipW = 140;
+                const tipH = 52;
                 let tipX = hBar.cx - tipW / 2;
                 tipX = Math.max(paddingLeft, Math.min(w - paddingRight - tipW, tipX));
                 let tipY = hBar.baseY - hBar.totalBarH - tipH - 8;
@@ -809,20 +864,20 @@
                 ctx.restore();
 
                 ctx.fillStyle = "#FFFFFF";
-                ctx.font = "700 10px 'Plus Jakarta Sans', sans-serif";
+                ctx.font = "700 9.5px 'Plus Jakarta Sans', sans-serif";
                 ctx.textAlign = "left";
-                ctx.fillText(`${b.label} (Total: ${b.paid + b.pending})`, tipX + 8, tipY + 16);
+                ctx.fillText(`${b.fullLabel || b.label} (${b.paid + b.pending})`, tipX + 8, tipY + 15);
 
                 ctx.fillStyle = "#10B981";
-                ctx.font = "700 10px 'JetBrains Mono', monospace";
-                ctx.fillText(`● Paid: ${b.paid}`, tipX + 8, tipY + 31);
+                ctx.font = "700 9.5px 'JetBrains Mono', monospace";
+                ctx.fillText(`● Paid: ${b.paid}`, tipX + 8, tipY + 30);
 
                 ctx.fillStyle = "#A5B4FC";
-                ctx.font = "700 10px 'JetBrains Mono', monospace";
+                ctx.font = "700 9.5px 'JetBrains Mono', monospace";
                 ctx.fillText(`● Pending: ${b.pending}`, tipX + 8, tipY + 44);
             }
 
-            // Attach canvas mouse hover listener once (stores mouse position globally so monthly/weekly/daily always work accurately)
+            // Attach canvas listeners once (mouse, smooth wheel, touch swipe, pan)
             if (!healthCanvasListenersAttached) {
                 healthCanvasListenersAttached = true;
 
@@ -836,6 +891,57 @@
                     activeHealthMouseX = null;
                     drawAttendanceBarChart();
                 });
+
+                // Horizontal mouse wheel / trackpad scroll
+                let wheelDebounceTimer = 0;
+                let accumulatedDelta = 0;
+                const handleWheel = (e) => {
+                    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : (e.shiftKey ? e.deltaY : 0);
+                    if (Math.abs(delta) < 6) return;
+                    e.preventDefault();
+                    accumulatedDelta += delta;
+
+                    const now = Date.now();
+                    if (now - wheelDebounceTimer > 180 && Math.abs(accumulatedDelta) > 20) {
+                        wheelDebounceTimer = now;
+                        if (accumulatedDelta > 0) {
+                            // Scrolled right -> move forward in time (closer to current date)
+                            scrollHealthPeriod(1);
+                        } else {
+                            // Scrolled left -> move backward into past
+                            scrollHealthPeriod(-1);
+                        }
+                        accumulatedDelta = 0;
+                    }
+                };
+
+                canvas.addEventListener("wheel", handleWheel, { passive: false });
+                if (parent) parent.addEventListener("wheel", handleWheel, { passive: false });
+
+                // Touch swipe navigation for mobile / trackpad touch
+                let touchStartX = null;
+                canvas.addEventListener("touchstart", (e) => {
+                    if (e.touches && e.touches.length > 0) {
+                        touchStartX = e.touches[0].clientX;
+                    }
+                }, { passive: true });
+
+                canvas.addEventListener("touchend", (e) => {
+                    if (touchStartX !== null && e.changedTouches && e.changedTouches.length > 0) {
+                        const touchEndX = e.changedTouches[0].clientX;
+                        const diffX = touchEndX - touchStartX;
+                        if (Math.abs(diffX) > 30) {
+                            if (diffX > 0) {
+                                // Swiped right -> scroll left (earlier)
+                                scrollHealthPeriod(-1);
+                            } else {
+                                // Swiped left -> scroll right (later)
+                                scrollHealthPeriod(1);
+                            }
+                        }
+                        touchStartX = null;
+                    }
+                }, { passive: true });
             }
         }
 
