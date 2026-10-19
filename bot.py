@@ -21,6 +21,7 @@ import urllib.parse
 from pathlib import Path
 import requests
 import threading
+import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from canva_worker import invite_canva_member, kick_canva_member, is_canva_authenticated
 from facebook_funnel import handle_incoming_customer_message, send_payment_confirmed_to_customer, send_expiry_reminder_to_customer, send_subscription_ended_to_customer, notify_owner_user_joined_canva, load_replied_ids, save_replied_ids
@@ -2106,6 +2107,27 @@ async def cmd_removeuser(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"🗑️ User ID `{rem_id}` has been removed.", parse_mode="Markdown")
     else:
         await update.message.reply_text(f"⚠️ User ID `{rem_id}` not found.", parse_mode="Markdown")
+
+def start_studio_bot_daemon():
+    """Starts Bot-2 (Work & Task Scheduler Bot) in cloud background so both bots run 24/7."""
+    studio_script = Path(__file__).resolve().parent / "studio_bot.py"
+    if not studio_script.exists():
+        return
+    token = os.getenv("STUDIO_BOT_TOKEN") or "8948969587:AAFCqGJDH2qG_En5szzPAfqJ6jxl5pFpbow"
+    if not token:
+        return
+    try:
+        logger.info("🚀 Launching Bot-2 (Work & Task Scheduler Daemon)...")
+        subprocess.Popen(
+            [sys.executable, str(studio_script)],
+            cwd=str(Path(__file__).resolve().parent),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        logger.info("✅ Bot-2 process launched successfully.")
+    except Exception as e:
+        logger.error(f"Failed to launch Bot-2 process: {e}")
+
 
 def main():
     if not TELEGRAM_BOT_TOKEN:
