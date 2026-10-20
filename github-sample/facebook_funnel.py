@@ -1,3 +1,4 @@
+import time
 #!/usr/bin/env python3
 """
 Design Hub — 8-Step Conversational Sales Funnel for Facebook Messenger & Comments
@@ -223,10 +224,43 @@ def get_package_buttons():
     ]
 
 
+def is_bargain_or_discount(text: str) -> bool:
+    """Checks if customer is negotiating price or asking for discount."""
+    clean = text.lower().strip()
+    bargain_words = [
+        "rakha jay", "rakha zay", "rakhen", "rakhben", "kom", "komaya", "komiye",
+        "discount", "discnt", "koman", "komano", "kom koren", "dam kom",
+        "rate kom", "tk kom", "taka kom", "kichu kom", "kom hobe", "komaia",
+        "komano jay", "kom rakha"
+    ]
+    return any(w in clean for w in bargain_words)
+
+
+def is_feature_query(text: str) -> bool:
+    """Checks if customer is asking about Canva Pro features/benefits."""
+    clean = text.lower().strip()
+    feature_words = [
+        "feature", "features", "ফিচার", "সুবিধা", "ki ki pabo", "ki pabo",
+        "pro te ki", "pro te ki ki", "ki subidha", "benefits", "advantage"
+    ]
+    return any(w in clean for w in feature_words)
+
+
+def is_cancel_or_postpone(text: str) -> bool:
+    """Checks if customer is postponing or cancelling the conversation/request."""
+    clean = text.lower().strip()
+    cancel_words = [
+        "pore kotha bolbo", "pore bolbo", "pore dekhbo", "na thak",
+        "bad den", "dorkar nai", "দরকার নেই", "দরকার নাই",
+        "cancel", "pore jogajog", "pore ashbo"
+    ]
+    return any(w in clean for w in cancel_words)
+
+
 def parse_package_choice(text: str):
     """Ultra-fast rule & regex package parser for button payloads and common colloquial text."""
     clean = text.lower().strip()
-    if not clean:
+    if not clean or is_bargain_or_discount(clean):
         return None
 
     # Exact matches & payloads
@@ -415,6 +449,47 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
     stage = state.get("stage", "greeting")
 
     clean_text = msg_text.strip().lower()
+
+    # Global Command: Customer Cancels or Postpones ("accha na thak, pore kotha bolbo")
+    if is_cancel_or_postpone(clean_text):
+        state["stage"] = "awaiting_package"
+        states[sender_id] = state
+        save_states(states)
+
+        reply = "ঠিক আছে ভাইয়া, কোনো সমস্যা নেই! 😊 আপনার সুবিধাজনক সময়ে নক দিয়েন, আমরা সবসময় আছি ✨"
+        quick_btns = [{"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}]
+        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+
+        # Notify Owner on Telegram that user cancelled/postponed
+        alert = (
+            f"ℹ️ *CUSTOMER POSTPONED / CANCELLED (Messenger)*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {sender_name}\n"
+            f"💬 Message: '{msg_text}'\n"
+            f"────────────────────────\n"
+            f"Customer said: pore kotha bolbo / cancel."
+        )
+        send_telegram_alert(alert)
+        return
+
+    # Global Command: Bargaining / Price Negotiation ("pore dibo. Age bolen 6 mash er package ta 50tk rakha jay?")
+    if is_bargain_or_discount(clean_text):
+        reply = "ভাইয়া, আমাদের রেট এমনিতেই একদম ফিক্সড এবং সবচেয়ে কম রাখা হয়েছে 😅 এর চেয়ে কম রাখা সম্ভব হচ্ছে না ✨"
+        send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
+        return
+
+    # Global Command: Feature Query ("ki ki features pabo pro kinle?")
+    if is_feature_query(clean_text):
+        reply = (
+            "ক্যানভা প্রো-তে যে যে সুবিধা পাবেন: ✨\n\n"
+            "• ১০০M+ প্রিমিয়াম ফটো, ভিডিও, টেমপ্লেট ও গ্রাফিক্স 🎨\n"
+            "• ১-ক্লিকে ব্যাকগ্রাউন্ড রিমুভার ও ম্যাজিক AI টুলস ⚡\n"
+            "• ৩,০০০+ প্রিমিয়াম ফন্ট ও ফুল ব্র্যান্ড কিট অ্যাক্সেস 🔤\n"
+            "• ১TB ক্লাউড স্টোরেজ ও ১০০% প্রাইভেট সিকিউরিটি 🔒\n"
+            "• আনলিমিটেড হাই-কোয়ালিটি SVG ও ট্রান্সপারেন্ট PNG ডাউনলোড 🚀"
+        )
+        send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
+        return
 
     # Global Command: Talk to Admin / Human Agent Handover
     is_admin_request = any(k in clean_text for k in [
@@ -894,6 +969,28 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
             return
         else:
+            # Check if customer is asking about features while in awaiting_email
+            if is_feature_query(clean_text):
+                reply = (
+                    "ক্যানভা প্রো-তে যে যে সুবিধা পাবেন: ✨\n\n"
+                    "• ১০০M+ প্রিমিয়াম ফটো, ভিডিও, টেমপ্লেট ও গ্রাফিক্স 🎨\n"
+                    "• ১-ক্লিকে ব্যাকগ্রাউন্ড রিমুভার ও ম্যাজিক AI টুলস ⚡\n"
+                    "• ৩,০০০+ প্রিমিয়াম ফন্ট ও ফুল ব্র্যান্ড কিট অ্যাক্সেস 🔤\n"
+                    "• ১TB ক্লাউড স্টোরেজ ও ১০০% প্রাইভেট সিকিউরিটি 🔒\n"
+                    "• আনলিমিটেড হাই-কোয়ালিটি SVG ও ট্রান্সপারেন্ট PNG ডাউনলোড 🚀\n\n"
+                    "আপনার অ্যাক্সেস সেটআপ করতে আপনার জিমেইলটি (Gmail) লিখে পাঠিয়ে দিন।"
+                )
+                quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
+                send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+                return
+
+            # Check if customer is bargaining while in awaiting_email
+            if is_bargain_or_discount(clean_text):
+                reply = "ভাইয়া, আমাদের রেট এমনিতেই একদম ফিক্সড এবং সবচেয়ে কম রাখা হয়েছে 😅 এর চেয়ে কম রাখা সম্ভব হচ্ছে না ✨"
+                quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
+                send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+                return
+
             # Customer sent a message without email (could be a question, package change, or off-topic query)
             cur_pkg_name = state.get("package_name")
             ai = gemini_analyze_customer_message(msg_text, sender_name, stage, cur_pkg_name)
@@ -1029,12 +1126,12 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 
 
 def send_payment_confirmed_to_customer(sender_id: str, sender_name: str, package_name: str, page_token: str):
-    """Sends Step 6 & 7 confirmation + extend option to customer on Facebook Messenger."""
+    """Sends Step 6 & 7 confirmation + cheerful motivation for their creative journey on Facebook Messenger."""
+    first_name = sender_name.strip().split()[0] if sender_name else "ভাই"
     text = (
-        f"🎉 পেমেন্ট সফল হয়েছে!\n\n"
-        f"ধন্যবাদ {sender_name}, আপনার {package_name} Canva Pro সাবস্ক্রিপশন নিশ্চিত করা হয়েছে।\n"
-        f"আপনার অ্যাকাউন্টটি এখন সম্পূর্ণ ভেরিফায়েড ও অ্যাক্টিভ! 🎨\n\n"
-        f"💡 বিশেষ সুবিধা: আপনার মেয়াদ শেষ হওয়ার আগে আপনি যেকোনো সময় মেয়াদ বাড়াতে (Extend) পারবেন।"
+        f"🎉 অভিনন্দন {first_name}! আপনার {package_name} Canva Pro সফলভাবে অ্যাক্টিভ হয়েছে! ✨\n\n"
+        f"🚀 আপনার ক্রিয়েটিভ জার্নির জন্য অনেক অনেক শুভকামনা! এখন থেকে নিশ্চিন্তে তৈরি করুন আপনার স্বপ্নের সব চমৎকার ডিজাইন। Design Hub সবসময় আপনার সাথে আছে! 🎨💫\n\n"
+        f"💡 যেকোনো প্রয়োজনে আমাদের জানাতে পারেন।"
     )
     quick_btns = [
         {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
@@ -1132,18 +1229,26 @@ def notify_owner_user_joined_canva(email: str) -> bool:
 
 
 
+_KICK_NOTICE_SENT = set()
+
 def send_subscription_ended_to_customer(sender_id: str, sender_name: str, page_token: str) -> bool:
-    """Sends subscription ended / access revoked notice to customer on Facebook Messenger."""
+    """Sends compressed subscription ended notice to customer on Facebook Messenger with deduplication."""
     if not sender_id or not page_token:
         return False
+
+    # Prevent double sending to the same customer within 10 minutes
+    now_ts = int(time.time())
+    for item in list(_KICK_NOTICE_SENT):
+        if item[0] == sender_id and now_ts - item[1] < 600:
+            logger.info(f"Duplicate kick notice suppressed for {sender_id}")
+            return True
+    _KICK_NOTICE_SENT.add((sender_id, now_ts))
+
     text = (
-        f"⚠️ আপনার সাবস্ক্রিপশন সমাপ্ত হয়েছে।\n\n"
-        f"আসসালামু আলাইকুম {sender_name}!\n"
-        f"আপনার Design Hub Canva Pro সাবস্ক্রিপশনটির মেয়াদ শেষ / বাতিল করা হয়েছে এবং টিম থেকে আপনার অ্যাক্সেস রিমুভ করা হয়েছে।\n\n"
-        f"আপনি যদি পুনরায় সাবস্ক্রিপশন চালু করতে চান অথবা নতুন কোনো প্যাকেজ নিতে চান, তবে নিচের বাটনে চাপ দিন। ধন্যবাদ! 🎨"
+        f"⚠️ আপনার Canva Pro সাবস্ক্রিপশনটির মেয়াদ শেষ বা বাতিল করা হয়েছে এবং টিম থেকে অ্যাক্সেস রিমুভ করা হয়েছে।\n\n"
+        f"পুনরায় চালু করতে বা নতুন প্যাকেজ নিতে নিচের বাটনে চাপ দিন। ধন্যবাদ! ✨"
     )
     quick_btns = [
-        {"content_type": "text", "title": "🔄 Restart / New Plan", "payload": "ACTION_RESTART"},
-        {"content_type": "text", "title": "💬 Support", "payload": "ACTION_RESTART"}
+        {"content_type": "text", "title": "🔄 Restart / New Plan", "payload": "ACTION_RESTART"}
     ]
     return send_fb_message(sender_id, text, page_token, quick_replies=quick_btns)
