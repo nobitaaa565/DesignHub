@@ -224,14 +224,74 @@ def get_package_buttons():
 
 
 def parse_package_choice(text: str):
+    """Ultra-fast rule & regex package parser for button payloads and common colloquial text."""
     clean = text.lower().strip()
-    if clean in ("1", "১", "1m", "pkg_1m") or "১ মাস" in clean or "1 month" in clean:
+    if not clean:
+        return None
+
+    # Exact matches & payloads
+    if clean in ("1", "১", "1m", "pkg_1m", "option 1", "package 1", "১ম") or "১ মাস" in clean or "1 month" in clean:
         return PACKAGES["1"]
-    if clean in ("2", "২", "3m", "pkg_3m") or "৩ মাস" in clean or "3 month" in clean:
+    if clean in ("2", "২", "3m", "pkg_3m", "option 2", "package 2", "২য়") or "৩ মাস" in clean or "3 month" in clean:
         return PACKAGES["2"]
-    if clean in ("3", "৩", "6m", "pkg_6m", "12m", "pkg_12m", "1y") or "৬ মাস" in clean or "6 month" in clean or "১ বছর" in clean:
+    if clean in ("3", "৩", "6m", "pkg_6m", "12m", "pkg_12m", "1y", "option 3", "package 3", "৩য়") or "৬ মাস" in clean or "6 month" in clean or "১ বছর" in clean or "1 year" in clean:
         return PACKAGES["3"]
+
+    # Common Banglish/Bengali regex patterns (e.g. "2 no nite chai", "2 number ta", "50 taka", "৫০৳")
+    if re.search(r"\b(1|১)\s*(no|num|number|st|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(25|২৫)\s*(tk|taka|টাকা|৳)\b", clean):
+        return PACKAGES["1"]
+    if re.search(r"\b(2|২)\s*(no|num|number|nd|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(50|৫০)\s*(tk|taka|টাকা|৳)\b", clean):
+        return PACKAGES["2"]
+    if re.search(r"\b(3|৩)\s*(no|num|number|rd|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(99|৯৯)\s*(tk|taka|টাকা|৳)\b", clean):
+        return PACKAGES["3"]
+
     return None
+
+
+def gemini_analyze_customer_message(user_msg: str, sender_name: str = "Customer", current_stage: str = "greeting") -> dict:
+    """Uses Gemini AI to intelligently understand complex Bengali, Banglish, English, or typos."""
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        return {}
+
+    prompt = (
+        f"You are the official customer assistant for 'Design Hub' on Facebook Messenger in Bangladesh.\n"
+        f"We provide Canva Pro subscriptions on personal Gmail:\n"
+        f"• Package 1: 1 Month (25 TK)\n"
+        f"• Package 2: 3 Months (50 TK) [Most Popular]\n"
+        f"• Package 3: 6 Months (99 TK)\n"
+        f"• Security Guarantee: 100% Private (others cannot view designs), 1TB Cloud Storage, No team expiry hassle, Easy extend policy.\n"
+        f"• Joining Process: Customer selects package -> provides Gmail -> receives join link & joins team -> verifies Pro -> pays via bKash/Nagad (01571425035, 01798361516).\n\n"
+        f"Customer Name: {sender_name}\n"
+        f"Current Funnel Stage: {current_stage}\n"
+        f"Customer Message: '{user_msg}'\n\n"
+        f"Analyze the customer's message (which may be in natural Bengali, Banglish, English, or typos).\n"
+        f"Return STRICT JSON ONLY:\n"
+        f"{{\n"
+        f"  \"intent\": \"PACKAGE_SELECT\" | \"ASK_QUESTION\" | \"GIVE_EMAIL\" | \"GREETING\" | \"OTHER\",\n"
+        f"  \"selected_package\": 1 | 2 | 3 | null,\n"
+        f"  \"extracted_email\": \"valid email address or null\",\n"
+        f"  \"ai_reply\": \"A concise, polite, helpful 1-2 sentence response strictly in natural Bengali directly answering their query and politely guiding them to choose a package (1, 2, or 3).\"\n"
+        f"}}"
+    )
+
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={api_key}"
+        res = requests.post(
+            url,
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"response_mime_type": "application/json"}
+            },
+            timeout=5
+        )
+        if res.status_code == 200:
+            raw_text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
+            return json.loads(raw_text)
+    except Exception as e:
+        logger.warning(f"Gemini customer NLU fallback: {e}")
+
+    return {}
 
 
 def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text: str, msg_id: str, page_token: str, bot_instance=None, image_bytes: bytes = None):
@@ -552,11 +612,49 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             set_pending_telegram_msg(email_info, new_msg_id)
         return
 
-    # STEP 1 & 2: Greeting & Package Selection
+    # STEP 1 & 2: Greeting & Package Selection (Powered by Hybrid Regex + Gemini AI)
     if stage in ("greeting", "awaiting_package"):
+        # 1. Fast regex/button check
         pkg = parse_package_choice(msg_text)
+        ai_analysis = {}
+
+        if not pkg:
+            # 2. Gemini AI Natural Language Understanding (Bengali / Banglish / English)
+            ai_analysis = gemini_analyze_customer_message(msg_text, sender_name, stage)
+            sel_pkg_num = ai_analysis.get("selected_package")
+            if sel_pkg_num in (1, 2, 3, "1", "2", "3"):
+                pkg = PACKAGES[str(sel_pkg_num)]
+
         if pkg:
-            # Package selected! Move to Step 3: Ask for Gmail
+            # Check if customer also included their email in the same message
+            email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
+            extracted_email = email_match.group(0).lower() if email_match else ai_analysis.get("extracted_email")
+
+            if extracted_email and "@" in extracted_email:
+                # Both package and email provided in one shot! Advance directly to confirmation!
+                state["stage"] = "awaiting_confirm"
+                state["package_key"] = pkg["key"]
+                state["package_name"] = pkg["name"]
+                state["package_price"] = pkg["price"]
+                state["sender_name"] = sender_name
+                state["email"] = extracted_email
+                state["saved_email"] = extracted_email
+                states[sender_id] = state
+                save_states(states)
+
+                reply = (
+                    f"✅ প্যাকেজ: **{pkg['name']}**\n"
+                    f"📧 জিমেইল: **{extracted_email}**\n\n"
+                    f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন :"
+                )
+                quick_btns = [
+                    {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{extracted_email}"},
+                    {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
+                ]
+                send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+                return
+
+            # Move to Step 3: Ask for Gmail
             states[sender_id] = {
                 "stage": "awaiting_email",
                 "package_key": pkg["key"],
@@ -576,21 +674,54 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             ]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
             return
-        else:
-            # First touch greeting & show packages
-            states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
+
+        # Check if customer sent only email first
+        email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
+        if email_match:
+            email = email_match.group(0).lower()
+            state["email"] = email
+            state["saved_email"] = email
+            state["stage"] = "awaiting_package"
+            states[sender_id] = state
             save_states(states)
+
             reply = (
-                f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub-এ আপনাকে স্বাগতম।\n\n"
-                f"আমরা দিচ্ছি অফিসিয়াল Canva Pro এডুকেশন টিম অ্যাক্সেস (নিজের পার্সোনাল জিমেইলে এক্টিভ হবে)।\n\n"
-                f"📦 আপনি কোন প্যাকেজটি নিতে চান?\n"
-                f"১. ১ মাস — ২৫ টাকা\n"
-                f"২. ৩ মাস — ৫০ টাকা\n"
-                f"৩. ৬ মাস — ৯৯ টাকা\n\n"
-                f"অনুগ্রহ করে আপনার পছন্দের প্যাকেজটি বাছাই করুন। অথবা ১, ২ বা ৩ লিখে জানিয়ে দিন:"
+                f"ধন্যবাদ {sender_name}! আপনার জিমেইল ({email}) পেয়েছি।\n\n"
+                f"এখন অনুগ্রহ করে নিচের বাটন থেকে আপনার পছন্দের প্যাকেজটি বেছে নিন অথবা লিখে জানান:"
             )
             send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
             return
+
+        # If customer asked a question (e.g. 'purano design safe thakbe?', 'kivabe pay korbo?')
+        if ai_analysis.get("intent") == "ASK_QUESTION" and ai_analysis.get("ai_reply"):
+            states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
+            save_states(states)
+
+            reply = (
+                f"{ai_analysis['ai_reply']}\n\n"
+                f"📦 আমাদের Canva Pro স্পেশাল প্যাকেজসমূহ:\n"
+                f"১. ১ মাস — ২৫ টাকা\n"
+                f"২. ৩ মাস — ৫০ টাকা\n"
+                f"৩. ৬ মাস — ৯৯ টাকা\n\n"
+                f"আপনার পছন্দের প্যাকেজটি বাছাই করতে নিচের বাটনে চাপ দিন অথবা লিখে জানান:"
+            )
+            send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
+            return
+
+        # First touch greeting & show packages
+        states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
+        save_states(states)
+        reply = (
+            f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub-এ আপনাকে স্বাগতম।\n\n"
+            f"আমরা দিচ্ছি অফিসিয়াল Canva Pro এডুকেশন টিম অ্যাক্সেস (নিজের পার্সোনাল জিমেইলে এক্টিভ হবে)।\n\n"
+            f"📦 আপনি কোন প্যাকেজটি নিতে চান?\n"
+            f"১. ১ মাস — ২৫ টাকা\n"
+            f"২. ৩ মাস — ৫০ টাকা\n"
+            f"৩. ৬ মাস — ৯৯ টাকা\n\n"
+            f"অনুগ্রহ করে আপনার পছন্দের প্যাকেজটি বাছাই করুন। অথবা ১, ২ বা ৩ লিখে জানিয়ে দিন:"
+        )
+        send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
+        return
 
     # STEP 3 & 4: Ask for Gmail & Show Confirmation with Package & Email
     if stage == "awaiting_email":
@@ -625,7 +756,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 
     # STEP 5: Customer Confirms -> Send 10-Minute Expiring Link + Request Payment
     if stage == "awaiting_confirm":
-        positive_keywords = ["yes", "হ্যাঁ", "ha", "y", "confirm", "হাঁ", "thik ache", "ঠিক আছে", "হ্যা", "confirm_yes"]
+        positive_keywords = ["yes", "হ্যাঁ", "ha", "y", "confirm", "হাঁ", "thik ache", "ঠিক আছে", "হ্যা", "confirm_yes", "ok", "okay", "accha", "den", "link den", "sure", "হবে", "হ", "পাবো"]
         if any(k in clean_text for k in positive_keywords):
             confirmed_email = state.get("email")
             pkg_key = state.get("package_key", "1m")
