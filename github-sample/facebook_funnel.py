@@ -225,88 +225,130 @@ def get_package_buttons():
 
 
 def is_bargain_or_discount(text: str) -> bool:
-    """Checks if customer is negotiating price or asking for discount."""
+    """Checks if customer is negotiating price or asking for discount in Bengali, English, or Tagalog."""
     clean = text.lower().strip()
     bargain_words = [
+        # Bengali / Banglish
         "rakha jay", "rakha zay", "rakhen", "rakhben", "kom", "komaya", "komiye",
         "discount", "discnt", "koman", "komano", "kom koren", "dam kom",
         "rate kom", "tk kom", "taka kom", "kichu kom", "kom hobe", "komaia",
-        "komano jay", "kom rakha"
+        "komano jay", "kom rakha",
+        # English
+        "discount", "lower price", "reduce price", "cheaper", "negotiable", 
+        "can you do 50", "can you give for", "any discount", "best price",
+        # Tagalog / Filipino
+        "tawad", "diskwento", "bawas", "pwede bawasan", "pwede discount", "pwede bang 50", "pwede discount po"
     ]
     return any(w in clean for w in bargain_words)
 
 
 def is_cancel_or_postpone(text: str) -> bool:
-    """Checks if customer is postponing or cancelling the conversation/request."""
+    """Checks if customer is postponing or cancelling the conversation/request in Bengali, English, or Tagalog."""
     clean = text.lower().strip()
     cancel_words = [
+        # Bengali / Banglish
         "pore kotha bolbo", "pore bolbo", "pore dekhbo", "na thak",
         "bad den", "dorkar nai", "দরকার নেই", "দরকার নাই",
-        "cancel", "pore jogajog", "pore ashbo"
+        "cancel", "pore jogajog", "pore ashbo",
+        # English
+        "never mind", "nevermind", "talk later", "chat later", "not now",
+        "maybe later", "i will pass", "cancel", "next time",
+        # Tagalog / Filipino
+        "wag na", "wag na lang", "next time na lang", "bukas na lang",
+        "mamaya na lang", "ayaw na", "di na lang", "wag muna"
     ]
     return any(w in clean for w in cancel_words)
 
 
+def get_package_buttons(lang: str = "bn"):
+    """Returns 1-tap quick reply buttons tailored to customer language."""
+    if lang in ("en", "tl"):
+        return [
+            {"content_type": "text", "title": "1️⃣ 1 Month (25 TK)", "payload": "PKG_1M"},
+            {"content_type": "text", "title": "2️⃣ 3 Months (50 TK)", "payload": "PKG_3M"},
+            {"content_type": "text", "title": "3️⃣ 6 Months (99 TK)", "payload": "PKG_6M"},
+            {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+        ]
+    return [
+        {"content_type": "text", "title": "1️⃣ ১ মাস (২৫৳)", "payload": "PKG_1M"},
+        {"content_type": "text", "title": "2️⃣ ৩ মাস (৫০৳)", "payload": "PKG_3M"},
+        {"content_type": "text", "title": "3️⃣ ৬ মাস (৯৯৳)", "payload": "PKG_6M"},
+        {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+    ]
+
+
 def parse_package_choice(text: str):
-    """Ultra-fast rule & regex package parser for button payloads and common colloquial text."""
+    """Ultra-fast rule & regex package parser for button payloads and common colloquial text across English, Tagalog, and Bengali."""
     clean = text.lower().strip()
     if not clean or is_bargain_or_discount(clean):
         return None
 
     # Exact matches & payloads
-    if clean in ("1", "১", "1m", "pkg_1m", "option 1", "package 1", "১ম") or "১ মাস" in clean or "1 month" in clean:
+    if clean in ("1", "১", "1m", "pkg_1m", "option 1", "package 1", "১ম", "1 month", "one month", "isang buwan", "1 mo"):
         return PACKAGES["1"]
-    if clean in ("2", "২", "3m", "pkg_3m", "option 2", "package 2", "২য়") or "৩ মাস" in clean or "3 month" in clean:
+    if clean in ("2", "২", "3m", "pkg_3m", "option 2", "package 2", "২য়", "3 months", "three months", "tatlong buwan", "3 mos"):
         return PACKAGES["2"]
-    if clean in ("3", "৩", "6m", "pkg_6m", "12m", "pkg_12m", "1y", "option 3", "package 3", "৩য়") or "৬ মাস" in clean or "6 month" in clean or "১ বছর" in clean or "1 year" in clean:
+    if clean in ("3", "৩", "6m", "pkg_6m", "12m", "pkg_12m", "1y", "option 3", "package 3", "৩য়", "6 months", "six months", "anim na buwan", "6 mos", "1 year"):
         return PACKAGES["3"]
 
-    # Common Banglish/Bengali regex patterns
-    if re.search(r"\b(1|১)\s*(no|num|number|st|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(25|২৫)\s*(tk|taka|টাকা|৳)\b", clean):
+    # Bengali phrases
+    if "১ মাস" in clean:
         return PACKAGES["1"]
-    if re.search(r"\b(2|২)\s*(no|num|number|nd|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(50|৫০)\s*(tk|taka|টাকা|৳)\b", clean):
+    if "৩ মাস" in clean:
         return PACKAGES["2"]
-    if re.search(r"\b(3|৩)\s*(no|num|number|rd|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(99|৯৯)\s*(tk|taka|টাকা|৳)\b", clean):
+    if "৬ মাস" in clean or "১ বছর" in clean:
+        return PACKAGES["3"]
+
+    # Common Banglish/Bengali/English regex patterns
+    if re.search(r"\b(1|১)\s*(no|num|number|st|ta|টা|টায়|নম্বর|নং|month|mo)\b", clean) or re.search(r"\b(25|২৫)\s*(tk|taka|টাকা|৳|php|peso|pesos)\b", clean):
+        return PACKAGES["1"]
+    if re.search(r"\b(2|২)\s*(no|num|number|nd|ta|টা|টায়|নম্বর|নং|month|months|mos)\b", clean) or re.search(r"\b(50|৫০)\s*(tk|taka|টাকা|৳|php|peso|pesos)\b", clean):
+        return PACKAGES["2"]
+    if re.search(r"\b(3|৩)\s*(no|num|number|rd|ta|টা|টায়|নম্বর|নং|month|months|mos)\b", clean) or re.search(r"\b(99|৯৯)\s*(tk|taka|টাকা|৳|php|peso|pesos)\b", clean):
         return PACKAGES["3"]
 
     return None
 
 
 def gemini_analyze_customer_message(user_msg: str, sender_name: str = "Customer", current_stage: str = "greeting", current_pkg: str = None) -> dict:
-    """Uses Gemini 3.5 Flash Lite as a true intelligent, personalized conversational brain for Design Hub."""
+    """Uses Gemini 3.5 Flash Lite with multilingual mirroring (English, Filipino/Tagalog, Bengali) and consistent warm vibe."""
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         return {}
 
-    first_name = sender_name.strip().split()[0] if sender_name else "ভাই"
+    first_name = sender_name.strip().split()[0] if sender_name else "there"
 
     system_prompt = (
-        f"You are the intelligent, warm, and highly personalized Facebook Messenger AI Assistant for 'Design Hub' (Bangladesh).\n\n"
+        f"You are the intelligent, warm, and highly personalized Facebook Messenger AI Assistant for 'Design Hub'.\n\n"
         f"ABOUT DESIGN HUB & SERVICES:\n"
-        f"- Brand Name: ALWAYS write 'Design Hub' in English. NEVER write 'ডিজাইন হাব' or 'ডিজাইন হাবে'.\n"
+        f"- Brand Name: ALWAYS write 'Design Hub' in English. NEVER translate or transliterate into other scripts.\n"
         f"- What we sell: Official Canva Pro on personal Gmail.\n"
         f"  • 1 Month: 25 TK\n"
         f"  • 3 Months: 50 TK (Most popular)\n"
         f"  • 6 Months: 99 TK\n"
         f"  • (Prices are strictly fixed and rock-bottom. We do NOT have a 1-year package, but plans can be renewed anytime easily).\n"
-        f"- Canva Pro Key Features (give as crisp bullet points when asked about features):\n"
-        f"  • ১০০M+ প্রিমিয়াম ফটো, ভিডিও, টেমপ্লেট ও গ্রাফিক্স 🎨\n"
-        f"  • ১-ক্লিকে ব্যাকগ্রাউন্ড রিমুভার ও ম্যাজিক AI টুলস ⚡\n"
-        f"  • ৩,০০০+ প্রিমিয়াম ফন্ট ও ফুল ব্র্যান্ড কিট অ্যাক্সেস 🔤\n"
-        f"  • ১TB ক্লাউড স্টোরেজ ও ১০০% প্রাইভেট সিকিউরিটি 🔒\n"
-        f"  • আনলিমিটেড হাই-কোয়ালিটি SVG ও ট্রান্সপারেন্ট PNG ডাউনলোড 🚀\n"
+        f"- Canva Pro Key Features:\n"
+        f"  • 100M+ premium photos, videos, templates & graphics\n"
+        f"  • 1-click Background Remover & Magic Studio AI tools\n"
+        f"  • 3,000+ premium fonts & full Brand Kit access\n"
+        f"  • 1TB Cloud Storage & 100% Private Security (no one sees your designs)\n"
+        f"  • Unlimited SVG & Transparent PNG downloads\n"
         f"- How customer joins: Select package -> provide Gmail -> we send join link -> customer joins & verifies Pro -> pays via bKash/Nagad (01571425035, 01798361516).\n"
         f"- Other Services: We also do professional graphic design, logo design, posters, banners.\n"
         f"- Hotline / Contact: 01571425035 (Call or WhatsApp).\n\n"
-        f"CRITICAL CHATBOT GUIDELINES (USER DEMAND):\n"
-        f"1. PERSONALIZED & INTELLIGENT (LIKE GEMINI): Analyze what the customer actually meant, their tone and intent, and answer directly to that specific point. NEVER sound like a rigid robot.\n"
-        f"2. SHORT & CRISP (NOT LONG TEXT!): Maximum 1 to 2 short sentences. If asked about features, give short bullet points. No long paragraphs.\n"
-        f"3. EMOTION & EMOJIS: Use expressive, friendly emojis (😊, ✨, 🔒, ⚡, 🎨, 😅, 🤝).\n"
-        f"4. NO REDUNDANT PACKAGE LIST TEXT: Do NOT append the full list of packages into the text (the buttons below already show them).\n"
-        f"5. BARGAINING / DISCOUNT: If customer asks to lower price or says '50tk rakha jay 6 mash': do NOT select package! Explain politely that rate is fixed, but 3 months is 50tk.\n"
-        f"6. CANCEL / POSTPONE: If customer says 'accha na thak, pore kotha bolbo' or 'pore dekhbo': reply warmly, tell them no problem and to reach out whenever ready.\n"
-        f"7. ADMIN / HUMAN: If customer wants to speak with an admin, person, or call: warmly confirm an admin is connecting and give hotline.\n"
-        f"8. GMAIL STAGE: If stage is 'awaiting_email' and they ask a question: answer the question, and gently remind: 'অ্যাক্সেস নিতে আপনার জিমেইলটি লিখে দিন।'\n\n"
+        f"LANGUAGE ADAPTATION & MIRRORING (CRITICAL USER RULE):\n"
+        f"- Detect the customer's language and respond naturally in that SAME language:\n"
+        f"  • If customer writes in English -> Respond in warm, concise, natural English.\n"
+        f"  • If customer writes in Tagalog / Filipino / Taglish -> Respond in polite, friendly Taglish / Filipino (use polite markers like 'po', 'opo', and warm emojis 😊✨).\n"
+        f"  • If customer writes in Bengali or Banglish -> Respond in natural, polite Bengali (বাংলা).\n"
+        f"- The conversational vibe MUST ALWAYS remain the same regardless of language:\n"
+        f"  1. SHORT & PUNCHY: Maximum 1 to 2 short sentences. Answer ONLY what the customer asked. No long essays.\n"
+        f"  2. WARM & EMOTIVE: Add 1-2 expressive emojis (😊, ✨, 🔒, ⚡, 🎨, 🤝).\n"
+        f"  3. NO REDUNDANT PACKAGE LIST TEXT: Do NOT append full package lists in the message text (the buttons below already show them).\n"
+        f"  4. BARGAINING / DISCOUNT: If customer asks to lower price or says '50tk for 6 months': explain politely that rate is fixed, but 3 months is 50tk. Do NOT select package!\n"
+        f"  5. CANCEL / POSTPONE: If customer says 'never mind', 'later', 'pore bolbo', 'wag na muna': reply warmly, tell them no problem and to reach out whenever ready.\n"
+        f"  6. ADMIN / HUMAN: If customer wants to speak with an admin, person, or call: warmly confirm an admin is connecting and provide hotline.\n"
+        f"  7. GMAIL STAGE: If stage is 'awaiting_email' and they ask a question: answer the question, and gently remind: please send your Gmail address.\n\n"
         f"CONVERSATION CONTEXT:\n"
         f"- Customer: {first_name}\n"
         f"- Stage: {current_stage}\n"
@@ -314,10 +356,11 @@ def gemini_analyze_customer_message(user_msg: str, sender_name: str = "Customer"
         f"- Customer Message: '{user_msg}'\n\n"
         f"Return STRICT JSON ONLY:\n"
         f"{{\n"
+        f"  \"detected_language\": \"en\" | \"tl\" | \"bn\",\n"
         f"  \"intent\": \"PACKAGE_SELECT\" | \"GIVE_EMAIL\" | \"TALK_TO_HUMAN\" | \"CANCEL_OR_POSTPONE\" | \"CONVERSATION\",\n"
         f"  \"selected_package\": 1 | 2 | 3 | null,\n"
         f"  \"extracted_email\": \"valid email or null\",\n"
-        f"  \"ai_reply\": \"Personalized, short, emotive response in natural Bengali.\"\n"
+        f"  \"ai_reply\": \"Personalized, short, emotive response in the customer's language.\"\n"
         f"}}"
     )
 
@@ -329,7 +372,7 @@ def gemini_analyze_customer_message(user_msg: str, sender_name: str = "Customer"
                 "contents": [{"parts": [{"text": system_prompt}]}],
                 "generationConfig": {"response_mime_type": "application/json"}
             },
-            timeout=8
+            timeout=15
         )
         if res.status_code == 200:
             raw_text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
@@ -415,11 +458,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
     # Global Triggers: Native 'Get Started' button, 'Restart', or Greetings ('Hi', 'Hello')
     is_restart_request = (
         "action_restart" in clean_text
-        or "restart" in clean_text
-        or "রিস্টার্ট" in clean_text
-        or "get_started" in clean_text
-        or clean_text in ("start", "reset", "শুরু", "মেনু", "menu", "hi", "hello", "hey", "hlo", "hy", "hola", "সালাম", "assalamu alaikum", "slam")
-        or any(clean_text.startswith(k + " ") for k in ("hi", "hello", "hey", "start", "menu"))
+        or clean_text in ("restart", "রিস্টার্ট", "get_started", "start", "reset", "শুরু", "মেনু", "menu")
     )
     if is_restart_request:
         states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
@@ -668,52 +707,72 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             set_pending_telegram_msg(email_info, new_msg_id)
         return
 
-    # CONVERSATIONAL CORE: Powered by True Gemini AI Brain
+    # CONVERSATIONAL CORE: Powered by Multilingual Gemini AI Brain (English, Filipino, Bengali)
     ai = gemini_analyze_customer_message(msg_text, sender_name, stage, state.get("package_name"))
+    lang = ai.get("detected_language") or state.get("lang") or "bn"
+    state["lang"] = lang
+    states[sender_id] = state
+
     ai_intent = ai.get("intent", "CONVERSATION")
     ai_reply = ai.get("ai_reply", "")
     sel_pkg_num = ai.get("selected_package")
     extracted_email = ai.get("extracted_email")
 
-    # 1. Customer Postpones or Cancels ("accha na thak, pore kotha bolbo")
+    # 1. Customer Postpones or Cancels
     if ai_intent == "CANCEL_OR_POSTPONE" or is_cancel_or_postpone(clean_text):
         state["stage"] = "awaiting_package"
         states[sender_id] = state
         save_states(states)
 
-        reply = ai_reply or "ঠিক আছে ভাইয়া, কোনো সমস্যা নেই! 😊 আপনার সুবিধাজনক সময়ে নক দিয়েন, আমরা সবসময় আছি ✨"
+        if not ai_reply:
+            if lang == "en":
+                ai_reply = "No problem at all! 😊 Feel free to reach out to Design Hub whenever you are ready. Have a great day! ✨"
+            elif lang == "tl":
+                ai_reply = "Walang anuman po! 😊 Mag-message lang po kayo sa Design Hub anytime na ready na po kayo. Ingat po! ✨"
+            else:
+                ai_reply = "ঠিক আছে ভাইয়া, কোনো সমস্যা নেই! 😊 আপনার সুবিধাজনক সময়ে নক দিয়েন, আমরা সবসময় আছি ✨"
+
         quick_btns = [{"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}]
-        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+        send_fb_message(sender_id, ai_reply, page_token, quick_replies=quick_btns)
 
         alert = (
             f"ℹ️ *CUSTOMER POSTPONED / CANCELLED (Messenger)*\n"
             f"────────────────────────\n"
             f"👤 Customer: {sender_name}\n"
             f"💬 Message: '{msg_text}'\n"
+            f"🌐 Language: {lang.upper()}\n"
             f"────────────────────────\n"
-            f"Customer said: pore kotha bolbo / cancel."
+            f"Customer said: postpone / cancel."
         )
         send_telegram_alert(alert)
         return
 
     # 2. Customer Requests Admin / Human Handover
-    if ai_intent == "TALK_TO_HUMAN" or any(k in clean_text for k in ["admin", "এডমিন", "person", "manush", "kotha bolte chai"]):
-        reply = ai_reply or "অবশ্যই! একটু অপেক্ষা করুন, আমাদের একজন এডমিন এখনই আপনার সাথে যুক্ত হচ্ছেন। 🙋‍♂️\n\nজরুরি প্রয়োজনে কল করতে পারেন: 01571425035 📞"
+    if ai_intent == "TALK_TO_HUMAN" or any(k in clean_text for k in ["admin", "এডমিন", "person", "manush", "kotha bolte chai", "human", "agent"]):
+        if not ai_reply:
+            if lang == "en":
+                ai_reply = "Sure! An admin will connect with you here shortly. 🙋‍♂️ For urgent help, you can call or WhatsApp our hotline: 01571425035 📞"
+            elif lang == "tl":
+                ai_reply = "Sige po! May admin pong kakausap sa inyo rito shortly. 🙋‍♂️ Pwede rin po kayong tumawag sa hotline: 01571425035 📞"
+            else:
+                ai_reply = "অবশ্যই! একটু অপেক্ষা করুন, আমাদের একজন এডমিন এখনই আপনার সাথে যুক্ত হচ্ছেন। 🙋‍♂️\n\nজরুরি প্রয়োজনে কল করতে পারেন: 01571425035 📞"
+
         quick_btns = [{"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}]
-        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+        send_fb_message(sender_id, ai_reply, page_token, quick_replies=quick_btns)
 
         alert = (
             f"🙋‍♂️ *HUMAN ASSISTANCE REQUESTED! (Messenger)*\n"
             f"────────────────────────\n"
             f"👤 Customer: {sender_name}\n"
             f"💬 Message: '{msg_text}'\n"
+            f"🌐 Language: {lang.upper()}\n"
             f"────────────────────────\n"
             f"🔗 [Open Page Inbox](https://business.facebook.com/latest/inbox)"
         )
         send_telegram_alert(alert)
         return
 
-    # 3. Stage is awaiting_email: Check if customer gave email or asked a question
+    # 3. Stage is awaiting_email: Check if customer gave email
     if stage == "awaiting_email":
         email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
         confirmed_email = email_match.group(0).lower() if email_match else (extracted_email if (extracted_email and "@" in extracted_email) else None)
@@ -726,12 +785,28 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             save_states(states)
 
             pkg_name = state.get("package_name", "Canva Pro")
-            reply = (
-                f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
-                f"📦 প্যাকেজ: **{pkg_name}**\n"
-                f"📧 জিমেইল: **{confirmed_email}**\n\n"
-                f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন :"
-            )
+            if lang == "en":
+                reply = (
+                    f"Please confirm your details:\n\n"
+                    f"📦 Package: **{pkg_name}**\n"
+                    f"📧 Gmail: **{confirmed_email}**\n\n"
+                    f"If everything looks correct, tap '✅ Confirm & Get Link' below:"
+                )
+            elif lang == "tl":
+                reply = (
+                    f"Pakiconfirm po ang inyong details:\n\n"
+                    f"📦 Package: **{pkg_name}**\n"
+                    f"📧 Gmail: **{confirmed_email}**\n\n"
+                    f"Kung tama po ang lahat, pindutin lang ang '✅ Confirm & Get Link' sa ibaba:"
+                )
+            else:
+                reply = (
+                    f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
+                    f"📦 প্যাকেজ: **{pkg_name}**\n"
+                    f"📧 জিমেইল: **{confirmed_email}**\n\n"
+                    f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন :"
+                )
+
             quick_btns = [
                 {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{confirmed_email}"},
                 {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
@@ -739,7 +814,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
             return
 
-        # If customer wants to switch package while in awaiting_email (e.g. 'na 1 month ta nibo')
+        # If customer wants to switch package while in awaiting_email
         if ai_intent == "PACKAGE_SELECT" and sel_pkg_num in (1, 2, 3, "1", "2", "3") and not is_bargain_or_discount(clean_text):
             new_pkg = PACKAGES[str(sel_pkg_num)]
             state["package_key"] = new_pkg["key"]
@@ -748,15 +823,28 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             states[sender_id] = state
             save_states(states)
 
-            reply = f"✅ প্যাকেজ পরিবর্তন করে **{new_pkg['name']}** করা হয়েছে।\n\nএখন আপনার জিমেইলটি (Gmail) লিখে পাঠিয়ে দিন:"
+            if lang == "en":
+                reply = f"✅ Switched package to **{new_pkg['name']}**.\n\nPlease reply with your Gmail address to activate your access:"
+            elif lang == "tl":
+                reply = f"✅ Nabago na po sa **{new_pkg['name']}**.\n\nPakisend na lang po ang inyong Gmail para ma-activate:"
+            else:
+                reply = f"✅ প্যাকেজ পরিবর্তন করে **{new_pkg['name']}** করা হয়েছে।\n\nএখন আপনার জিমেইলটি (Gmail) লিখে পাঠিয়ে দিন:"
+
             quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
             return
 
         # Customer asked any question (bargain, feature, general query, anything!)
-        reply = ai_reply or "আপনার ক্যানভা প্রো সেটআপ করতে অনুগ্রহ করে আপনার একটি সঠিক জিমেইল (Gmail) অ্যাড্রেস লিখে পাঠান:"
+        if not ai_reply:
+            if lang == "en":
+                ai_reply = "To set up your Canva Pro access, please reply with your Gmail address:"
+            elif lang == "tl":
+                ai_reply = "Para po ma-setup ang inyong Canva Pro, pakisend po ang inyong Gmail address:"
+            else:
+                ai_reply = "আপনার ক্যানভা প্রো সেটআপ করতে অনুগ্রহ করে আপনার একটি সঠিক জিমেইল (Gmail) অ্যাড্রেস লিখে পাঠান:"
+
         quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
-        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+        send_fb_message(sender_id, ai_reply, page_token, quick_replies=quick_btns)
         return
 
     # 4. Package Selection (From button payload or natural language)
@@ -768,7 +856,6 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
     if ai_intent == "PACKAGE_SELECT" and sel_pkg_num in (1, 2, 3, "1", "2", "3") and not is_bargain_or_discount(clean_text):
         pkg = PACKAGES[str(sel_pkg_num)]
 
-        # Check if customer also provided email in the same message
         email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
         both_email = email_match.group(0).lower() if email_match else (extracted_email if (extracted_email and "@" in extracted_email) else None)
 
@@ -783,11 +870,25 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             states[sender_id] = state
             save_states(states)
 
-            reply = (
-                f"✅ প্যাকেজ: **{pkg['name']}**\n"
-                f"📧 জিমেইল: **{both_email}**\n\n"
-                f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন :"
-            )
+            if lang == "en":
+                reply = (
+                    f"✅ Package: **{pkg['name']}**\n"
+                    f"📧 Gmail: **{both_email}**\n\n"
+                    f"If everything looks correct, tap '✅ Confirm & Get Link' below:"
+                )
+            elif lang == "tl":
+                reply = (
+                    f"✅ Package: **{pkg['name']}**\n"
+                    f"📧 Gmail: **{both_email}**\n\n"
+                    f"Kung tama po ang lahat, pindutin lang ang '✅ Confirm & Get Link' sa ibaba:"
+                )
+            else:
+                reply = (
+                    f"✅ প্যাকেজ: **{pkg['name']}**\n"
+                    f"📧 জিমেইল: **{both_email}**\n\n"
+                    f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন :"
+                )
+
             quick_btns = [
                 {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{both_email}"},
                 {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
@@ -800,27 +901,41 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             "package_key": pkg["key"],
             "package_name": pkg["name"],
             "package_price": pkg["price"],
-            "sender_name": sender_name
+            "sender_name": sender_name,
+            "lang": lang
         }
         save_states(states)
 
-        reply = ai_reply if ("জিমেইল" in ai_reply or "email" in ai_reply.lower()) else f"✅ আপনি নির্বাচন করেছেন: **{pkg['name']}**\n\nএখন আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, অনুগ্রহ করে সেই জিমেইলটি লিখে পাঠিয়ে দিন:"
+        if not ai_reply or not any(w in ai_reply.lower() for w in ["gmail", "email", "জিমেইল"]):
+            if lang == "en":
+                ai_reply = f"✅ You selected: **{pkg['name']}**\n\nPlease reply with your Gmail address to activate your Canva Pro access:"
+            elif lang == "tl":
+                ai_reply = f"✅ Napili niyo po: **{pkg['name']}**\n\nPakisend po ang inyong Gmail address para ma-activate ang inyong Canva Pro access:"
+            else:
+                ai_reply = f"✅ আপনি নির্বাচন করেছেন: **{pkg['name']}**\n\nএখন আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, অনুগ্রহ করে সেই জিমেইলটি লিখে পাঠিয়ে দিন:"
+
         quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
-        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+        send_fb_message(sender_id, ai_reply, page_token, quick_replies=quick_btns)
         return
 
-    # 5. Customer asked any question, chatted, bargained, or asked features in greeting/awaiting_package stage
+    # 5. Customer asked a question, chatted, or bargained in greeting/awaiting_package stage
     if ai_reply:
-        states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
+        states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name, "lang": lang}
         save_states(states)
-        send_fb_message(sender_id, ai_reply, page_token, quick_replies=get_package_buttons())
+        send_fb_message(sender_id, ai_reply, page_token, quick_replies=get_package_buttons(lang))
         return
 
     # 6. Fallback greeting
-    states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
+    states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name, "lang": lang}
     save_states(states)
-    reply = f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub-এ আপনাকে স্বাগতম।\n\nআমরা দিচ্ছি অফিসিয়াল Canva Pro এডুকেশন টিম অ্যাক্সেস (নিজের পার্সোনাল জিমেইলে এক্টিভ হবে)। নিচের বাটন থেকে আপনার পছন্দের প্যাকেজটি বাছাই করুন অথবা লিখে জানান:"
-    send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
+    if lang == "en":
+        reply = f"Welcome to Design Hub, {sender_name}! 🎨\n\nWe provide official Canva Pro access directly on your personal Gmail. Please choose a package below to get started:"
+    elif lang == "tl":
+        reply = f"Welcome po sa Design Hub, {sender_name}! 🎨\n\nNagbibigay po kami ng official Canva Pro access sa inyong personal Gmail. Pili lang po kayo ng package sa ibaba:"
+    else:
+        reply = f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub-এ আপনাকে স্বাগতম।\n\nআমরা দিচ্ছি অফিসিয়াল Canva Pro এডুকেশন টিম অ্যাক্সেস (নিজের পার্সোনাল জিমেইলে এক্টিভ হবে)। নিচের বাটন থেকে আপনার পছন্দের প্যাকেজটি বাছাই করুন অথবা লিখে জানান:"
+
+    send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons(lang))
     return
 
 
