@@ -249,10 +249,63 @@ def parse_package_choice(text: str):
 
 
 def gemini_analyze_customer_message(user_msg: str, sender_name: str = "Customer", current_stage: str = "greeting", current_pkg: str = None) -> dict:
-    """Uses Gemini AI to intelligently understand complex Bengali, Banglish, English, or typos."""
+    """Uses Gemini AI to understand complex Bengali, Banglish, English, or typos with human-like conciseness."""
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         return {}
+
+    first_name = sender_name.strip().split()[0] if sender_name else "ভাই"
+
+    prompt = (
+        f"You are the friendly, smart Facebook Messenger chat assistant for 'Design Hub' (Bangladesh).\n\n"
+        f"CORE BRAND & SERVICE FACTS:\n"
+        f"- Brand Name: ALWAYS write 'Design Hub' in English. NEVER write 'ডিজাইন হাব' or 'ডিজাইন হাবে'.\n"
+        f"- What we sell: Official Canva Pro on personal Gmail.\n"
+        f"  • 1 Month: 25 TK\n"
+        f"  • 3 Months: 50 TK (Most popular)\n"
+        f"  • 6 Months: 99 TK\n"
+        f"  • Note: We do NOT have a 1-year package, but plans can be renewed anytime easily.\n"
+        f"- Top Features: 100% Private (no one else can see your designs), 1TB Cloud Storage, No team expiry hassle, All Magic AI & Brand Kits unlocked.\n"
+        f"- How it works: We give join link first -> you verify Pro -> then pay via bKash/Nagad (01571425035, 01798361516).\n"
+        f"- Other Services: We also do custom graphic/poster design.\n"
+        f"- Contact / Hotline: 01571425035 (Call or WhatsApp).\n\n"
+        f"CONVERSATIONAL STYLE & PERSONALITY RULES (CRITICAL):\n"
+        f"1. BE SHORT & PUNCHY: Maximum 1 to 2 short sentences. Answer ONLY what the customer asked. Do NOT write long essays or walls of text.\n"
+        f"2. NO REPETITIVE GREETINGS: Do NOT repeat 'আসসালামু আলাইকুম [Full Name] ভাই' in every message. Talk like a friendly human on chat.\n"
+        f"3. SHOW EMOTION WITH EMOJIS: Add 1-2 expressive emojis that fit the mood (e.g. 😊, 🙌, 🔒, ✨, ⚡, 💡).\n"
+        f"4. NO REDUNDANT PACKAGE LISTS IN TEXT: Do NOT append the list of packages in the message text (the buttons below already show them).\n"
+        f"5. HUMAN / ADMIN HANDOVER: If the customer asks to speak with an admin, human, person, or agent, acknowledge immediately and warmly, give the hotline, and say an admin is connecting.\n\n"
+        f"Context:\n"
+        f"- Customer: {first_name}\n"
+        f"- Funnel Stage: {current_stage}\n"
+        f"- Package: {current_pkg or 'None'}\n"
+        f"- Message: '{user_msg}'\n\n"
+        f"Return STRICT JSON ONLY:\n"
+        f"{{\n"
+        f"  \"intent\": \"PACKAGE_SELECT\" | \"ASK_QUESTION\" | \"TALK_TO_HUMAN\" | \"GIVE_EMAIL\" | \"GENERAL_CHAT\",\n"
+        f"  \"selected_package\": 1 | 2 | 3 | null,\n"
+        f"  \"extracted_email\": \"valid email or null\",\n"
+        f"  \"ai_reply\": \"1-2 short, punchy, emotive sentences in natural Bengali directly answering them.\"\n"
+        f"}}"
+    )
+
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={api_key}"
+        res = requests.post(
+            url,
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"response_mime_type": "application/json"}
+            },
+            timeout=6
+        )
+        if res.status_code == 200:
+            raw_text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
+            return json.loads(raw_text)
+    except Exception as e:
+        logger.warning(f"Gemini customer NLU fallback: {e}")
+
+    return {}
 
     prompt = (
         f"You are the intelligent, polite, and helpful Facebook Messenger Assistant for 'Design Hub' (Bangladesh).\n\n"
@@ -362,6 +415,31 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
     stage = state.get("stage", "greeting")
 
     clean_text = msg_text.strip().lower()
+
+    # Global Command: Talk to Admin / Human Agent Handover
+    is_admin_request = any(k in clean_text for k in [
+        "admin", "এডমিন", "এডমিনের", "এডমিনকে", "person", "manush", "মানুষ", 
+        "kotha bolte chai", "কথা বলতে চাই", "agent", "এজেন্ট", "call", "কল দিতে চাই"
+    ])
+    if is_admin_request:
+        reply = (
+            "অবশ্যই! একটু অপেক্ষা করুন, আমাদের একজন এডমিন এখনই আপনার সাথে যুক্ত হচ্ছেন। 🙋‍♂️\n\n"
+            "জরুরি প্রয়োজনে সরাসরি কল বা হোয়াটসঅ্যাপ করতে পারেন আমাদের হটলাইনে: 01571425035 📞"
+        )
+        quick_btns = [{"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}]
+        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+
+        # Notify Owner on Telegram
+        alert = (
+            f"🙋‍♂️ *HUMAN ASSISTANCE REQUESTED! (Messenger)*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {sender_name}\n"
+            f"💬 Message: '{msg_text}'\n"
+            f"────────────────────────\n"
+            f"🔗 [Open Page Inbox](https://business.facebook.com/latest/inbox)"
+        )
+        send_telegram_alert(alert)
+        return
 
     # Global Command: Request a Fresh New Link (Session management & on-demand brand-new generation)
     is_new_link_request = (
@@ -753,19 +831,25 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
             return
 
-        # If customer asked a question (related or unrelated) or sent greeting
-        if ai_analysis.get("intent") in ("ASK_QUESTION", "OFF_TOPIC_OR_GENERAL") and ai_analysis.get("ai_reply"):
+        # If customer asked a question (related, unrelated, or general chat)
+        if ai_analysis.get("ai_reply"):
             states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
             save_states(states)
 
-            reply = (
-                f"{ai_analysis['ai_reply']}\n\n"
-                f"📦 আমাদের Canva Pro স্পেশাল প্যাকেজসমূহ:\n"
-                f"১. ১ মাস — ২৫ টাকা\n"
-                f"২. ৩ মাস — ৫০ টাকা\n"
-                f"৩. ৬ মাস — ৯৯ টাকা\n\n"
-                f"আপনার পছন্দের প্যাকেজটি বাছাই করতে নিচের বাটনে চাপ দিন অথবা লিখে জানান:"
-            )
+            # Check if intent was human handover
+            if ai_analysis.get("intent") == "TALK_TO_HUMAN":
+                alert = (
+                    f"🙋‍♂️ *HUMAN ASSISTANCE REQUESTED! (Messenger)*\n"
+                    f"────────────────────────\n"
+                    f"👤 Customer: {sender_name}\n"
+                    f"💬 Message: '{msg_text}'\n"
+                    f"────────────────────────\n"
+                    f"🔗 [Open Page Inbox](https://business.facebook.com/latest/inbox)"
+                )
+                send_telegram_alert(alert)
+
+            # Reply with crisp, personalized AI response + keep buttons (no text redundancy!)
+            reply = ai_analysis["ai_reply"]
             send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
             return
 
