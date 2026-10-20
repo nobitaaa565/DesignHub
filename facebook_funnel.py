@@ -248,11 +248,72 @@ def parse_package_choice(text: str):
     return None
 
 
-def gemini_analyze_customer_message(user_msg: str, sender_name: str = "Customer", current_stage: str = "greeting") -> dict:
+def gemini_analyze_customer_message(user_msg: str, sender_name: str = "Customer", current_stage: str = "greeting", current_pkg: str = None) -> dict:
     """Uses Gemini AI to intelligently understand complex Bengali, Banglish, English, or typos."""
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         return {}
+
+    prompt = (
+        f"You are the intelligent, polite, and helpful Facebook Messenger Assistant for 'Design Hub' (Bangladesh).\n\n"
+        f"ABOUT DESIGN HUB:\n"
+        f"- We provide official Canva Pro Subscriptions and Professional Graphic Design Services.\n"
+        f"- Canva Pro Subscriptions:\n"
+        f"  • Package 1: 1 Month (25 TK)\n"
+        f"  • Package 2: 3 Months (50 TK) [Most Popular]\n"
+        f"  • Package 3: 6 Months (99 TK)\n"
+        f"  • Security: 100% Private (others cannot view designs), 1TB Cloud Storage, No team expiry hassle, Easy extend policy.\n"
+        f"  • Payment: bKash / Nagad Personal (01571425035, 01798361516). We provide join link first, customer checks access, then pays!\n"
+        f"- Other Services: Professional Graphic Design, Logo Design, Social Media Posters, Brand Kits.\n"
+        f"- Official Contact: Hotline 01571425035 (Call/WhatsApp) • Web: designhub.com.bd • Page: fb.com/DesignHub.\n\n"
+        f"CONVERSATION CONTEXT:\n"
+        f"- Customer Name: {sender_name}\n"
+        f"- Current Funnel Stage: {current_stage}\n"
+        f"- Selected Package (if any): {current_pkg or 'None yet'}\n"
+        f"- Customer Message: '{user_msg}'\n\n"
+        f"YOUR TASK:\n"
+        f"Analyze the customer's message (which may be in Bengali, Banglish, English, slang, or typos).\n"
+        f"Determine their intent:\n"
+        f"1. 'PACKAGE_SELECT': Customer selected or wants to change their package (e.g. '2 no nite chai', '50 takar ta', 'change package to 1', 'na 3 month ta nibo').\n"
+        f"2. 'GIVE_EMAIL': Customer provided an email address.\n"
+        f"3. 'ASK_QUESTION': Customer asked a question about Canva Pro, payment, safety, features, devices, or how it works.\n"
+        f"4. 'OFF_TOPIC_OR_GENERAL': Customer asked something unrelated to Canva Pro (e.g. custom graphic design, logo design, company phone/office, casual chit-chat 'kemon achen', or random questions).\n"
+        f"5. 'GREETING': Hello / Hi / Salam.\n\n"
+        f"RESPONSE GUIDELINES:\n"
+        f"- Always reply in warm, natural, respectful Bengali (বাংলা).\n"
+        f"- If intent is 'ASK_QUESTION': Answer their question directly, accurately, and reassuringly based on Design Hub policies. If stage is 'awaiting_email', gently append: 'আপনার অ্যাক্সেস সেটআপ করতে আপনার জিমেইলটি (Gmail) লিখে পাঠিয়ে দিন।'\n"
+        f"- If intent is 'OFF_TOPIC_OR_GENERAL':\n"
+        f"  • If about logo/graphic design: Politely explain that Design Hub does custom graphic/poster design, and ask what they need.\n"
+        f"  • If about contact/phone/office: Share hotline 01571425035.\n"
+        f"  • If casual greeting/chit-chat ('kemon achen', 'tumi ke'): Reply politely and ask how you can assist them with Canva Pro or design.\n"
+        f"  • If completely irrelevant (weather, jokes, random): Politely explain you are the Design Hub assistant for Canva Pro and graphic design services, and ask how you can help them with their design needs.\n"
+        f"- If stage is 'awaiting_email' and they haven't given email yet, always remind them politely at the end of your answer: 'আপনার অ্যাক্সেস সেটআপ করতে আপনার জিমেইলটি লিখে দিন।'\n\n"
+        f"Return STRICT JSON ONLY:\n"
+        f"{{\n"
+        f"  \"intent\": \"PACKAGE_SELECT\" | \"GIVE_EMAIL\" | \"ASK_QUESTION\" | \"OFF_TOPIC_OR_GENERAL\" | \"GREETING\",\n"
+        f"  \"selected_package\": 1 | 2 | 3 | null,\n"
+        f"  \"extracted_email\": \"valid email or null\",\n"
+        f"  \"ai_reply\": \"1-3 sentences in natural Bengali answering their question/chat and guiding the next step.\"\n"
+        f"}}"
+    )
+
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={api_key}"
+        res = requests.post(
+            url,
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"response_mime_type": "application/json"}
+            },
+            timeout=6
+        )
+        if res.status_code == 200:
+            raw_text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
+            return json.loads(raw_text)
+    except Exception as e:
+        logger.warning(f"Gemini customer NLU fallback: {e}")
+
+    return {}
 
     prompt = (
         f"You are the official customer assistant for 'Design Hub' on Facebook Messenger in Bangladesh.\n"
@@ -692,8 +753,8 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
             return
 
-        # If customer asked a question (e.g. 'purano design safe thakbe?', 'kivabe pay korbo?')
-        if ai_analysis.get("intent") == "ASK_QUESTION" and ai_analysis.get("ai_reply"):
+        # If customer asked a question (related or unrelated) or sent greeting
+        if ai_analysis.get("intent") in ("ASK_QUESTION", "OFF_TOPIC_OR_GENERAL") and ai_analysis.get("ai_reply"):
             states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
             save_states(states)
 
@@ -723,7 +784,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons())
         return
 
-    # STEP 3 & 4: Ask for Gmail & Show Confirmation with Package & Email
+    # STEP 3 & 4: Ask for Gmail & Show Confirmation with Package & Email (Intelligent Q&A Enabled)
     if stage == "awaiting_email":
         email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
         if email_match:
@@ -749,7 +810,44 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
             return
         else:
-            reply = "অনুগ্রহ করে একটি সঠিক জিমেইল (Gmail) অ্যাড্রেস লিখে পাঠান (যেমন: yourname@gmail.com):"
+            # Customer sent a message without email (could be a question, package change, or off-topic query)
+            cur_pkg_name = state.get("package_name")
+            ai = gemini_analyze_customer_message(msg_text, sender_name, stage, cur_pkg_name)
+
+            sel_pkg_num = ai.get("selected_package")
+            direct_pkg = parse_package_choice(msg_text)
+
+            # Only switch package if intent is genuinely PACKAGE_SELECT or user explicitly typed package name
+            is_package_change = (
+                direct_pkg is not None
+                or (ai.get("intent") == "PACKAGE_SELECT" and sel_pkg_num in (1, 2, 3, "1", "2", "3"))
+            )
+
+            if is_package_change:
+                new_pkg = direct_pkg or PACKAGES[str(sel_pkg_num)]
+                state["package_key"] = new_pkg["key"]
+                state["package_name"] = new_pkg["name"]
+                state["package_price"] = new_pkg["price"]
+                states[sender_id] = state
+                save_states(states)
+
+                reply = (
+                    f"✅ প্যাকেজ পরিবর্তন করে **{new_pkg['name']}** করা হয়েছে।\n\n"
+                    f"এখন আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, অনুগ্রহ করে সেই জিমেইলটি লিখে পাঠিয়ে দিন:"
+                )
+                quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
+                send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+                return
+
+            # If customer asked any question (subscription related OR general / off-topic)
+            if ai.get("ai_reply"):
+                reply = ai["ai_reply"]
+                quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
+                send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+                return
+
+            # Default fallback if AI was unavailable
+            reply = "আপনার ক্যানভা প্রো সেটআপ করতে অনুগ্রহ করে আপনার একটি সঠিক জিমেইল (Gmail) অ্যাড্রেস লিখে পাঠান (যেমন: yourname@gmail.com):"
             quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
             return
