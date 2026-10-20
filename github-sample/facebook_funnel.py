@@ -321,12 +321,52 @@ def parse_package_choice(text: str):
     return None
 
 
-def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", current_stage: str = "awaiting_package", current_pkg: str = None) -> str:
-    """Invokes Google Gemini AI as the active, intelligent sales assistant for Design Hub."""
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if not api_key:
+def call_manifest_ai_gateway(prompt: str, system_instruction: str, first_name: str = "there") -> str:
+    """Invokes Manifest AI Gateway (app.manifest.build) as the intelligent multi-model failover router."""
+    token = os.getenv("MANIFEST_AUTH_TOKEN", "mnfst_lpeXE1-JKLzUYRkDgq7QEM0vln_V43oKNDjt6vwBeJY").strip()
+    base_url = os.getenv("MANIFEST_BASE_URL", "https://app.manifest.build").strip().rstrip("/")
+    if not token:
         return ""
 
+    url = f"{base_url}/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "auto",
+        "max_tokens": 800,
+        "temperature": 0.7,
+        "messages": [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": prompt}
+        ]
+    }
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=15)
+        if r.status_code == 200:
+            data = r.json()
+            choices = data.get("choices", [])
+            if choices and "message" in choices[0]:
+                content = choices[0]["message"].get("content")
+                if content and isinstance(content, str):
+                    ans = (
+                        content.strip()
+                        .replace("ডিজাইন হাব-এর", "Design Hub-এর")
+                        .replace("ডিজাইন হাবের", "Design Hub-এর")
+                        .replace("ডিজাইন হাবে", "Design Hub-এ")
+                        .replace("ডিজাইন হাব", "Design Hub")
+                    )
+                    logger.info(f"✨ Manifest AI Gateway answered for {first_name} (routed model: {data.get('model', 'auto')})")
+                    return ans
+    except Exception as e:
+        logger.warning(f"Manifest AI Gateway attempt failed: {e}")
+
+    return ""
+
+
+def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", current_stage: str = "awaiting_package", current_pkg: str = None) -> str:
+    """Invokes Google Gemini AI as primary, with seamless failover to Manifest AI Gateway."""
     first_name = sender_name.strip().split()[0] if sender_name else "there"
     system_instruction = (
         "You are the intelligent, warm human sales assistant for 'Design Hub' on Facebook Messenger.\n"
@@ -355,39 +395,51 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
 
     prompt = f"Context: Customer: {first_name}, Stage: {current_stage}, Package: {current_pkg or 'None'}\nCustomer says: \"{user_msg}\"\nAssistant response:"
 
-    models = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.6-flash"]
-    for m in models:
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
-            res = requests.post(
-                url,
-                json={
-                    "system_instruction": {"parts": [{"text": system_instruction}]},
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"maxOutputTokens": 800, "temperature": 0.7}
-                },
-                timeout=8
-            )
-            if res.status_code == 200:
-                cand = res.json().get("candidates", [{}])[0]
-                parts = cand.get("content", {}).get("parts", [])
-                raw = ""
-                for p in parts:
-                    if "text" in p and p["text"]:
-                        raw = p["text"].strip()
-                if raw:
-                    raw = (
-                        raw
-                        .replace("ডিজাইন হাব-এর", "Design Hub-এর")
-                        .replace("ডিজাইন হাবের", "Design Hub-এর")
-                        .replace("ডিজাইন হাবে", "Design Hub-এ")
-                        .replace("ডিজাইন হাব", "Design Hub")
-                    )
-                    logger.info(f"✨ Gemini ({m}) generated assistant reply for {first_name}")
-                    return raw
-        except Exception as e:
-            logger.warning(f"Gemini model {m} attempt failed: {e}")
-            continue
+    # 1. Primary Engine: Google Gemini API
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if api_key:
+        models = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.6-flash"]
+        for m in models:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
+                res = requests.post(
+                    url,
+                    json={
+                        "system_instruction": {"parts": [{"text": system_instruction}]},
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"maxOutputTokens": 800, "temperature": 0.7}
+                    },
+                    timeout=7
+                )
+                if res.status_code == 200:
+                    cand = res.json().get("candidates", [{}])[0]
+                    parts = cand.get("content", {}).get("parts", [])
+                    raw = ""
+                    for p in parts:
+                        if "text" in p and p["text"]:
+                            raw = p["text"].strip()
+                    if raw:
+                        raw = (
+                            raw
+                            .replace("ডিজাইন হাব-এর", "Design Hub-এর")
+                            .replace("ডিজাইন হাবের", "Design Hub-এর")
+                            .replace("ডিজাইন হাবে", "Design Hub-এ")
+                            .replace("ডিজাইন হাব", "Design Hub")
+                        )
+                        logger.info(f"✨ Google Gemini ({m}) generated assistant reply for {first_name}")
+                        return raw
+                elif res.status_code == 429:
+                    logger.warning(f"Google Gemini model {m} quota reached (429), failing over immediately to Manifest...")
+                    break
+            except Exception as e:
+                logger.warning(f"Google Gemini model {m} attempt failed: {e}")
+                continue
+
+    # 2. Resilient Failover Engine: Manifest AI Gateway (app.manifest.build)
+    logger.info("Routing query to Manifest AI Gateway failover...")
+    manifest_ans = call_manifest_ai_gateway(prompt, system_instruction, first_name=first_name)
+    if manifest_ans:
+        return manifest_ans
 
     return ""
 
