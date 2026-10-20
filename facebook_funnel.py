@@ -277,34 +277,45 @@ def get_package_buttons(lang: str = "bn"):
     ]
 
 
+def check_unsupported_duration(text: str) -> str:
+    """Detects requests for durations we don't offer (e.g. 4 months, 1 year) and responds politely."""
+    clean = text.lower().strip()
+    match = re.search(r"\b(4|5|7|8|9|10|11|12|২|৪|৫|৭|৮|৯|১০|১১|১২)\s*(mash|masher|month|months|মাসের|মাস)\b", clean)
+    if match:
+        return "ভাইয়া, আমাদের ৪ বা ৫ মাসের প্যাকেজ নেই 😅 আমাদের ফিক্সড প্যাকেজগুলো হলো: ১ মাস (২৫৳), ৩ মাস (৫০৳) এবং ৬ মাস (৯৯৳)। আপনি কোনটি নিতে চান? ✨"
+    if any(k in clean for k in ["1 year", "1year", "১ বছর", "এক বছর", "১২ মাস", "12 month", "one year"]):
+        return "ভাইয়া, আমাদের ১ বছরের কোনো প্যাকেজ নেই, তবে আপনি ৬ মাসের প্যাকেজটি (৯৯৳) নিয়ে পরবর্তীতে খুব সহজেই মেয়াদ রিনিউ করে নিতে পারবেন! ✨"
+    return ""
+
+
 def parse_package_choice(text: str):
     """Ultra-fast rule & regex package parser for button payloads and common colloquial text across English, Tagalog, and Bengali."""
     clean = text.lower().strip()
     if not clean or is_bargain_or_discount(clean):
         return None
 
-    # Exact matches & payloads
-    if clean in ("1", "১", "1m", "pkg_1m", "option 1", "package 1", "১ম", "1 month", "one month", "isang buwan", "1 mo"):
+    # Check button payloads & exact text
+    if "pkg_1m" in clean or clean in ("1", "১", "1m", "option 1", "package 1", "১ম", "1 month", "one month", "isang buwan", "1 mo"):
         return PACKAGES["1"]
-    if clean in ("2", "২", "3m", "pkg_3m", "option 2", "package 2", "২য়", "3 months", "three months", "tatlong buwan", "3 mos"):
+    if "pkg_3m" in clean or clean in ("2", "২", "3m", "option 2", "package 2", "২য়", "3 months", "three months", "tatlong buwan", "3 mos"):
         return PACKAGES["2"]
-    if clean in ("3", "৩", "6m", "pkg_6m", "12m", "pkg_12m", "1y", "option 3", "package 3", "৩য়", "6 months", "six months", "anim na buwan", "6 mos", "1 year"):
+    if "pkg_6m" in clean or clean in ("3", "৩", "6m", "pkg_12m", "option 3", "package 3", "৩য়", "6 months", "six months", "anim na buwan", "6 mos"):
         return PACKAGES["3"]
 
-    # Bengali phrases
-    if "১ মাস" in clean:
+    # Bengali button labels and phrases
+    if "১ মাস" in clean or "1 মাস" in clean or "1 month" in clean:
         return PACKAGES["1"]
-    if "৩ মাস" in clean:
+    if "৩ মাস" in clean or "3 মাস" in clean or "3 month" in clean or "3 months" in clean:
         return PACKAGES["2"]
-    if "৬ মাস" in clean or "১ বছর" in clean:
+    if "৬ মাস" in clean or "6 মাস" in clean or "6 month" in clean or "6 months" in clean:
         return PACKAGES["3"]
 
     # Common Banglish/Bengali/English regex patterns
-    if re.search(r"\b(1|১)\s*(no|num|number|st|ta|টা|টায়|নম্বর|নং|month|mo)\b", clean) or re.search(r"\b(25|২৫)\s*(tk|taka|টাকা|৳|php|peso|pesos)\b", clean):
+    if re.search(r"\b(1|১)\s*(no|num|number|st|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(25|২৫)\s*(tk|taka|টাকা|৳)\b", clean):
         return PACKAGES["1"]
-    if re.search(r"\b(2|২)\s*(no|num|number|nd|ta|টা|টায়|নম্বর|নং|month|months|mos)\b", clean) or re.search(r"\b(50|৫০)\s*(tk|taka|টাকা|৳|php|peso|pesos)\b", clean):
+    if re.search(r"\b(2|২)\s*(no|num|number|nd|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(50|৫০)\s*(tk|taka|টাকা|৳)\b", clean):
         return PACKAGES["2"]
-    if re.search(r"\b(3|৩)\s*(no|num|number|rd|ta|টা|টায়|নম্বর|নং|month|months|mos)\b", clean) or re.search(r"\b(99|৯৯)\s*(tk|taka|টাকা|৳|php|peso|pesos)\b", clean):
+    if re.search(r"\b(3|৩)\s*(no|num|number|rd|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(99|৯৯)\s*(tk|taka|টাকা|৳)\b", clean):
         return PACKAGES["3"]
 
     return None
@@ -365,14 +376,14 @@ def gemini_analyze_customer_message(user_msg: str, sender_name: str = "Customer"
     )
 
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
         res = requests.post(
             url,
             json={
                 "contents": [{"parts": [{"text": system_prompt}]}],
                 "generationConfig": {"response_mime_type": "application/json"}
             },
-            timeout=15
+            timeout=4
         )
         if res.status_code == 200:
             raw_text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
@@ -696,7 +707,6 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 ]
             ]
         }
-        # Delete previous pending message
         prev_msg_id = get_pending_telegram_msg(email_info)
         if prev_msg_id:
             delete_telegram_message(prev_msg_id)
@@ -707,252 +717,18 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             set_pending_telegram_msg(email_info, new_msg_id)
         return
 
-    # CONVERSATIONAL CORE: Powered by Multilingual Gemini AI Brain (English, Filipino, Bengali)
-    ai = gemini_analyze_customer_message(msg_text, sender_name, stage, state.get("package_name"))
-    lang = ai.get("detected_language") or state.get("lang") or "bn"
-    state["lang"] = lang
-    states[sender_id] = state
-
-    ai_intent = ai.get("intent", "CONVERSATION")
-    ai_reply = ai.get("ai_reply", "")
-    sel_pkg_num = ai.get("selected_package")
-    extracted_email = ai.get("extracted_email")
-
-    # 1. Customer Postpones or Cancels
-    if ai_intent == "CANCEL_OR_POSTPONE" or is_cancel_or_postpone(clean_text):
-        state["stage"] = "awaiting_package"
-        states[sender_id] = state
-        save_states(states)
-
-        if not ai_reply:
-            if lang == "en":
-                ai_reply = "No problem at all! 😊 Feel free to reach out to Design Hub whenever you are ready. Have a great day! ✨"
-            elif lang == "tl":
-                ai_reply = "Walang anuman po! 😊 Mag-message lang po kayo sa Design Hub anytime na ready na po kayo. Ingat po! ✨"
-            else:
-                ai_reply = "ঠিক আছে ভাইয়া, কোনো সমস্যা নেই! 😊 আপনার সুবিধাজনক সময়ে নক দিয়েন, আমরা সবসময় আছি ✨"
-
-        quick_btns = [{"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}]
-        send_fb_message(sender_id, ai_reply, page_token, quick_replies=quick_btns)
-
-        alert = (
-            f"ℹ️ *CUSTOMER POSTPONED / CANCELLED (Messenger)*\n"
-            f"────────────────────────\n"
-            f"👤 Customer: {sender_name}\n"
-            f"💬 Message: '{msg_text}'\n"
-            f"🌐 Language: {lang.upper()}\n"
-            f"────────────────────────\n"
-            f"Customer said: postpone / cancel."
-        )
-        send_telegram_alert(alert)
-        return
-
-    # 2. Customer Requests Admin / Human Handover
-    if ai_intent == "TALK_TO_HUMAN" or any(k in clean_text for k in ["admin", "এডমিন", "person", "manush", "kotha bolte chai", "human", "agent"]):
-        if not ai_reply:
-            if lang == "en":
-                ai_reply = "Sure! An admin will connect with you here shortly. 🙋‍♂️ For urgent help, you can call or WhatsApp our hotline: 01571425035 📞"
-            elif lang == "tl":
-                ai_reply = "Sige po! May admin pong kakausap sa inyo rito shortly. 🙋‍♂️ Pwede rin po kayong tumawag sa hotline: 01571425035 📞"
-            else:
-                ai_reply = "অবশ্যই! একটু অপেক্ষা করুন, আমাদের একজন এডমিন এখনই আপনার সাথে যুক্ত হচ্ছেন। 🙋‍♂️\n\nজরুরি প্রয়োজনে কল করতে পারেন: 01571425035 📞"
-
-        quick_btns = [{"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}]
-        send_fb_message(sender_id, ai_reply, page_token, quick_replies=quick_btns)
-
-        alert = (
-            f"🙋‍♂️ *HUMAN ASSISTANCE REQUESTED! (Messenger)*\n"
-            f"────────────────────────\n"
-            f"👤 Customer: {sender_name}\n"
-            f"💬 Message: '{msg_text}'\n"
-            f"🌐 Language: {lang.upper()}\n"
-            f"────────────────────────\n"
-            f"🔗 [Open Page Inbox](https://business.facebook.com/latest/inbox)"
-        )
-        send_telegram_alert(alert)
-        return
-
-    # 3. Stage is awaiting_email: Check if customer gave email
-    if stage == "awaiting_email":
-        email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
-        confirmed_email = email_match.group(0).lower() if email_match else (extracted_email if (extracted_email and "@" in extracted_email) else None)
-
-        if confirmed_email:
-            state["email"] = confirmed_email
-            state["saved_email"] = confirmed_email
-            state["stage"] = "awaiting_confirm"
-            states[sender_id] = state
-            save_states(states)
-
-            pkg_name = state.get("package_name", "Canva Pro")
-            if lang == "en":
-                reply = (
-                    f"Please confirm your details:\n\n"
-                    f"📦 Package: **{pkg_name}**\n"
-                    f"📧 Gmail: **{confirmed_email}**\n\n"
-                    f"If everything looks correct, tap '✅ Confirm & Get Link' below:"
-                )
-            elif lang == "tl":
-                reply = (
-                    f"Pakiconfirm po ang inyong details:\n\n"
-                    f"📦 Package: **{pkg_name}**\n"
-                    f"📧 Gmail: **{confirmed_email}**\n\n"
-                    f"Kung tama po ang lahat, pindutin lang ang '✅ Confirm & Get Link' sa ibaba:"
-                )
-            else:
-                reply = (
-                    f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
-                    f"📦 প্যাকেজ: **{pkg_name}**\n"
-                    f"📧 জিমেইল: **{confirmed_email}**\n\n"
-                    f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন :"
-                )
-
-            quick_btns = [
-                {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{confirmed_email}"},
-                {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
-            ]
-            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
-            return
-
-        # If customer wants to switch package while in awaiting_email
-        if ai_intent == "PACKAGE_SELECT" and sel_pkg_num in (1, 2, 3, "1", "2", "3") and not is_bargain_or_discount(clean_text):
-            new_pkg = PACKAGES[str(sel_pkg_num)]
-            state["package_key"] = new_pkg["key"]
-            state["package_name"] = new_pkg["name"]
-            state["package_price"] = new_pkg["price"]
-            states[sender_id] = state
-            save_states(states)
-
-            if lang == "en":
-                reply = f"✅ Switched package to **{new_pkg['name']}**.\n\nPlease reply with your Gmail address to activate your access:"
-            elif lang == "tl":
-                reply = f"✅ Nabago na po sa **{new_pkg['name']}**.\n\nPakisend na lang po ang inyong Gmail para ma-activate:"
-            else:
-                reply = f"✅ প্যাকেজ পরিবর্তন করে **{new_pkg['name']}** করা হয়েছে।\n\nএখন আপনার জিমেইলটি (Gmail) লিখে পাঠিয়ে দিন:"
-
-            quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
-            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
-            return
-
-        # Customer asked any question (bargain, feature, general query, anything!)
-        if not ai_reply:
-            if lang == "en":
-                ai_reply = "To set up your Canva Pro access, please reply with your Gmail address:"
-            elif lang == "tl":
-                ai_reply = "Para po ma-setup ang inyong Canva Pro, pakisend po ang inyong Gmail address:"
-            else:
-                ai_reply = "আপনার ক্যানভা প্রো সেটআপ করতে অনুগ্রহ করে আপনার একটি সঠিক জিমেইল (Gmail) অ্যাড্রেস লিখে পাঠান:"
-
-        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
-        send_fb_message(sender_id, ai_reply, page_token, quick_replies=quick_btns)
-        return
-
-    # 4. Package Selection (From button payload or natural language)
-    direct_pkg = parse_package_choice(msg_text)
-    if direct_pkg and not is_bargain_or_discount(clean_text):
-        sel_pkg_num = direct_pkg["key"]
-        ai_intent = "PACKAGE_SELECT"
-
-    if ai_intent == "PACKAGE_SELECT" and sel_pkg_num in (1, 2, 3, "1", "2", "3") and not is_bargain_or_discount(clean_text):
-        pkg = PACKAGES[str(sel_pkg_num)]
-
-        email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
-        both_email = email_match.group(0).lower() if email_match else (extracted_email if (extracted_email and "@" in extracted_email) else None)
-
-        if both_email:
-            state["stage"] = "awaiting_confirm"
-            state["package_key"] = pkg["key"]
-            state["package_name"] = pkg["name"]
-            state["package_price"] = pkg["price"]
-            state["sender_name"] = sender_name
-            state["email"] = both_email
-            state["saved_email"] = both_email
-            states[sender_id] = state
-            save_states(states)
-
-            if lang == "en":
-                reply = (
-                    f"✅ Package: **{pkg['name']}**\n"
-                    f"📧 Gmail: **{both_email}**\n\n"
-                    f"If everything looks correct, tap '✅ Confirm & Get Link' below:"
-                )
-            elif lang == "tl":
-                reply = (
-                    f"✅ Package: **{pkg['name']}**\n"
-                    f"📧 Gmail: **{both_email}**\n\n"
-                    f"Kung tama po ang lahat, pindutin lang ang '✅ Confirm & Get Link' sa ibaba:"
-                )
-            else:
-                reply = (
-                    f"✅ প্যাকেজ: **{pkg['name']}**\n"
-                    f"📧 জিমেইল: **{both_email}**\n\n"
-                    f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন :"
-                )
-
-            quick_btns = [
-                {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{both_email}"},
-                {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
-            ]
-            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
-            return
-
-        states[sender_id] = {
-            "stage": "awaiting_email",
-            "package_key": pkg["key"],
-            "package_name": pkg["name"],
-            "package_price": pkg["price"],
-            "sender_name": sender_name,
-            "lang": lang
-        }
-        save_states(states)
-
-        if not ai_reply or not any(w in ai_reply.lower() for w in ["gmail", "email", "জিমেইল"]):
-            if lang == "en":
-                ai_reply = f"✅ You selected: **{pkg['name']}**\n\nPlease reply with your Gmail address to activate your Canva Pro access:"
-            elif lang == "tl":
-                ai_reply = f"✅ Napili niyo po: **{pkg['name']}**\n\nPakisend po ang inyong Gmail address para ma-activate ang inyong Canva Pro access:"
-            else:
-                ai_reply = f"✅ আপনি নির্বাচন করেছেন: **{pkg['name']}**\n\nএখন আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, অনুগ্রহ করে সেই জিমেইলটি লিখে পাঠিয়ে দিন:"
-
-        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
-        send_fb_message(sender_id, ai_reply, page_token, quick_replies=quick_btns)
-        return
-
-    # 5. Customer asked a question, chatted, or bargained in greeting/awaiting_package stage
-    if ai_reply:
-        states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name, "lang": lang}
-        save_states(states)
-        send_fb_message(sender_id, ai_reply, page_token, quick_replies=get_package_buttons(lang))
-        return
-
-    # 6. Fallback greeting
-    states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name, "lang": lang}
-    save_states(states)
-    if lang == "en":
-        reply = f"Welcome to Design Hub, {sender_name}! 🎨\n\nWe provide official Canva Pro access directly on your personal Gmail. Please choose a package below to get started:"
-    elif lang == "tl":
-        reply = f"Welcome po sa Design Hub, {sender_name}! 🎨\n\nNagbibigay po kami ng official Canva Pro access sa inyong personal Gmail. Pili lang po kayo ng package sa ibaba:"
-    else:
-        reply = f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub-এ আপনাকে স্বাগতম।\n\nআমরা দিচ্ছি অফিসিয়াল Canva Pro এডুকেশন টিম অ্যাক্সেস (নিজের পার্সোনাল জিমেইলে এক্টিভ হবে)। নিচের বাটন থেকে আপনার পছন্দের প্যাকেজটি বাছাই করুন অথবা লিখে জানান:"
-
-    send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons(lang))
-    return
-
-
-    # STEP 5: Customer Confirms -> Send 10-Minute Expiring Link + Request Payment
+    # STEP 5: Customer Confirms Details -> Send 30-Minute Expiring Link + Request Payment
     if stage == "awaiting_confirm":
         positive_keywords = ["yes", "হ্যাঁ", "ha", "y", "confirm", "হাঁ", "thik ache", "ঠিক আছে", "হ্যা", "confirm_yes", "ok", "okay", "accha", "den", "link den", "sure", "হবে", "হ", "পাবো"]
-        if any(k in clean_text for k in positive_keywords):
+        if any(k in clean_text for k in positive_keywords) or "confirm_yes" in clean_text:
             confirmed_email = state.get("email")
             pkg_key = state.get("package_key", "1m")
             pkg_name = state.get("package_name", "১ মাস (২৫ টাকা)")
             pkg_price = state.get("package_price", 25)
 
-            # 1. Enroll in database as PENDING payment
             sub = add_subscriber(confirmed_email, pkg_key, sender_name, fb_sender_id=sender_id)
             cid = sub.get("customer_id") or get_customer_id_by_sender(sender_id, sender_name, confirmed_email)
 
-            # 2. Generate 30-minute expiring invite link (each time brand-new token)
             link_data = create_expiring_invite(confirmed_email, minutes=30)
             join_url = f"https://designhub-1any.onrender.com/join/{link_data['token']}"
 
@@ -962,7 +738,6 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             states[sender_id] = state
             save_states(states)
 
-            # 3. Deliver Link + Request Payment
             reply = (
                 f"আপনার Canva Pro টিম জয়েন লিংক নিচে দেওয়া হলো:\n\n"
                 f"🔗 {join_url}\n\n"
@@ -979,7 +754,6 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             ]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
 
-            # 4. Notify Telegram Owner with 1-Tap Control
             alert = (
                 f"⚡ *NEW CANVA PRO ACCESS DELIVERED! (Messenger)*\n"
                 f"────────────────────────\n"
@@ -1003,7 +777,127 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 set_pending_telegram_msg(confirmed_email, new_msg_id)
             return
 
-    # Fallback for awaiting_payment stage: Don't stay silent on customer queries
+    # FAST PACKAGE SELECTION: (Button click or natural text) -> INSTANT (0.001s, NO GEMINI BLOCKING)
+    direct_pkg = parse_package_choice(msg_text)
+    if direct_pkg and not is_bargain_or_discount(clean_text):
+        pkg = direct_pkg
+        email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
+        both_email = email_match.group(0).lower() if email_match else None
+
+        if both_email:
+            state["stage"] = "awaiting_confirm"
+            state["package_key"] = pkg["key"]
+            state["package_name"] = pkg["name"]
+            state["package_price"] = pkg["price"]
+            state["sender_name"] = sender_name
+            state["email"] = both_email
+            state["saved_email"] = both_email
+            states[sender_id] = state
+            save_states(states)
+
+            reply = (
+                f"✅ প্যাকেজ: **{pkg['name']}**\n"
+                f"📧 জিমেইল: **{both_email}**\n\n"
+                f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন :"
+            )
+            quick_btns = [
+                {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{both_email}"},
+                {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
+            ]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+            return
+
+        state["stage"] = "awaiting_email"
+        state["package_key"] = pkg["key"]
+        state["package_name"] = pkg["name"]
+        state["package_price"] = pkg["price"]
+        state["sender_name"] = sender_name
+        states[sender_id] = state
+        save_states(states)
+
+        reply = f"✅ আপনি নির্বাচন করেছেন: **{pkg['name']}**\n\nএখন আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, অনুগ্রহ করে সেই জিমেইলটি লিখে পাঠিয়ে দিন:"
+        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
+        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+        return
+
+    # STAGE AWAITING_EMAIL: Check if customer gave an email address
+    if stage == "awaiting_email":
+        email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
+        if email_match:
+            confirmed_email = email_match.group(0).lower()
+            state["email"] = confirmed_email
+            state["saved_email"] = confirmed_email
+            state["stage"] = "awaiting_confirm"
+            states[sender_id] = state
+            save_states(states)
+
+            pkg_name = state.get("package_name", "Canva Pro")
+            reply = (
+                f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
+                f"📦 প্যাকেজ: **{pkg_name}**\n"
+                f"📧 জিমেইল: **{confirmed_email}**\n\n"
+                f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন :"
+            )
+            quick_btns = [
+                {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{confirmed_email}"},
+                {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
+            ]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+            return
+
+    # FAST HANDLER: Customer asked for unsupported duration (e.g. 'Na ami 4 masher ta nibo', '1 year')
+    unsup_reply = check_unsupported_duration(clean_text)
+    if unsup_reply:
+        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}] if stage == "awaiting_email" else get_package_buttons(state.get("lang", "bn"))
+        send_fb_message(sender_id, unsup_reply, page_token, quick_replies=quick_btns)
+        return
+
+    # FAST HANDLER: Customer cancels or postpones
+    if is_cancel_or_postpone(clean_text):
+        state["stage"] = "awaiting_package"
+        states[sender_id] = state
+        save_states(states)
+
+        reply = "ঠিক আছে ভাইয়া, কোনো সমস্যা নেই! 😊 আপনার সুবিধাজনক সময়ে নক দিয়েন, আমরা সবসময় আছি ✨"
+        quick_btns = [{"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}]
+        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+
+        alert = (
+            f"ℹ️ *CUSTOMER POSTPONED / CANCELLED (Messenger)*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {sender_name}\n"
+            f"💬 Message: '{msg_text}'\n"
+            f"────────────────────────\n"
+            f"Customer said: postpone / cancel."
+        )
+        send_telegram_alert(alert)
+        return
+
+    # FAST HANDLER: Customer requests admin / human handover
+    if any(k in clean_text for k in ["admin", "এডমিন", "person", "manush", "kotha bolte chai", "human", "agent"]):
+        reply = "অবশ্যই! একটু অপেক্ষা করুন, আমাদের একজন এডমিন এখনই আপনার সাথে যুক্ত হচ্ছেন। 🙋‍♂️\n\nজরুরি প্রয়োজনে কল করতে পারেন: 01571425035 📞"
+        quick_btns = [{"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}]
+        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+
+        alert = (
+            f"🙋‍♂️ *HUMAN ASSISTANCE REQUESTED! (Messenger)*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {sender_name}\n"
+            f"💬 Message: '{msg_text}'\n"
+            f"────────────────────────\n"
+            f"🔗 [Open Page Inbox](https://business.facebook.com/latest/inbox)"
+        )
+        send_telegram_alert(alert)
+        return
+
+    # FAST HANDLER: Bargaining / negotiation
+    if is_bargain_or_discount(clean_text):
+        reply = "ভাইয়া, আমাদের রেট এমনিতেই একদম ফিক্সড ও সবচেয়ে কম রাখা হয়েছে 😅 এর চেয়ে কম রাখা সম্ভব হচ্ছে না ✨"
+        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}] if stage == "awaiting_email" else get_package_buttons(state.get("lang", "bn"))
+        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+        return
+
+    # FAST HANDLER: If customer is in awaiting_payment stage
     if stage == "awaiting_payment":
         customer_email = state.get("email") or state.get("saved_email")
         join_url = state.get("join_link")
@@ -1029,6 +923,37 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         ]
         send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
         return
+
+    # CONVERSATIONAL AI (Gemini 3.5 Flash for natural Q&A)
+    ai_reply = ""
+    try:
+        ai = gemini_analyze_customer_message(msg_text, sender_name, stage, state.get("package_name"))
+        if ai.get("ai_reply"):
+            ai_reply = ai["ai_reply"]
+            if ai.get("detected_language"):
+                state["lang"] = ai["detected_language"]
+                states[sender_id] = state
+                save_states(states)
+    except Exception as e:
+        logger.warning(f"Gemini fallback: {e}")
+
+    if ai_reply:
+        if stage == "awaiting_email":
+            send_fb_message(sender_id, ai_reply, page_token, quick_replies=[{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}])
+        else:
+            send_fb_message(sender_id, ai_reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
+        return
+
+    # SAFE NON-REPETITIVE FALLBACK
+    if stage == "awaiting_email":
+        reply = "আপনার ক্যানভা প্রো অ্যাক্সেস চালু করতে আপনার একটি জিমেইল (Gmail) অ্যাড্রেস লিখে জানিয়ে দিন 😊✨"
+        send_fb_message(sender_id, reply, page_token, quick_replies=[{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}])
+        return
+
+    # Default friendly prompt (NEVER the full greeting loop!)
+    reply = "জি ভাইয়া, ক্যানভা প্রো নিয়ে আপনার প্রশ্ন বা পছন্দের প্যাকেজটি জানাতে পারেন, আমরা এখনই সাহায্য করছি 😊✨"
+    send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
+    return
 
 
 def send_payment_confirmed_to_customer(sender_id: str, sender_name: str, package_name: str, page_token: str):
