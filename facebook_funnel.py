@@ -340,7 +340,7 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
         "- Hotline / Contact: 01571425035 (Call or WhatsApp).\n\n"
         "YOUR SPEAKING STYLE (CRITICAL USER RULES):\n"
         "1. Speak naturally like a real, helpful human assistant—NOT a robotic automated system.\n"
-        "2. SHORT & PUNCHY: Maximum 1 to 2 short sentences. Answer directly what the customer asked.\n"
+        "2. SHORT & COMPLETE: 1 to 2 complete, concise sentences. Answer directly what the customer asked.\n"
         "3. EMOJIS: Include 1-2 friendly, expressive emojis (😊, ✨, 🎨, 🤝).\n"
         "4. LANGUAGE: Automatically match customer language:\n"
         "   - English -> Natural, concise, polite English.\n"
@@ -353,7 +353,7 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
         "9. GMAIL STAGE: If stage is 'awaiting_email', answer their question and gently remind them to drop their Gmail."
     )
 
-    prompt = f"Context: Customer: {first_name}, Stage: {current_stage}, Package: {current_pkg or 'None'}\nCustomer says: \"{user_msg}\"\nYour Assistant Reply:"
+    prompt = f"Context: Customer: {first_name}, Stage: {current_stage}, Package: {current_pkg or 'None'}\nCustomer says: \"{user_msg}\"\nAssistant response:"
 
     models = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.6-flash"]
     for m in models:
@@ -362,28 +362,34 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
             res = requests.post(
                 url,
                 json={
-                    "contents": [{"parts": [{"text": f"{system_instruction}\n\n{prompt}"}]}],
-                    "generationConfig": {"maxOutputTokens": 150, "temperature": 0.7}
+                    "system_instruction": {"parts": [{"text": system_instruction}]},
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"maxOutputTokens": 800, "temperature": 0.7}
                 },
-                timeout=5
+                timeout=8
             )
             if res.status_code == 200:
-                raw = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-                raw = (
-                    raw
-                    .replace("ডিজাইন হাব-এর", "Design Hub-এর")
-                    .replace("ডিজাইন হাবের", "Design Hub-এর")
-                    .replace("ডিজাইন হাবে", "Design Hub-এ")
-                    .replace("ডিজাইন হাব", "Design Hub")
-                )
-                logger.info(f"✨ Gemini ({m}) generated assistant reply for {first_name}")
-                return raw
+                cand = res.json().get("candidates", [{}])[0]
+                parts = cand.get("content", {}).get("parts", [])
+                raw = ""
+                for p in parts:
+                    if "text" in p and p["text"]:
+                        raw = p["text"].strip()
+                if raw:
+                    raw = (
+                        raw
+                        .replace("ডিজাইন হাব-এর", "Design Hub-এর")
+                        .replace("ডিজাইন হাবের", "Design Hub-এর")
+                        .replace("ডিজাইন হাবে", "Design Hub-এ")
+                        .replace("ডিজাইন হাব", "Design Hub")
+                    )
+                    logger.info(f"✨ Gemini ({m}) generated assistant reply for {first_name}")
+                    return raw
         except Exception as e:
             logger.warning(f"Gemini model {m} attempt failed: {e}")
             continue
 
     return ""
-
 
 
 def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text: str, msg_id: str, page_token: str, bot_instance=None, image_bytes: bytes = None):
