@@ -890,9 +890,60 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         send_telegram_alert(alert)
         return
 
+    # Dynamic language detector if not set
+    lang = state.get("lang")
+    if not lang or lang == "bn":
+        if any(w in clean_text for w in [" po", "po ", "opo", "kuha", "pede", "pwede", "meron", "ano", "ba to"]):
+            lang = "tl"
+            state["lang"] = "tl"
+        elif any(w in clean_text for w in ["what", "how ", "can i", "is this", "price", "features", "benefit", "i want", "please"]) and not any(w in clean_text for w in ["ki", "pabo", "koto", "nibo", "ache"]):
+            lang = "en"
+            state["lang"] = "en"
+        else:
+            lang = "bn"
+            state["lang"] = "bn"
+        states[sender_id] = state
+
+    # FAST HANDLER: Customer asks about features / benefits (Points format as requested)
+    if any(k in clean_text for k in ["feature", "features", "ফিচার", "সুবিধা", "কি কি সুবিধা", "কি পাবো", "ki ki pabo", "ki pabo", "what will i get", "benefit", "benefits", "কি সুবিধা"]):
+        lang = state.get("lang", "bn")
+        if lang == "en":
+            feat_reply = (
+                "✨ Here is what you get with Design Hub Canva Pro:\n\n"
+                "• 100M+ premium photos, videos, audio & graphics\n"
+                "• 1-click Background Remover & Magic Studio AI tools\n"
+                "• 3,000+ premium fonts & full Brand Kit access\n"
+                "• 100% Private & Secure (no one sees your designs)\n"
+                "• 1TB Cloud Storage\n"
+                "• Instant activation on your personal Gmail"
+            )
+        elif lang == "tl":
+            feat_reply = (
+                "✨ Eto po ang mga inclusions sa Design Hub Canva Pro:\n\n"
+                "• 100M+ premium photos, videos, audio & graphics\n"
+                "• 1-click Background Remover & Magic Studio AI\n"
+                "• 3,000+ premium fonts & full Brand Kit\n"
+                "• 100% Private & Secure (walang ibang makakakita ng designs mo)\n"
+                "• 1TB Cloud Storage\n"
+                "• Instant activation sa sarili mong Gmail"
+            )
+        else:
+            feat_reply = (
+                "✨ Canva Pro-তে যে যে সুবিধাগুলো পাবেন:\n\n"
+                "• ১০০M+ প্রিমিয়াম ফটো, ভিডিও, অডিও ও গ্রাফিক্স\n"
+                "• ১-ক্লিকে AI ব্যাকগ্রাউন্ড রিমুভার ও ম্যাজিক টুলস\n"
+                "• ৩,০০০+ প্রিমিয়াম ফন্ট ও ফুল ব্র্যান্ড কিট অ্যাক্সেস\n"
+                "• ১০০% প্রাইভেট ও নিরাপদ (আপনার ডিজাইন কেউ দেখতে পাবে না)\n"
+                "• ১TB ক্লাউড স্টোরেজ\n"
+                "• ইনস্ট্যান্ট অ্যাক্টিভেশন (আগে অ্যাক্সেস চেক, তারপর পেমেন্ট)"
+            )
+        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}] if stage == "awaiting_email" else get_package_buttons(lang)
+        send_fb_message(sender_id, feat_reply, page_token, quick_replies=quick_btns)
+        return
+
     # FAST HANDLER: Bargaining / negotiation
     if is_bargain_or_discount(clean_text):
-        reply = "ভাইয়া, আমাদের রেট এমনিতেই একদম ফিক্সড ও সবচেয়ে কম রাখা হয়েছে 😅 এর চেয়ে কম রাখা সম্ভব হচ্ছে না ✨"
+        reply = "ভাইয়া, ৩ মাসের প্যাকেজটি মাত্র ৫০ টাকায় দিচ্ছি, এটা এমনিতেই একদম কম রেট! 😅 এর চেয়ে কম রাখা সম্ভব হচ্ছে না ✨"
         quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}] if stage == "awaiting_email" else get_package_buttons(state.get("lang", "bn"))
         send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
         return
