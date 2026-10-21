@@ -321,6 +321,28 @@ def parse_package_choice(text: str):
     return None
 
 
+_SKILL_CACHE = {"mtime": 0.0, "content": ""}
+
+def get_messenger_skill_instructions() -> str:
+    """Dynamically loads and caches MESSENGER_CUSTOMER_AI_SKILL.md with instant mtime check."""
+    skill_path = Path(__file__).resolve().parent / "MESSENGER_CUSTOMER_AI_SKILL.md"
+    try:
+        if skill_path.exists():
+            mtime = skill_path.stat().st_mtime
+            if mtime != _SKILL_CACHE["mtime"]:
+                text = skill_path.read_text(encoding="utf-8")
+                if text.startswith("---"):
+                    parts = text.split("---", 2)
+                    if len(parts) >= 3:
+                        text = parts[2].strip()
+                _SKILL_CACHE["content"] = text
+                _SKILL_CACHE["mtime"] = mtime
+            return _SKILL_CACHE["content"]
+    except Exception as e:
+        logger.error(f"Error loading skill file: {e}")
+    return ""
+
+
 def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", current_stage: str = "awaiting_package", current_pkg: str = None, saved_email: str = None) -> str:
     """Invokes Manifest AI Gateway (app.manifest.build) as the dedicated intelligent sales assistant for Design Hub."""
     token = os.getenv("MANIFEST_AUTH_TOKEN", "mnfst_lpeXE1-JKLzUYRkDgq7QEM0vln_V43oKNDjt6vwBeJY").strip()
@@ -329,34 +351,14 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
         return ""
 
     first_name = sender_name.strip().split()[0] if sender_name else "there"
-    system_instruction = (
-        "You are the intelligent, warm human sales assistant for 'Design Hub' on Facebook Messenger.\n\n"
-        "ABOUT DESIGN HUB & CANVA PRO:\n"
-        "- 100% official Canva Pro subscription activated on customer's own personal Gmail.\n"
-        "- NO password needed: We only send an official Canva team invite link.\n"
-        "- Packages: 1 Month (25 TK), 3 Months (50 TK - Most Popular), 6 Months (99 TK).\n"
-        "- Prices: Strictly fixed and rock-bottom. We do NOT offer 4-month or 1-year plans, but customers can easily renew anytime.\n"
-        "- Key Features: 100M+ premium assets, 1-click BG remover, 3,000+ fonts, full Brand Kit, 1TB storage, 100% private & secure.\n"
-        "- Joining Flow: Choose package -> provide Gmail -> we send 30-min join link -> customer joins & verifies Pro -> pays via bKash/Nagad (01571425035, 01798361516).\n"
-        "- Brand Name: ALWAYS write 'Design Hub' in English letters. Never translate into other scripts.\n"
-        "- Hotline / Contact: 01571425035 (Call or WhatsApp).\n\n"
-        "YOUR SPEAKING STYLE (CRITICAL USER RULES):\n"
-        "1. Speak naturally like a real, helpful human assistant—NOT a robotic automated system.\n"
-        "2. SHORT & COMPLETE: 1 to 2 complete, concise sentences. Answer directly what the customer asked.\n"
-        "3. EMOJIS: Include 1-2 friendly, expressive emojis (😊, ✨, 🎨, 🤝).\n"
-        "4. LANGUAGE: Automatically match customer language:\n"
-        "   - English -> Natural, concise, polite English.\n"
-        "   - Tagalog/Filipino -> Polite Taglish with 'po'/'opo' and warm vibes.\n"
-        "   - Bengali/Banglish -> Polite, natural Bengali.\n"
-        "5. NO REDUNDANCY: Do NOT list all package prices in your message text unless they specifically ask for all prices.\n"
-        "6. BARGAINING: If customer asks to lower price or says '50tk for 6 months': explain politely that rates are already at rock-bottom (3 months is 50tk), without switching package.\n"
-        "7. CUSTOM DURATION: If they ask for 4 months or 1 year: politely explain we offer 1m, 3m, 6m plans which can easily be renewed.\n"
-        "8. SAFETY: If they ask about safety/password: assure them that NO password is required, only their personal Gmail.\n"
-        "9. EXPIRED LINK: If they say link expired/doesn't work: explain links expire in 30 mins, ask for Gmail to send a fresh new link.\n"
-        "10. CANCEL/POSTPONE: If customer says 'pore bolbo', 'cancel', 'never mind', 'wag na muna': warmly reply no problem, contact us anytime.\n"
-        "11. ADMIN: If customer asks for admin or human: warmly say an admin will connect shortly and give hotline 01571425035.\n"
-        "12. GMAIL STAGE: If stage is 'awaiting_email', answer their question and gently remind them to drop their Gmail."
-    )
+    system_instruction = get_messenger_skill_instructions()
+    if not system_instruction:
+        system_instruction = (
+            "You are the intelligent, warm human sales assistant for 'Design Hub' on Facebook Messenger.\n"
+            "- If customer writes in Bangla OR Banglish, reply in pure Bengali script (বাংলা হরফে). Never write in Banglish.\n"
+            "- If customer writes in English, reply in crisp English.\n"
+            "- Packages: 1 Month (25 TK), 3 Months (50 TK), 6 Months (99 TK). Always format packages and features in bullet points.\n"
+        )
 
     prompt = f"Context: Customer: {first_name}, Stage: {current_stage}, Package: {current_pkg or 'None'}, Provided Gmail: {saved_email or 'Not provided yet'}\nCustomer says: \"{user_msg}\"\nAssistant response:"
 
