@@ -321,7 +321,7 @@ def parse_package_choice(text: str):
     return None
 
 
-def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", current_stage: str = "awaiting_package", current_pkg: str = None) -> str:
+def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", current_stage: str = "awaiting_package", current_pkg: str = None, saved_email: str = None) -> str:
     """Invokes Manifest AI Gateway (app.manifest.build) as the dedicated intelligent sales assistant for Design Hub."""
     token = os.getenv("MANIFEST_AUTH_TOKEN", "mnfst_lpeXE1-JKLzUYRkDgq7QEM0vln_V43oKNDjt6vwBeJY").strip()
     base_url = os.getenv("MANIFEST_BASE_URL", "https://app.manifest.build").strip().rstrip("/")
@@ -358,7 +358,7 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
         "12. GMAIL STAGE: If stage is 'awaiting_email', answer their question and gently remind them to drop their Gmail."
     )
 
-    prompt = f"Context: Customer: {first_name}, Stage: {current_stage}, Package: {current_pkg or 'None'}\nCustomer says: \"{user_msg}\"\nAssistant response:"
+    prompt = f"Context: Customer: {first_name}, Stage: {current_stage}, Package: {current_pkg or 'None'}, Provided Gmail: {saved_email or 'Not provided yet'}\nCustomer says: \"{user_msg}\"\nAssistant response:"
 
     models = ["kilo/kilo-auto/free", "auto"]
     url = f"{base_url}/v1/chat/completions"
@@ -788,7 +788,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
     if direct_pkg and not is_bargain_or_discount(clean_text):
         pkg = direct_pkg
         email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
-        both_email = email_match.group(0).lower() if email_match else None
+        both_email = email_match.group(0).lower() if email_match else (state.get("email") or state.get("saved_email"))
 
         if both_email:
             state["stage"] = "awaiting_confirm"
@@ -859,7 +859,8 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         user_msg=msg_text,
         sender_name=sender_name,
         current_stage=stage,
-        current_pkg=state.get("package_name")
+        current_pkg=state.get("package_name"),
+        saved_email=state.get("saved_email") or state.get("email")
     )
 
     if ai_reply:
