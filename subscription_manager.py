@@ -245,6 +245,12 @@ def init_db():
             c.execute("ALTER TABLE subscriptions ADD COLUMN last_reminder_at TIMESTAMP")
         if "pending_telegram_msg_id" not in cols:
             c.execute("ALTER TABLE subscriptions ADD COLUMN pending_telegram_msg_id INTEGER")
+        if "pay_later_until" not in cols:
+            c.execute("ALTER TABLE subscriptions ADD COLUMN pay_later_until TIMESTAMP")
+        if "auto_kick_disabled" not in cols:
+            c.execute("ALTER TABLE subscriptions ADD COLUMN auto_kick_disabled INTEGER DEFAULT 0")
+        if "pay_later_reminded" not in cols:
+            c.execute("ALTER TABLE subscriptions ADD COLUMN pay_later_reminded INTEGER DEFAULT 0")
 
         # Ensure team_name and reference_name column in subscriptions
         c.execute("PRAGMA table_info(subscriptions)")
@@ -1393,7 +1399,7 @@ def init_consumed_tokens_table():
 init_consumed_tokens_table()
 
 
-def create_expiring_invite(email: str, minutes: int = 30) -> dict:
+def create_expiring_invite(email: str, minutes: int = 10) -> dict:
     """
     Generates a cryptographically signed, stateless, self-expiring link with a full session window.
     Each call generates a brand-new unique token using a fresh nonce and timestamp.
@@ -1520,3 +1526,113 @@ def get_all_teams_meta() -> dict:
             c_at = str(row[1])[:10] if row[1] else ""
             res[t_name] = {"created_at": c_at}
     return res
+
+
+def get_pending_unpaid_for_autokick(minutes: int = 30) -> list:
+    """Finds all active, pending payment subscribers who have not paid within `minutes` minutes,
+    and do not have an active 'Pay Later' pause."""
+    init_db()
+    from datetime import datetime, timedelta
+    cutoff = (datetime.now() - timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M:%S")
+    with get_db() as conn:
+        c = conn.cursor()
+        query = """
+            SELECT email, name, package, customer_id, fb_sender_id, added_at, pay_later_until, auto_kick_disabled
+            FROM subscriptions
+            WHERE status = 'active'
+              AND payment_status = 'PENDING'
+              AND (auto_kick_disabled IS NULL OR auto_kick_disabled = 0)
+              AND (pay_later_until IS NULL OR pay_later_until = '')
+              AND added_at <= ?
+        """
+        c.execute(query, (cutoff,))
+        rows = c.fetchall()
+        return [
+            {
+                "email": r[0],
+                "name": r[1] or "Customer",
+                "package": r[2] or "Canva Pro",
+                "customer_id": r[3] or 800,
+                "fb_sender_id": r[4] or "",
+                "added_at": r[5]
+            }
+            for r in rows
+        ]
+
+
+def get_due_pay_later_reminders() -> list:
+    """Finds all active, pending payment subscribers whose scheduled Pay Later time has arrived."""
+    init_db()
+    from datetime import datetime
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with get_db() as conn:
+        c = conn.cursor()
+        query = """
+            SELECT email, name, package, customer_id, fb_sender_id, pay_later_until
+            FROM subscriptions
+            WHERE status = 'active'
+              AND payment_status = 'PENDING'
+              AND pay_later_until IS NOT NULL
+              AND pay_later_until != ''
+              AND pay_later_until <= ?
+              AND (pay_later_reminded IS NULL OR pay_later_reminded = 0)
+        """
+        c.execute(query, (now_str,))
+        rows = c.fetchall()
+        return [
+            {
+                "email": r[0],
+                "name": r[1] or "Customer",
+                "package": r[2] or "Canva Pro",
+                "customer_id": r[3] or 800,
+                "fb_sender_id": r[4] or "",
+                "pay_later_until": r[5]
+            }
+            for r in rows
+        ]
+
+
+def set_pay_later(email: str, hours: int = 24) -> dict:
+    """Snoozes auto-kick and schedules a reminder for the given hours."""
+    init_db()
+    from datetime import datetime, timedelta
+    clean_email = email.lower().strip()
+    until_dt = datetime.now() + timedelta(hours=hours)
+    until_str = until_dt.strftime("%Y-%m-%d %H:%M:%S")
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("""
+            UPDATE subscriptions
+            SET pay_later_until = ?, auto_kick_disabled = 1, pay_later_reminded = 0
+            WHERE email = ?
+        """, (until_str, clean_email))
+        conn.commit()
+    return {"email": clean_email, "hours": hours, "until_str": until_str}
+
+
+def cancel_pay_later(email: str):
+    """Cancels Pay Later snooze and reactivates default 30-min auto-kick tracking."""
+    init_db()
+    clean_email = email.lower().strip()
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("""
+            UPDATE subscriptions
+            SET pay_later_until = NULL, auto_kick_disabled = 0, pay_later_reminded = 0
+            WHERE email = ?
+        """, (clean_email,))
+        conn.commit()
+
+
+def mark_pay_later_reminded(email: str):
+    """Marks that the reminder alert was sent so it does not repeat continuously."""
+    init_db()
+    clean_email = email.lower().strip()
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("""
+            UPDATE subscriptions
+            SET pay_later_reminded = 1
+            WHERE email = ?
+        """, (clean_email,))
+        conn.commit()

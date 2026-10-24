@@ -617,6 +617,102 @@ async def expiry_reminder_loop(bot=None):
         await asyncio.sleep(2 * 3600)
 
 
+async def auto_kick_and_reminder_loop(bot=None):
+    """Background async worker that checks every 30 seconds:
+    1. Unpaid subscribers older than 30 minutes without Pay Later pause -> Auto-kicks them!
+    2. Subscriptions with expired Pay Later snooze -> Sends reminder alert to owner on Telegram!
+    """
+    logger.info("⏱️ Background Auto-Kick (30m) & Pay Later Reminder loop active.")
+    while True:
+        try:
+            # 1. Check for 30-minute unpaid auto-kick
+            to_kick = await asyncio.to_thread(get_pending_unpaid_for_autokick, 30)
+            token = os.getenv("FB_PAGE_ACCESS_TOKEN", "")
+            for sub in to_kick:
+                email = sub.get("email")
+                name = sub.get("name", "Customer")
+                cid = sub.get("customer_id", 800)
+                pkg = sub.get("package", "Canva Pro")
+                fb_id = sub.get("fb_sender_id")
+
+                # Perform auto-kick in database
+                await asyncio.to_thread(kick_subscriber, email)
+
+                # Notify customer on Facebook Messenger
+                if fb_id and token:
+                    await asyncio.to_thread(send_subscription_ended_to_customer, fb_id, name, token, "unpaid_30m")
+
+                # Send Telegram alert to owner
+                caption = (
+                    f"🚨 *AUTO-KICK EXECUTED (30-Minute Payment Expired)*\n"
+                    f"────────────────────────\n"
+                    f"👤 Customer: {name} (ID: `#{cid}`)\n"
+                    f"📧 Email: `{email}`\n"
+                    f"📦 Package: {pkg}\n"
+                    f"⏱️ Unpaid for 30 minutes. Status revoked.\n"
+                    f"────────────────────────\n"
+                    f"👉 নিচের বাটনে চাপ দিয়ে Canva টিম থেকে সিটটি রিমুভ করুন:"
+                )
+                kick_kb = {
+                    "inline_keyboard": [
+                        [
+                            {"text": "🔗 Open Canva Team to Remove Seat", "url": "https://www.canva.com/settings/team-members"}
+                        ],
+                        [
+                            {"text": "✅ Reinstate / Mark Paid", "callback_data": f"sub_paid:{email}"}
+                        ]
+                    ]
+                }
+                await asyncio.to_thread(send_telegram_alert, caption, kick_kb)
+                logger.info(f"🚨 Auto-kick executed for {email} (unpaid for 30 mins).")
+
+            # 2. Check for due Pay Later reminders
+            due_reminders = await asyncio.to_thread(get_due_pay_later_reminders)
+            for sub in due_reminders:
+                email = sub.get("email")
+                name = sub.get("name", "Customer")
+                cid = sub.get("customer_id", 800)
+                pkg = sub.get("package", "Canva Pro")
+
+                # Mark reminded so it doesn't spam continuously
+                await asyncio.to_thread(mark_pay_later_reminded, email)
+
+                caption = (
+                    f"⏰ *PAY LATER REMINDER: PAYMENT STILL PENDING!*\n"
+                    f"────────────────────────\n"
+                    f"👤 Customer: {name} (ID: `#{cid}`)\n"
+                    f"📧 Email: `{email}`\n"
+                    f"📦 Package: {pkg}\n"
+                    f"⚠️ Scheduled Pay Later time has arrived, but payment is still NOT received.\n"
+                    f"────────────────────────\n"
+                    f"Choose an action for this customer:"
+                )
+                remind_kb = {
+                    "inline_keyboard": [
+                        [
+                            {"text": "✅ Confirm Paid", "callback_data": f"sub_paid:{email}"},
+                            {"text": "🚨 Kick User", "callback_data": f"sub_kick:{email}"}
+                        ],
+                        [
+                            {"text": "⏳ Snooze +12h", "callback_data": f"snooze_pay:{email}:12"},
+                            {"text": "⏳ Snooze +24h", "callback_data": f"snooze_pay:{email}:24"}
+                        ],
+                        [
+                            {"text": "🔗 Open Canva Team", "url": "https://www.canva.com/settings/team-members"}
+                        ]
+                    ]
+                }
+                await asyncio.to_thread(send_telegram_alert, caption, remind_kb)
+                logger.info(f"⏰ Sent scheduled Pay Later reminder to Telegram owner for {email}.")
+
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Error in auto_kick_and_reminder_loop: {e}")
+
+        await asyncio.sleep(30)
+
+
 # ==================== TELEGRAM COMMANDS ====================
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1495,6 +1591,38 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(card_text, reply_markup=None, parse_mode="Markdown")
         return
 
+    if data.startswith("pay_later_menu:"):
+        email = data.split(":", 1)[1]
+        sub = get_subscriber(email)
+        name = sub.get("name") if sub else "Customer"
+        cid = sub.get("customer_id") if sub else 800
+
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        snooze_kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("⏰ +2 Hours", callback_data=f"snooze_pay:{email}:2"),
+                InlineKeyboardButton("⏰ +6 Hours", callback_data=f"snooze_pay:{email}:6")
+            ],
+            [
+                InlineKeyboardButton("⏰ +12 Hours", callback_data=f"snooze_pay:{email}:12"),
+                InlineKeyboardButton("⏰ +24 Hours (1 Day)", callback_data=f"snooze_pay:{email}:24")
+            ],
+            [
+                InlineKeyboardButton("⏰ +48 Hours (2 Days)", callback_data=f"snooze_pay:{email}:48"),
+                InlineKeyboardButton("❌ Keep Default 30m Kick", callback_data=f"snooze_cancel:{email}")
+            ]
+        ])
+        await query.edit_message_text(
+            f"⏳ *PAY LATER SNOOZE OPTIONS*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {name} (ID: `#{cid}`)\n"
+            f"📧 Email: `{email}`\n\n"
+            f"Select how long to pause auto-kick and schedule a reminder for this customer:",
+            reply_markup=snooze_kb,
+            parse_mode="Markdown"
+        )
+        
+
     if data.startswith("sub_ext:"):
         parts = data.split(":")
         email = parts[1]
@@ -1635,7 +1763,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             token = self.path.split("/renew/")[1].split("?")[0].strip()
             email = extract_email_from_token(token)
             if email:
-                new_invite = create_expiring_invite(email, minutes=30)
+                new_invite = create_expiring_invite(email, minutes=10)
                 new_token = new_invite["token"]
                 self.send_response(302)
                 self.send_header("Location", f"/join/{new_token}")
@@ -2088,6 +2216,7 @@ async def post_init(application):
 
     asyncio.create_task(comment_monitor_loop(application.bot))
     asyncio.create_task(expiry_reminder_loop(application.bot))
+    asyncio.create_task(auto_kick_and_reminder_loop(application.bot))
 
 
 async def cmd_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE):

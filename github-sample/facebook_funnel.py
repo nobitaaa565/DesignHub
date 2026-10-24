@@ -503,7 +503,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                     break
 
         if customer_email:
-            link_data = create_expiring_invite(customer_email, minutes=30)
+            link_data = create_expiring_invite(customer_email, minutes=10)
             join_url = f"https://designhub-1any.onrender.com/join/{link_data['token']}"
             state["join_link"] = join_url
             state["stage"] = "awaiting_payment"
@@ -513,7 +513,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             reply = (
                 f"✨ {sender_name}, আপনার জন্য একটি একদম নতুন জয়েন লিংক তৈরি করা হয়েছে:\n\n"
                 f"🔗 {join_url}\n\n"
-                f"⚠️ গুরুত্বপূর্ণ: এই নতুন লিংকটি আগামী ৩০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
+                f"⚠️ গুরুত্বপূর্ণ: এই নতুন লিংকটি আগামী ১০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
                 f"💳 পেমেন্ট তথ্য:\n"
                 f"• বিকাশ / নগদ (Personal): 01571425035, 01798361516\n\n"
                 f"টিমে যুক্ত হয়ে পেমেন্ট সম্পন্ন করে TrxID বা স্ক্রিনশট পাঠিয়ে দিন। ধন্যবাদ! 🎨"
@@ -601,7 +601,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 sub = add_subscriber(confirmed_email, pkg_key, sender_name, fb_sender_id=sender_id)
                 cid = sub.get("customer_id") or get_customer_id_by_sender(sender_id, sender_name, confirmed_email)
 
-                link_data = create_expiring_invite(confirmed_email, minutes=30)
+                link_data = create_expiring_invite(confirmed_email, minutes=10)
                 join_url = f"https://designhub-1any.onrender.com/join/{link_data['token']}"
 
                 state["stage"] = "awaiting_payment"
@@ -613,7 +613,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 reply = (
                     f"আপনার Canva Pro টিম জয়েন লিংক নিচে দেওয়া হলো:\n\n"
                     f"🔗 {join_url}\n\n"
-                    f"⚠️ গুরুত্বপূর্ণ: এই লিংকটি আগামী ৩০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
+                    f"⚠️ গুরুত্বপূর্ণ: এই লিংকটি আগামী ১০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
                     f"💳 পেমেন্ট তথ্য:\n"
                     f"• প্যাকেজ: {pkg_name}\n"
                     f"• বিকাশ / নগদ (Personal): 01571425035, 01798361516\n\n"
@@ -641,6 +641,9 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                         [
                             {"text": "✅ Mark Paid", "callback_data": f"sub_paid:{confirmed_email}"},
                             {"text": "🚨 Kick User", "callback_data": f"sub_kick:{confirmed_email}"}
+                        ],
+                        [
+                            {"text": "⏳ Pay Later", "callback_data": f"pay_later_menu:{confirmed_email}"}
                         ]
                     ]
                 }
@@ -693,7 +696,8 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                         {"text": "🚨 Kick User", "callback_data": f"sub_kick:{email_info}"}
                     ],
                     [
-                        {"text": "🔗 Open Canva Team to Remove Seat", "url": "https://www.canva.com/settings/team-members"}
+                        {"text": "⏳ Pay Later", "callback_data": f"pay_later_menu:{email_info}"},
+                        {"text": "🔗 Open Canva Team", "url": "https://www.canva.com/settings/team-members"}
                     ]
                 ]
             }
@@ -1086,7 +1090,8 @@ def notify_owner_user_joined_canva(email: str) -> bool:
                 {"text": "🚨 Kick User", "callback_data": f"sub_kick:{email}"}
             ],
             [
-                {"text": "🔗 Open Canva Team to Remove Seat", "url": "https://www.canva.com/settings/team-members"}
+                {"text": "⏳ Pay Later", "callback_data": f"pay_later_menu:{email}"},
+                {"text": "🔗 Open Canva Team", "url": "https://www.canva.com/settings/team-members"}
             ]
         ]
     }
@@ -1100,7 +1105,7 @@ def notify_owner_user_joined_canva(email: str) -> bool:
 
 _KICK_NOTICE_SENT = set()
 
-def send_subscription_ended_to_customer(sender_id: str, sender_name: str, page_token: str) -> bool:
+def send_subscription_ended_to_customer(sender_id: str, sender_name: str, page_token: str, reason: str = "") -> bool:
     """Sends compressed subscription ended notice to customer on Facebook Messenger with deduplication."""
     if not sender_id or not page_token:
         return False
@@ -1113,10 +1118,16 @@ def send_subscription_ended_to_customer(sender_id: str, sender_name: str, page_t
             return True
     _KICK_NOTICE_SENT.add((sender_id, now_ts))
 
-    text = (
-        f"⚠️ আপনার Canva Pro সাবস্ক্রিপশনটির মেয়াদ শেষ বা বাতিল করা হয়েছে এবং টিম থেকে অ্যাক্সেস রিমুভ করা হয়েছে।\n\n"
-        f"পুনরায় চালু করতে বা নতুন প্যাকেজ নিতে নিচের বাটনে চাপ দিন। ধন্যবাদ! ✨"
-    )
+    if reason == "unpaid_30m":
+        text = (
+            f"⚠️ আপনার Canva Pro সাবস্ক্রিপশনটির পেমেন্ট ৩০ মিনিটের মধ্যে সম্পন্ন না হওয়ায় অ্যাক্সেস সাময়িকভাবে স্থগিত করা হয়েছে এবং টিম থেকে রিমুভ করা হয়েছে।\n\n"
+            f"পুনরায় চালু করতে বা যেকোনো তথ্যের জন্য নিচের বাটনে চাপ দিন। ধন্যবাদ! ✨"
+        )
+    else:
+        text = (
+            f"⚠️ আপনার Canva Pro সাবস্ক্রিপশনটির মেয়াদ শেষ বা বাতিল করা হয়েছে এবং টিম থেকে অ্যাক্সেস রিমুভ করা হয়েছে।\n\n"
+            f"পুনরায় চালু করতে বা নতুন প্যাকেজ নিতে নিচের বাটনে চাপ দিন। ধন্যবাদ! ✨"
+        )
     quick_btns = [
         {"content_type": "text", "title": "🔄 Restart / New Plan", "payload": "ACTION_RESTART"}
     ]
