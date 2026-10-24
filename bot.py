@@ -502,26 +502,41 @@ def check_and_reply_inbox(bot=None):
 
             attachments = latest_msg.get("attachments", {}).get("data", [])
             image_url = None
-            is_sticker = bool(latest_msg.get("sticker"))
+            is_sticker_or_gif = bool(latest_msg.get("sticker"))
+
             for att in attachments:
-                if att.get("sticker_id") or att.get("name") == "sticker.png":
-                    is_sticker = True
+                mime = (att.get("mime_type") or "").lower()
+                att_type = (att.get("type") or "").lower()
+                file_url = (att.get("file_url") or "").lower()
+                img_url = (att.get("image_data", {}).get("url") or "").lower()
+
+                # Comprehensive check for Messenger stickers, GIFs, or animated images
+                if (
+                    att.get("sticker_id")
+                    or att.get("name") == "sticker.png"
+                    or "sticker" in img_url
+                    or "sticker" in file_url
+                    or "gif" in mime
+                    or "gif" in file_url
+                    or "giphy" in file_url
+                    or "tenor" in file_url
+                    or att_type in ("animated_image_share", "animated_image", "sticker")
+                    or att.get("image_data", {}).get("animated_gif_url")
+                ):
+                    is_sticker_or_gif = True
                     break
-                url_candidate = (att.get("image_data", {}).get("url") or att.get("file_url") or "").lower()
-                if "sticker" in url_candidate:
-                    is_sticker = True
-                    break
+
                 if att.get("image_data", {}).get("url"):
                     image_url = att["image_data"]["url"]
                     break
-                elif "image" in att.get("mime_type", ""):
+                elif "image" in mime:
                     image_url = att.get("file_url") or att.get("image_data", {}).get("url")
                     break
-                elif att.get("file_url") and any(ext in att.get("file_url", "").lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+                elif file_url and any(ext in file_url for ext in [".jpg", ".jpeg", ".png", ".webp"]):
                     image_url = att["file_url"]
                     break
 
-            if is_sticker:
+            if is_sticker_or_gif:
                 image_url = None
                 if not msg_text:
                     msg_text = "👍"
