@@ -502,7 +502,15 @@ def check_and_reply_inbox(bot=None):
 
             attachments = latest_msg.get("attachments", {}).get("data", [])
             image_url = None
+            is_sticker = bool(latest_msg.get("sticker"))
             for att in attachments:
+                if att.get("sticker_id") or att.get("name") == "sticker.png":
+                    is_sticker = True
+                    break
+                url_candidate = (att.get("image_data", {}).get("url") or att.get("file_url") or "").lower()
+                if "sticker" in url_candidate:
+                    is_sticker = True
+                    break
                 if att.get("image_data", {}).get("url"):
                     image_url = att["image_data"]["url"]
                     break
@@ -512,6 +520,11 @@ def check_and_reply_inbox(bot=None):
                 elif att.get("file_url") and any(ext in att.get("file_url", "").lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
                     image_url = att["file_url"]
                     break
+
+            if is_sticker:
+                image_url = None
+                if not msg_text:
+                    msg_text = "👍"
 
             if not sender_id or sender_id == page_id or msg_id in replied or (not msg_text and not image_url):
                 continue

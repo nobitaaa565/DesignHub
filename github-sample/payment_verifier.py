@@ -80,7 +80,11 @@ def analyze_payment_screenshot(image_bytes: bytes) -> dict:
                 clean_text = re.sub(r"\s*```$", "", clean_text, flags=re.MULTILINE).strip()
                 try:
                     parsed = json.loads(clean_text)
-                    if parsed.get("trx_id") and not parsed.get("is_payment_proof"):
+                    # Strictly validate payment proof: must have is_payment_proof True AND at least one real payment marker
+                    has_marker = bool(parsed.get("trx_id") or parsed.get("amount") or parsed.get("amount_numeric"))
+                    if parsed.get("is_payment_proof") is True and not has_marker:
+                        parsed["is_payment_proof"] = False
+                    elif parsed.get("trx_id") and not parsed.get("is_payment_proof"):
                         parsed["is_payment_proof"] = True
                     return parsed
                 except Exception:
@@ -100,7 +104,7 @@ def analyze_payment_screenshot(image_bytes: bytes) -> dict:
             logger.warning(f"Error on {m}: {e}, trying next model...")
             continue
 
-    return {"error": "Vision service temporarily busy. Please try again."}
+    return {"is_payment_proof": False, "error": "Vision service temporarily busy. Please try again."}
 
 
 def extract_trx_from_text(text: str) -> dict:
