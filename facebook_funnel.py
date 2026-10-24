@@ -533,6 +533,51 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             return
 
     # -------------------------------------------------------------------------
+    # GLOBAL CHANGE REQUESTS: Package Change or Email Change
+    # -------------------------------------------------------------------------
+    is_package_change = any(k in clean_text for k in [
+        "package change", "change package", "onno package", "onno pack",
+        "package badlabo", "প্যাকেজ চেঞ্জ", "অন্য প্যাকেজ", "প্যাকেজ পরিবর্তন",
+        "change plan", "different package", "another package", "plan change",
+        "onno plan", "অন্য প্ল্যান", "প্যাকেজ বদলাতে", "package change korbo",
+        "package change korte chai", "অন্য কোন প্যাকেজ", "অন্য প্যাকেজ দিন",
+        "প্যাকেজ বদলাবো", "onno package den"
+    ])
+    if is_package_change:
+        state["package_key"] = None
+        state["package_name"] = None
+        state["package_price"] = None
+        state["stage"] = "awaiting_package"
+        states[sender_id] = state
+        save_states(states)
+
+        reply = (
+            f"অবশ্যই {sender_name}! 😊 আপনি কোন প্যাকেজে পরিবর্তন করতে চান তা নির্বাচন করুন:\n\n"
+            f"১. ১ মাস — ২৫ টাকা\n"
+            f"২. ৩ মাস — ৫০ টাকা (সবচেয়ে জনপ্রিয় ✨)\n"
+            f"৩. ৬ মাস — ৯৯ টাকা"
+        )
+        send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
+        return
+
+    is_email_change = any(k in clean_text for k in [
+        "email change", "change email", "onno email", "onno mail",
+        "gmail change", "change gmail", "ইমেইল চেঞ্জ", "জিমেইল চেঞ্জ",
+        "অন্য ইমেইল", "অন্য জিমেইল", "ইমেইল পরিবর্তন", "gmail change korte chai"
+    ])
+    if is_email_change:
+        state["email"] = None
+        state["saved_email"] = None
+        state["stage"] = "awaiting_email"
+        states[sender_id] = state
+        save_states(states)
+
+        reply = f"অবশ্যই {sender_name}! 😊 আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, নতুন জিমেইলটি লিখে পাঠিয়ে দিন: 📧"
+        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
+        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+        return
+
+    # -------------------------------------------------------------------------
     # SERIAL STEP 1: CONFIRMATION CHECK (If in awaiting_confirm)
     # -------------------------------------------------------------------------
     if stage == "awaiting_confirm":
