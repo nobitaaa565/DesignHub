@@ -491,9 +491,10 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
         f"Customer says: \"{user_msg}\"\n\n"
         f"STRICT RESPONSE RULES:\n"
         f"1. SCRIPT RULE: If the customer writes in Bangla OR Banglish (Bengali words using English letters, e.g. 'koto', 'nibo', 'ase', 'keno', 'kivabe'), you MUST reply in 100% pure Bangla script (বাংলা হরফে). NEVER write in Banglish! Only reply in English if the customer writes in actual English.\n"
-        f"2. DIRECT & CONCISE: Answer what the customer asked in 1-2 short, warm sentences. Never hallucinate offers or claim you sent a link in text.\n"
-        f"3. PRODUCT SCOPE: Always write 'Design Hub' in English. We ONLY offer official Canva Pro access on personal Gmail (@gmail.com): 1 Month = 25 TK, 3 Months = 50 TK, 6 Months = 99 TK. No other software, no 4-month or 1-year plans (they can take 6 months and renew anytime).\n"
-        f"4. FORMAT: Format any package/feature list in vertical bullet points (•). Output ONLY the final reply text.\n\n"
+        f"2. DIRECT & CONCISE: Answer what the customer asked in short, warm sentences. Never hallucinate offers or claim you sent a link in text.\n"
+        f"3. MULTI-QUESTION HANDLING (CRITICAL): The customer may ask multiple questions or send multiple queries in this message (e.g. asking about features, device support, password requirement, validity, payment method, or pricing all at once). You MUST count and analyze ALL questions asked, and answer EVERY single question clearly and politely in one cohesive human-like reply. Never answer only the first question or skip any question!\n"
+        f"4. PRODUCT SCOPE: Always write 'Design Hub' in English. We ONLY offer official Canva Pro access on personal Gmail (@gmail.com): 1 Month = 25 TK, 3 Months = 50 TK, 6 Months = 99 TK. No other software, no 4-month or 1-year plans (they can take 6 months and renew anytime).\n"
+        f"5. FORMAT: Format any package/feature list in vertical bullet points (•). Output ONLY the final reply text.\n\n"
         f"Assistant response:"
     )
 
@@ -1103,13 +1104,36 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 
         # If user just updated their package choice right now:
         if pkg_was_changed:
-            reply = (
-                f"✅ প্যাকেজ পরিবর্তন করে **{state.get('package_name')}** করা হয়েছে।\n\n"
-                f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
-                f"📦 প্যাকেজ: **{state.get('package_name')}**\n"
-                f"📧 জিমেইল: **{current_email}**\n\n"
-                f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন বা 'ঠিক আছে' লিখে জানান:"
-            )
+            ai_reply = ""
+            pkg_query = clean_text
+            for k in ["1 month", "1 m", "1m", "১ মাস", "১মাস", "25", "২৫", "3 month", "3 m", "3m", "৩ মাস", "৩মাস", "50", "৫০", "6 month", "6 m", "6m", "৬ মাস", "৬মাস", "99", "৯৯"]:
+                pkg_query = pkg_query.replace(k, "")
+            if len(re.findall(r"[\w\u0980-\u09FF]+", pkg_query)) >= 2:
+                ai_reply = generate_ai_assistant_reply(
+                    user_msg=msg_text,
+                    sender_name=sender_name,
+                    current_stage="awaiting_confirm",
+                    current_pkg=state.get("package_name"),
+                    saved_email=current_email
+                )
+
+            if ai_reply:
+                reply = (
+                    f"{ai_reply}\n\n"
+                    f"✅ প্যাকেজ পরিবর্তন করে **{state.get('package_name')}** করা হয়েছে।\n\n"
+                    f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
+                    f"📦 প্যাকেজ: **{state.get('package_name')}**\n"
+                    f"📧 জিমেইল: **{current_email}**\n\n"
+                    f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন বা 'ঠিক আছে' লিখে জানান:"
+                )
+            else:
+                reply = (
+                    f"✅ প্যাকেজ পরিবর্তন করে **{state.get('package_name')}** করা হয়েছে।\n\n"
+                    f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
+                    f"📦 প্যাকেজ: **{state.get('package_name')}**\n"
+                    f"📧 জিমেইল: **{current_email}**\n\n"
+                    f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন বা 'ঠিক আছে' লিখে জানান:"
+                )
             quick_btns = [
                 {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{current_email}"},
                 {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
@@ -1119,13 +1143,33 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 
         # If user just provided their email right now:
         if email_was_provided_now:
-            reply = (
-                f"ধন্যবাদ {sender_name}! 😊\n\n"
-                f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
-                f"📦 প্যাকেজ: **{state.get('package_name')}**\n"
-                f"📧 জিমেইল: **{current_email}**\n\n"
-                f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন বা 'ঠিক আছে' লিখে জানান:"
-            )
+            ai_reply = ""
+            email_query = re.sub(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", "", msg_text).strip()
+            if len(re.findall(r"[\w\u0980-\u09FF]+", email_query)) >= 2:
+                ai_reply = generate_ai_assistant_reply(
+                    user_msg=email_query,
+                    sender_name=sender_name,
+                    current_stage="awaiting_confirm",
+                    current_pkg=state.get("package_name"),
+                    saved_email=current_email
+                )
+
+            if ai_reply:
+                reply = (
+                    f"{ai_reply}\n\n"
+                    f"👉 অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
+                    f"📦 প্যাকেজ: **{state.get('package_name')}**\n"
+                    f"📧 জিমেইল: **{current_email}**\n\n"
+                    f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন বা 'ঠিক আছে' লিখে জানান:"
+                )
+            else:
+                reply = (
+                    f"ধন্যবাদ {sender_name}! 😊\n\n"
+                    f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
+                    f"📦 প্যাকেজ: **{state.get('package_name')}**\n"
+                    f"📧 জিমেইল: **{current_email}**\n\n"
+                    f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন বা 'ঠিক আছে' লিখে জানান:"
+                )
             quick_btns = [
                 {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{current_email}"},
                 {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
@@ -1191,10 +1235,30 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
 
         # Did customer just choose or change package in this turn?
         if direct_pkg:
-            reply = (
-                f"✅ আপনি নির্বাচন করেছেন: **{state.get('package_name')}**\n\n"
-                f"এখন আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, অনুগ্রহ করে সেই জিমেইলটি লিখে পাঠিয়ে দিন: 📧"
-            )
+            ai_reply = ""
+            pkg_query = clean_text
+            for k in ["1 month", "1 m", "1m", "১ মাস", "১মাস", "25", "২৫", "3 month", "3 m", "3m", "৩ মাস", "৩মাস", "50", "৫০", "6 month", "6 m", "6m", "৬ মাস", "৬মাস", "99", "৯৯"]:
+                pkg_query = pkg_query.replace(k, "")
+            if len(re.findall(r"[\w\u0980-\u09FF]+", pkg_query)) >= 2:
+                ai_reply = generate_ai_assistant_reply(
+                    user_msg=msg_text,
+                    sender_name=sender_name,
+                    current_stage="awaiting_email",
+                    current_pkg=state.get("package_name"),
+                    saved_email=None
+                )
+
+            if ai_reply:
+                reply = (
+                    f"{ai_reply}\n\n"
+                    f"✅ আপনি নির্বাচন করেছেন: **{state.get('package_name')}**\n\n"
+                    f"এখন আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, অনুগ্রহ করে সেই জিমেইলটি লিখে পাঠিয়ে দিন: 📧"
+                )
+            else:
+                reply = (
+                    f"✅ আপনি নির্বাচন করেছেন: **{state.get('package_name')}**\n\n"
+                    f"এখন আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, অনুগ্রহ করে সেই জিমেইলটি লিখে পাঠিয়ে দিন: 📧"
+                )
             quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
             return

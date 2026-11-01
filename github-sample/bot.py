@@ -14,6 +14,7 @@ Features:
 import os
 import re
 import sys
+import time
 import json
 import asyncio
 import logging
@@ -473,7 +474,8 @@ def send_fb_message(recipient_id: str, message_text: str, token: str, quick_repl
 
 
 def check_and_reply_inbox(bot=None):
-    """Scans Facebook Messenger inbox and delegates to the 8-step sales funnel."""
+    """Scans Facebook Messenger inbox, aggregates rapid multi-message bursts (with a 3.5s debounce wait),
+    and delegates the cohesive combined message to the strict sales funnel."""
     token = os.getenv("FB_PAGE_ACCESS_TOKEN", "")
     page_id = os.getenv("FB_PAGE_ID", "1312971105242105")
     if not token or not page_id:
@@ -490,63 +492,126 @@ def check_and_reply_inbox(bot=None):
             messages = conv.get("messages", {}).get("data", [])
             if not messages:
                 continue
-            latest_msg = messages[0]
-            msg_id = latest_msg.get("id")
-            sender = latest_msg.get("from", {})
-            sender_id = sender.get("id")
-            sender_name = sender.get("name", "Customer")
-            msg_text = latest_msg.get("message", "").strip()
-            qr = latest_msg.get("quick_reply", {})
-            qr_payload = qr.get("payload", "").strip() if isinstance(qr, dict) else ""
-            pb = latest_msg.get("postback", {})
-            pb_payload = pb.get("payload", "").strip() if isinstance(pb, dict) else ""
-            if qr_payload:
-                msg_text = f"{msg_text} {qr_payload}".strip() if msg_text else qr_payload
-            if pb_payload:
-                msg_text = f"{msg_text} {pb_payload}".strip() if msg_text else pb_payload
 
-            attachments = latest_msg.get("attachments", {}).get("data", [])
+            # Check if there is at least one new incoming message from the customer
+            has_new_customer_msg = False
+            for m in messages:
+                mid = m.get("id")
+                s_id = m.get("from", {}).get("id")
+                if s_id == page_id or mid in replied:
+                    break
+                has_new_customer_msg = True
+                break
+
+            if not has_new_customer_msg:
+                continue
+
+            # Customer sent a message! Wait 3.5 seconds to allow any rapid follow-up messages / questions to arrive
+            time.sleep(3.5)
+
+            # Re-fetch latest messages for this specific conversation to collect the complete burst
+            conv_id = conv.get("id")
+            if conv_id:
+                try:
+                    refetch_url = f"https://graph.facebook.com/v20.0/{conv_id}/messages?fields=message,from,created_time,attachments{{mime_type,image_data,file_url}}&limit=15&access_token={token}"
+                    rf_resp = requests.get(refetch_url, timeout=10)
+                    if rf_resp.status_code == 200:
+                        rf_messages = rf_resp.json().get("data", [])
+                        if rf_messages:
+                            messages = rf_messages
+                except Exception as e:
+                    logger.warning(f"Error re-fetching conversation {conv_id}: {e}")
+
+            # Collect all unreplied messages from the customer streak
+            unreplied_batch = []
+            for m in messages:
+                mid = m.get("id")
+                s_id = m.get("from", {}).get("id")
+                if s_id == page_id or mid in replied:
+                    break
+                unreplied_batch.append(m)
+
+            if not unreplied_batch:
+                continue
+
+            # Reverse to chronological order (oldest to newest)
+            unreplied_batch.reverse()
+
+            batch_texts = []
+            batch_msg_ids = []
             image_url = None
-            is_sticker_or_gif = bool(latest_msg.get("sticker"))
+            is_sticker_or_gif = False
+            sender_id = None
+            sender_name = "Customer"
 
-            for att in attachments:
-                mime = (att.get("mime_type") or "").lower()
-                att_type = (att.get("type") or "").lower()
-                file_url = (att.get("file_url") or "").lower()
-                img_url = (att.get("image_data", {}).get("url") or "").lower()
+            for m in unreplied_batch:
+                mid = m.get("id")
+                if mid:
+                    batch_msg_ids.append(mid)
+                s = m.get("from", {})
+                if s.get("id"):
+                    sender_id = s.get("id")
+                if s.get("name"):
+                    sender_name = s.get("name")
 
-                # Comprehensive check for Messenger stickers, GIFs, or animated images
-                if (
-                    att.get("sticker_id")
-                    or att.get("name") == "sticker.png"
-                    or "sticker" in img_url
-                    or "sticker" in file_url
-                    or "gif" in mime
-                    or "gif" in file_url
-                    or "giphy" in file_url
-                    or "tenor" in file_url
-                    or att_type in ("animated_image_share", "animated_image", "sticker")
-                    or att.get("image_data", {}).get("animated_gif_url")
-                ):
+                t = m.get("message", "").strip()
+                qr = m.get("quick_reply", {})
+                qr_payload = qr.get("payload", "").strip() if isinstance(qr, dict) else ""
+                pb = m.get("postback", {})
+                pb_payload = pb.get("payload", "").strip() if isinstance(pb, dict) else ""
+                if qr_payload:
+                    t = f"{t} {qr_payload}".strip() if t else qr_payload
+                if pb_payload:
+                    t = f"{t} {pb_payload}".strip() if t else pb_payload
+
+                if t:
+                    batch_texts.append(t)
+
+                attachments = m.get("attachments", {}).get("data", [])
+                if m.get("sticker"):
                     is_sticker_or_gif = True
-                    break
 
-                if att.get("image_data", {}).get("url"):
-                    image_url = att["image_data"]["url"]
-                    break
-                elif "image" in mime:
-                    image_url = att.get("file_url") or att.get("image_data", {}).get("url")
-                    break
-                elif file_url and any(ext in file_url for ext in [".jpg", ".jpeg", ".png", ".webp"]):
-                    image_url = att["file_url"]
-                    break
+                for att in attachments:
+                    mime = (att.get("mime_type") or "").lower()
+                    att_type = (att.get("type") or "").lower()
+                    file_url = (att.get("file_url") or "").lower()
+                    img_url = (att.get("image_data", {}).get("url") or "").lower()
 
-            if is_sticker_or_gif:
-                image_url = None
-                if not msg_text:
-                    msg_text = "👍"
+                    # Comprehensive check for Messenger stickers, GIFs, or animated images
+                    if (
+                        att.get("sticker_id")
+                        or att.get("name") == "sticker.png"
+                        or "sticker" in img_url
+                        or "sticker" in file_url
+                        or "gif" in mime
+                        or "gif" in file_url
+                        or "giphy" in file_url
+                        or "tenor" in file_url
+                        or att_type in ("animated_image_share", "animated_image", "sticker")
+                        or att.get("image_data", {}).get("animated_gif_url")
+                    ):
+                        is_sticker_or_gif = True
+                        break
 
-            if not sender_id or sender_id == page_id or msg_id in replied or (not msg_text and not image_url):
+                    if att.get("image_data", {}).get("url"):
+                        image_url = att["image_data"]["url"]
+                        break
+                    elif "image" in mime:
+                        image_url = att.get("file_url") or att.get("image_data", {}).get("url")
+                        break
+                    elif file_url and any(ext in file_url for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+                        image_url = att["file_url"]
+                        break
+
+            if is_sticker_or_gif and not batch_texts:
+                batch_texts.append("👍")
+
+            msg_text = "\n".join(batch_texts).strip()
+            latest_msg_id = batch_msg_ids[-1] if batch_msg_ids else None
+
+            if not sender_id or sender_id == page_id or not latest_msg_id or (not msg_text and not image_url):
+                for mid in batch_msg_ids:
+                    replied.add(mid)
                 continue
 
             image_bytes = None
@@ -564,12 +629,13 @@ def check_and_reply_inbox(bot=None):
                 sender_id=sender_id,
                 sender_name=sender_name,
                 msg_text=msg_text,
-                msg_id=msg_id,
+                msg_id=latest_msg_id,
                 page_token=token,
                 bot_instance=bot,
                 image_bytes=image_bytes
             )
-            replied.add(msg_id)
+            for mid in batch_msg_ids:
+                replied.add(mid)
 
         save_replied_ids(replied)
     except Exception as e:
@@ -577,11 +643,11 @@ def check_and_reply_inbox(bot=None):
 
 
 async def comment_monitor_loop(bot=None):
-    """Background async worker that runs every 15 seconds for rapid inbox & comment replies."""
+    """Background async worker that runs every 4 seconds for rapid inbox & comment replies."""
     global _bot_instance
     if bot:
         _bot_instance = bot
-    logger.info("🚀 Background Inbox & Comment Auto-Responder active (15s rapid interval).")
+    logger.info("🚀 Background Inbox & Comment Auto-Responder active (4s rapid interval).")
     while True:
         try:
             await asyncio.to_thread(check_and_reply_inbox, _bot_instance)
@@ -591,7 +657,7 @@ async def comment_monitor_loop(bot=None):
             break
         except Exception as e:
             logger.error(f"Error in background loop: {e}")
-        await asyncio.sleep(15)
+        await asyncio.sleep(4)
 
 
 async def expiry_reminder_loop(bot=None):
