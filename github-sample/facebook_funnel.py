@@ -344,9 +344,9 @@ def get_messenger_skill_instructions() -> str:
 
 
 def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", current_stage: str = "awaiting_package", current_pkg: str = None, saved_email: str = None) -> str:
-    """Invokes Manifest AI Gateway (app.manifest.build) as the dedicated intelligent sales assistant for Design Hub."""
-    token = os.getenv("MANIFEST_AUTH_TOKEN", "mnfst_lpeXE1-JKLzUYRkDgq7QEM0vln_V43oKNDjt6vwBeJY").strip()
-    base_url = os.getenv("MANIFEST_BASE_URL", "https://app.manifest.build").strip().rstrip("/")
+    """Invokes Kilo AI Gateway (api.kilo.ai/api/gateway) or Manifest as the dedicated intelligent sales assistant for Design Hub."""
+    token = (os.getenv("KILO_API_KEY") or os.getenv("MANIFEST_AUTH_TOKEN", "")).strip()
+    base_url = (os.getenv("KILO_BASE_URL") or os.getenv("MANIFEST_BASE_URL", "https://api.kilo.ai/api/gateway")).strip().rstrip("/")
     if not token:
         return ""
 
@@ -360,10 +360,21 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
             "- Packages: 1 Month (25 TK), 3 Months (50 TK), 6 Months (99 TK). Always format packages and features in bullet points.\n"
         )
 
-    prompt = f"Context: Customer: {first_name}, Stage: {current_stage}, Package: {current_pkg or 'None'}, Provided Gmail: {saved_email or 'Not provided yet'}\nCustomer says: \"{user_msg}\"\nAssistant response:"
+    prompt = (
+        f"Context: Customer: {first_name}, Stage: {current_stage}, Package: {current_pkg or 'None'}, Provided Gmail: {saved_email or 'Not provided yet'}\n"
+        f"Customer says: \"{user_msg}\"\n"
+        f"Assistant response:"
+    )
 
-    models = ["kilo/kilo-auto/free", "auto"]
-    url = f"{base_url}/v1/chat/completions"
+    models = ["kilo-auto/free", "kilo/kilo-auto/free", "nvidia/nemotron-3.5-super-vl:free", "openrouter/free", "auto"]
+
+    if base_url.endswith("/chat/completions"):
+        url = base_url
+    elif base_url.endswith("/v1"):
+        url = f"{base_url}/chat/completions"
+    else:
+        url = f"{base_url}/chat/completions"
+
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
@@ -381,6 +392,10 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
                 ]
             }
             res = requests.post(url, headers=headers, json=payload, timeout=18)
+            if res.status_code == 404 and not url.endswith("/v1/chat/completions"):
+                alt_url = f"{base_url}/v1/chat/completions"
+                res = requests.post(alt_url, headers=headers, json=payload, timeout=18)
+
             if res.status_code == 200:
                 data = res.json()
                 choices = data.get("choices", [])
@@ -396,6 +411,15 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
                         ans = ""
 
                     if ans:
+                        # Clean any internal reasoning / thinking process leaked by reasoning models
+                        ans = re.sub(r"<think>.*?</think>", "", ans, flags=re.DOTALL)
+                        if "Thinking Process:" in ans:
+                            parts = re.split(r"\n\s*\n", ans)
+                            non_thinking = [p for p in parts if not p.strip().startswith("Thinking Process:") and not re.match(r"^\d+\.\s+\*\*", p.strip())]
+                            if non_thinking:
+                                ans = "\n\n".join(non_thinking)
+                        ans = ans.strip()
+
                         ans = (
                             ans
                             .replace("ডিজাইন হাব-এর", "Design Hub-এর")
@@ -403,10 +427,10 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
                             .replace("ডিজাইন হাবে", "Design Hub-এ")
                             .replace("ডিজাইন হাব", "Design Hub")
                         )
-                        logger.info(f"✨ Manifest AI Gateway answered for {first_name} (routed model: {m})")
+                        logger.info(f"✨ Kilo AI Gateway answered for {first_name} (routed model: {m})")
                         return ans
         except Exception as e:
-            logger.warning(f"Manifest AI Gateway model {m} attempt failed: {e}")
+            logger.warning(f"Kilo AI Gateway model {m} attempt failed: {e}")
             continue
 
     return ""
@@ -905,7 +929,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         return
 
     # =========================================================================
-    # PRIMARY CONVERSATIONAL VOICE: MANIFEST AI GATEWAY SALES ASSISTANT
+    # PRIMARY CONVERSATIONAL VOICE: KILO AI GATEWAY SALES ASSISTANT
     # Talks dynamically like a real, helpful human assistant for all questions!
     # =========================================================================
     ai_reply = generate_ai_assistant_reply(
