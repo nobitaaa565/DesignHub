@@ -215,7 +215,15 @@ def send_telegram_alert(text: str, reply_markup: dict = None, photo_bytes: bytes
         return 0
 
 
-def get_package_buttons():
+def get_package_buttons(lang: str = "bn"):
+    """Returns 1-tap quick reply buttons tailored to customer language."""
+    if lang in ("en", "tl"):
+        return [
+            {"content_type": "text", "title": "1️⃣ 1 Month (25 TK)", "payload": "PKG_1M"},
+            {"content_type": "text", "title": "2️⃣ 3 Months (50 TK)", "payload": "PKG_3M"},
+            {"content_type": "text", "title": "3️⃣ 6 Months (99 TK)", "payload": "PKG_6M"},
+            {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+        ]
     return [
         {"content_type": "text", "title": "1️⃣ ১ মাস (২৫৳)", "payload": "PKG_1M"},
         {"content_type": "text", "title": "2️⃣ ৩ মাস (৫০৳)", "payload": "PKG_3M"},
@@ -242,39 +250,121 @@ def is_bargain_or_discount(text: str) -> bool:
     return any(w in clean for w in bargain_words)
 
 
+def is_vulgar_or_bad_words(text: str) -> bool:
+    """Detects abusive, vulgar, insulting, or slurring language in English, Bengali, or Banglish."""
+    if not text:
+        return False
+    clean = text.lower().strip()
+
+    # Exact phrases or multi-word slang/threats
+    phrase_patterns = [
+        r"\bwhy are you gay\b",
+        r"\byou(?: are)? gay\b",
+        r"\bu gay\b",
+        r"\belakai a+y\b",
+        r"\bnunu kai?ta\b",
+        r"\bkuttar bac?cha\b",
+        r"\bshuo?e?rer bac?cha\b",
+        r"\bshoorer bac?cha\b",
+        r"\bkhankir polar?\b",
+        r"\bkhankir chawa\b",
+    ]
+    for pat in phrase_patterns:
+        if re.search(pat, clean):
+            return True
+
+    # Standalone vulgar keywords with Unicode-aware word boundaries
+    vulgar_words = [
+        # English
+        "fuck", "fucker", "fucking", "bitch", "bastard", "asshole", "cunt",
+        "dick", "pussy", "slut", "whore", "motherfucker", "faggot", "fag",
+        # Banglish / Phonetic
+        "bal", "baal", "khanki", "magi", "choda", "chudi", "chodbo", "chudbo",
+        "chodao", "chudao", "chudani", "chudmarani", "banchod", "baanchod",
+        "bokachoda", "bokachuda", "gandu", "madarchod", "motherchod",
+        "harami", "nunu", "dhon",
+        # Bengali script
+        "বাল", "খানকি", "মাগী", "চোদা", "চুদি", "চোদবো", "চুদবো",
+        "চোদাও", "চুদাও", "চুদানির", "বোকাচোদা", "গাঁড়", "গান্দু",
+        "মাদারচোদ", "মাডারচোদ", "হারামি", "কুত্তা", "নুন্নু", "ধোন",
+        "শুয়োর"
+    ]
+    for w in vulgar_words:
+        pat = rf"(?<![a-zA-Z0-9\u0980-\u09FF]){re.escape(w)}(?![a-zA-Z0-9\u0980-\u09FF])"
+        if re.search(pat, clean):
+            return True
+
+    return False
+
+
 def is_cancel_or_postpone(text: str) -> bool:
     """Checks if customer is postponing or cancelling the conversation/request in Bengali, English, or Tagalog."""
+    if not text:
+        return False
     clean = text.lower().strip()
-    cancel_words = [
-        # Bengali / Banglish
-        "pore kotha bolbo", "pore bolbo", "pore dekhbo", "na thak",
-        "bad den", "dorkar nai", "দরকার নেই", "দরকার নাই",
-        "cancel", "pore jogajog", "pore ashbo",
-        # English
-        "never mind", "nevermind", "talk later", "chat later", "not now",
-        "maybe later", "i will pass", "cancel", "next time",
-        # Tagalog / Filipino
-        "wag na", "wag na lang", "next time na lang", "bukas na lang",
-        "mamaya na lang", "ayaw na", "di na lang", "wag muna"
+
+    cancel_phrases = [
+        "nope", "cancel", "cancelled", "cancelling",
+        "nibo na", "nebo na", "lagbe na", "chai na", "dorkar nai", "dorkar nei",
+        "না থাক", "লাগবে না", "নেব না", "নিব না", "চাই না", "দরকার নেই", "দরকার নাই",
+        "বাতিল", "ক্যান্সেল", "pore kotha bolbo", "pore bolbo", "pore dekhbo",
+        "pore nibo", "pore nebo", "pore jogajog", "pore ashbo",
+        "bad den", "বাদ দেন", "never mind", "nevermind", "talk later",
+        "chat later", "not now", "maybe later", "i will pass", "next time",
+        "wag na", "wag muna", "ayaw na", "di na lang", "bukas na lang", "mamaya na lang"
     ]
-    return any(w in clean for w in cancel_words)
+    for ph in cancel_phrases:
+        pat = rf"(?<![a-zA-Z0-9\u0980-\u09FF]){re.escape(ph)}(?![a-zA-Z0-9\u0980-\u09FF])"
+        if re.search(pat, clean):
+            return True
+    return False
 
 
-def get_package_buttons(lang: str = "bn"):
-    """Returns 1-tap quick reply buttons tailored to customer language."""
-    if lang in ("en", "tl"):
-        return [
-            {"content_type": "text", "title": "1️⃣ 1 Month (25 TK)", "payload": "PKG_1M"},
-            {"content_type": "text", "title": "2️⃣ 3 Months (50 TK)", "payload": "PKG_3M"},
-            {"content_type": "text", "title": "3️⃣ 6 Months (99 TK)", "payload": "PKG_6M"},
-            {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
-        ]
-    return [
-        {"content_type": "text", "title": "1️⃣ ১ মাস (২৫৳)", "payload": "PKG_1M"},
-        {"content_type": "text", "title": "2️⃣ ৩ মাস (৫০৳)", "payload": "PKG_3M"},
-        {"content_type": "text", "title": "3️⃣ ৬ মাস (৯৯৳)", "payload": "PKG_6M"},
-        {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+def is_restart_request(text: str, payload: str = "") -> bool:
+    """Checks if customer requests a fresh restart/reset."""
+    if "action_restart" in payload.lower() or "action_restart" in text.lower():
+        return True
+    clean = text.lower().strip()
+    restart_phrases = [
+        "restart", "start over", "reset", "start", "menu", "main menu",
+        "শুরু", "রিস্টার্ট", "মেনু", "নতুন করে শুরু", "notun kore shuru", "get_started"
     ]
+    for ph in restart_phrases:
+        pat = rf"(?<![a-zA-Z0-9\u0980-\u09FF]){re.escape(ph)}(?![a-zA-Z0-9\u0980-\u09FF])"
+        if re.search(pat, clean):
+            return True
+    return False
+
+
+def is_explicit_confirmation(text: str, payload: str = "") -> bool:
+    """Strict confirmation checker. Prevents substring false positives and respects negative intents."""
+    if "confirm_yes" in payload.lower() or "confirm_yes" in text.lower():
+        return True
+
+    clean = text.lower().strip()
+
+    # Reject if negative intent or cancellation or change is present
+    negatives = [
+        "na", "no", "not", "না", "নাহ", "নেব না", "নিব না", "nibo na", "nebo na",
+        "cancel", "ভুল", "bhul", "change", "wait", "pore", "দাঁড়ান", "থামেন", "stop"
+    ]
+    for neg in negatives:
+        pat = rf"(?<![a-zA-Z0-9\u0980-\u09FF]){re.escape(neg)}(?![a-zA-Z0-9\u0980-\u09FF])"
+        if re.search(pat, clean):
+            return False
+
+    confirm_phrases = [
+        "y", "yes", "ok", "okay", "ha", "haa", "হাঁ", "হ্যাঁ", "হ্যা",
+        "confirm", "thik ache", "ঠিক আছে", "tik ache", "all ok", "everything ok",
+        "shob thik ache", "সব ঠিক আছে", "link pathan", "link den", "লিংক দিন",
+        "লিংক পাঠান", "accha den", "acha den", "proceed", "done"
+    ]
+    for ph in confirm_phrases:
+        pat = rf"(?<![a-zA-Z0-9\u0980-\u09FF]){re.escape(ph)}(?![a-zA-Z0-9\u0980-\u09FF])"
+        if re.search(pat, clean):
+            return True
+
+    return False
 
 
 def check_unsupported_duration(text: str) -> str:
@@ -438,9 +528,11 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
 
 def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text: str, msg_id: str, page_token: str, bot_instance=None, image_bytes: bytes = None):
     """Processes customer messages through the strict serial funnel:
-    Serial 1: gmail + package
-    Serial 2: link (30-min expiring link sent ONLY after Serial 1 is confirmed)
-    Serial 3: payment ss or trx id (ONLY after Serial 2 link has been sent)
+    Serial 1: Package selection
+    Serial 2: Personal Gmail
+    Serial 3: Confirmation (Explicit confirmation of package + email)
+    Serial 4: 10-Minute Expiring Link delivery
+    Serial 5: Payment verification (TrxID or OCR screenshot)
     """
     states = load_states()
     state = states.get(sender_id, {})
@@ -449,49 +541,89 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
     clean_text = msg_text.strip().lower()
     is_reaction = clean_text in ("👍", "(y)", "like", "লাইক", "[sticker]", "[gif]")
 
-    # -------------------------------------------------------------------------
-    # SERIAL STEP 1 MEMORY CAPTURE: Always capture email and package choices
-    # -------------------------------------------------------------------------
-    email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
-    if email_match:
-        found_email = email_match.group(0).lower()
-        state["email"] = found_email
-        state["saved_email"] = found_email
+    # =========================================================================
+    # GUARD 1: VULGAR OR BAD WORDS FILTER
+    # If customer says any bad/vulgar words, reply politely and declare AI agent.
+    # NEVER advance state, never confirm, never generate join links.
+    # =========================================================================
+    if is_vulgar_or_bad_words(msg_text):
+        reply = (
+            "অনুগ্রহ করে কোনো খারাপ বা অশোভন ভাষা ব্যবহার করবেন না, এটা ঠিক না। "
+            "আমি Design Hub-এর একটি এআই অ্যাসিস্ট্যান্ট (AI agent) 😊। "
+            "আপনার কি ক্যানভা প্রো সম্পর্কিত কোনো তথ্য বা সহায়তা প্রয়োজন?"
+        )
+        send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
+        return
 
-    direct_pkg = parse_package_choice(msg_text)
-    if direct_pkg and not is_bargain_or_discount(clean_text):
-        state["package_key"] = direct_pkg["key"]
-        state["package_name"] = direct_pkg["name"]
-        state["package_price"] = direct_pkg["price"]
+    # =========================================================================
+    # GUARD 2: CANCEL OR POSTPONE REQUEST
+    # If customer says "nope", "nibo na", "cancel order", "cancel", "বাতিল", etc.
+    # Fully reset stored state, notify Telegram, and politely acknowledge.
+    # =========================================================================
+    if is_cancel_or_postpone(clean_text):
+        state["stage"] = "awaiting_package"
+        state["package_key"] = None
+        state["package_name"] = None
+        state["package_price"] = None
+        state["email"] = None
+        state["saved_email"] = None
+        states[sender_id] = state
+        save_states(states)
 
-    state["sender_name"] = sender_name
-    states[sender_id] = state
-    save_states(states)
+        alert = (
+            f"ℹ️ *CUSTOMER CANCELLED / POSTPONED (Messenger)*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {sender_name}\n"
+            f"💬 Message: '{msg_text}'\n"
+            f"────────────────────────"
+        )
+        send_telegram_alert(alert)
 
-    # -------------------------------------------------------------------------
-    # GLOBAL COMMANDS: Restart, Extend, and Explicit New Link
-    # -------------------------------------------------------------------------
-    is_restart_request = (
-        "action_restart" in clean_text
-        or clean_text in ("restart", "রিস্টার্ট", "get_started", "start", "reset", "শুরু", "মেনু", "menu")
-    )
-    if is_restart_request:
-        states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name}
+        reply = f"ঠিক আছে {sender_name}! 😊 কোনো সমস্যা নেই। আপনার সুবিধাজনক সময়ে বা পরবর্তীতে প্রয়োজন হলে নক দিয়েন, আমরা সবসময় আছি ✨"
+        send_fb_message(sender_id, reply, page_token, quick_replies=[{"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}])
+        return
+
+    # =========================================================================
+    # GUARD 3: GLOBAL RESTART / RESET
+    # Flushes all stored email and package choices so no stale state is held.
+    # =========================================================================
+    if is_restart_request(clean_text):
+        states[sender_id] = {
+            "stage": "awaiting_package",
+            "sender_name": sender_name,
+            "package_key": None,
+            "package_name": None,
+            "package_price": None,
+            "email": None,
+            "saved_email": None
+        }
         save_states(states)
         text = (
             f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub-এ আপনাকে স্বাগতম।\n\n"
             f"আমরা দিচ্ছি অফিসিয়াল Canva Pro এডুকেশন টিম অ্যাক্সেস (নিজের জিমেইলে এক্টিভ হবে)।\n\n"
             f"📦 আপনি কোন প্যাকেজটি নিতে চান?\n"
             f"১. ১ মাস — ২৫ টাকা\n"
-            f"২. ৩ মাস — ৫০ টাকা\n"
+            f"২. ৩ মাস — ৫০ টাকা (সবচেয়ে জনপ্রিয় ✨)\n"
             f"৩. ৬ মাস — ৯৯ টাকা\n\n"
             f"অনুগ্রহ করে আপনার পছন্দের প্যাকেজটি বাছাই করুন:"
         )
         send_fb_message(sender_id, text, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
         return
 
+    # =========================================================================
+    # GUARD 4: EXTEND DURATION (Renewal)
+    # =========================================================================
     if clean_text in ("extend", "মেয়াদ বাড়ান", "বাড়াতে চাই", "action_extend", "রিনিউ"):
-        states[sender_id] = {"stage": "awaiting_package", "sender_name": sender_name, "is_extend": True}
+        states[sender_id] = {
+            "stage": "awaiting_package",
+            "sender_name": sender_name,
+            "is_extend": True,
+            "package_key": None,
+            "package_name": None,
+            "package_price": None,
+            "email": None,
+            "saved_email": None
+        }
         save_states(states)
         text = (
             f"⌛ {sender_name}, আপনার Canva Pro মেয়াদ বাড়াতে (Extend) কোন প্যাকেজটি নিতে চান?\n\n"
@@ -503,7 +635,9 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         send_fb_message(sender_id, text, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
         return
 
-    # Explicit Request for Fresh New Link (when link expired)
+    # =========================================================================
+    # GUARD 5: EXPLICIT REQUEST FOR FRESH LINK (When expired)
+    # =========================================================================
     is_explicit_new_link = (
         "action_new_link" in clean_text
         or any(k in clean_text for k in [
@@ -512,7 +646,6 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             "লিংক কাজ করছে না", "kaj kore na", "link pathan", 
             "send link", "give link", "link please", "expire", "expired", "আরেকটি লিংক"
         ])
-        or (clean_text in ("link", "লিংক", "নতুন লিংক চাই") and stage != "awaiting_confirm")
     )
     if is_explicit_new_link:
         customer_email = state.get("email") or state.get("saved_email")
@@ -548,7 +681,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
             ]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
-            logger.info(f"Generated fresh 30-min link for {sender_name} ({customer_email})")
+            logger.info(f"Generated fresh 10-min link for {sender_name} ({customer_email})")
             return
         else:
             reply = "আপনার কোনো জিমেইল পাওয়া যায়নি। দয়া করে আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, সেটি লিখে পাঠান:"
@@ -556,129 +689,9 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
             return
 
-    # -------------------------------------------------------------------------
-    # GLOBAL CHANGE REQUESTS: Package Change or Email Change
-    # -------------------------------------------------------------------------
-    is_package_change = any(k in clean_text for k in [
-        "package change", "change package", "onno package", "onno pack",
-        "package badlabo", "প্যাকেজ চেঞ্জ", "অন্য প্যাকেজ", "প্যাকেজ পরিবর্তন",
-        "change plan", "different package", "another package", "plan change",
-        "onno plan", "অন্য প্ল্যান", "প্যাকেজ বদলাতে", "package change korbo",
-        "package change korte chai", "অন্য কোন প্যাকেজ", "অন্য প্যাকেজ দিন",
-        "প্যাকেজ বদলাবো", "onno package den"
-    ])
-    if is_package_change:
-        state["package_key"] = None
-        state["package_name"] = None
-        state["package_price"] = None
-        state["stage"] = "awaiting_package"
-        states[sender_id] = state
-        save_states(states)
-
-        reply = (
-            f"অবশ্যই {sender_name}! 😊 আপনি কোন প্যাকেজে পরিবর্তন করতে চান তা নির্বাচন করুন:\n\n"
-            f"১. ১ মাস — ২৫ টাকা\n"
-            f"২. ৩ মাস — ৫০ টাকা (সবচেয়ে জনপ্রিয় ✨)\n"
-            f"৩. ৬ মাস — ৯৯ টাকা"
-        )
-        send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
-        return
-
-    is_email_change = any(k in clean_text for k in [
-        "email change", "change email", "onno email", "onno mail",
-        "gmail change", "change gmail", "ইমেইল চেঞ্জ", "জিমেইল চেঞ্জ",
-        "অন্য ইমেইল", "অন্য জিমেইল", "ইমেইল পরিবর্তন", "gmail change korte chai"
-    ])
-    if is_email_change:
-        state["email"] = None
-        state["saved_email"] = None
-        state["stage"] = "awaiting_email"
-        states[sender_id] = state
-        save_states(states)
-
-        reply = f"অবশ্যই {sender_name}! 😊 আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, নতুন জিমেইলটি লিখে পাঠিয়ে দিন: 📧"
-        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
-        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
-        return
-
-    # -------------------------------------------------------------------------
-    # SERIAL STEP 1: CONFIRMATION CHECK (If in awaiting_confirm)
-    # -------------------------------------------------------------------------
-    if stage == "awaiting_confirm":
-        positive_keywords = [
-            "yes", "হ্যাঁ", "ha", "y", "confirm", "হাঁ", "thik ache", "ঠিক আছে",
-            "হ্যা", "confirm_yes", "ok", "okay", "accha", "acha", "den", "link den",
-            "sure", "হবে", "হ", "পাবো", "👍", "good", "done", "tik ache", "thik"
-        ]
-        is_confirming = any(k in clean_text for k in positive_keywords) or "confirm_yes" in clean_text
-
-        if is_confirming:
-            # -----------------------------------------------------------------
-            # SERIAL STEP 2: SEND LINK (ONLY after Step 1 details are confirmed!)
-            # -----------------------------------------------------------------
-            confirmed_email = state.get("email")
-            pkg_key = state.get("package_key", "1m")
-            pkg_name = state.get("package_name", "১ মাস (২৫ টাকা)")
-            pkg_price = state.get("package_price", 25)
-
-            if confirmed_email:
-                sub = add_subscriber(confirmed_email, pkg_key, sender_name, fb_sender_id=sender_id)
-                cid = sub.get("customer_id") or get_customer_id_by_sender(sender_id, sender_name, confirmed_email)
-
-                link_data = create_expiring_invite(confirmed_email, minutes=10)
-                join_url = f"https://designhub-1any.onrender.com/join/{link_data['token']}"
-
-                state["stage"] = "awaiting_payment"
-                state["join_link"] = join_url
-                state["customer_id"] = cid
-                states[sender_id] = state
-                save_states(states)
-
-                reply = (
-                    f"আপনার Canva Pro টিম জয়েন লিংক নিচে দেওয়া হলো:\n\n"
-                    f"🔗 {join_url}\n\n"
-                    f"⚠️ গুরুত্বপূর্ণ: এই লিংকটি আগামী ১০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
-                    f"💳 পেমেন্ট তথ্য:\n"
-                    f"• প্যাকেজ: {pkg_name}\n"
-                    f"• বিকাশ / নগদ (Personal): 01571425035, 01798361516\n\n"
-                    f"টিমে জয়েন করার পর পেমেন্ট সম্পন্ন করে ট্রানজেকশন আইডি (TrxID) বা স্ক্রিনশট পাঠিয়ে দিন। ধন্যবাদ! 🎨"
-                )
-                quick_btns = [
-                    {"content_type": "text", "title": "🔗 New Link", "payload": "ACTION_NEW_LINK"},
-                    {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
-                    {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
-                ]
-                send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
-
-                alert = (
-                    f"⚡ *NEW CANVA PRO ACCESS DELIVERED! (Messenger)*\n"
-                    f"────────────────────────\n"
-                    f"👤 Customer: {sender_name} (ID: `#{cid}`)\n"
-                    f"📧 Email: `{confirmed_email}`\n"
-                    f"📦 Package: {pkg_name}\n"
-                    f"⏳ Status: 🟡 PENDING PAYMENT\n"
-                    f"🔗 30-Min Link: `{join_url}`\n"
-                    f"────────────────────────"
-                )
-                keyboard = {
-                    "inline_keyboard": [
-                        [
-                            {"text": "✅ Mark Paid", "callback_data": f"sub_paid:{confirmed_email}"},
-                            {"text": "🚨 Kick User", "callback_data": f"sub_kick:{confirmed_email}"}
-                        ],
-                        [
-                            {"text": "⏳ Pay Later", "callback_data": f"pay_later_menu:{confirmed_email}"}
-                        ]
-                    ]
-                }
-                new_msg_id = send_telegram_alert(alert, reply_markup=keyboard)
-                if new_msg_id:
-                    set_pending_telegram_msg(confirmed_email, new_msg_id)
-                return
-
-    # -------------------------------------------------------------------------
-    # SERIAL STEP 3: PAYMENT VERIFICATION (ONLY ACTIVE AFTER LINK SENT!)
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # STEP 5 OF FUNNEL: PAYMENT VERIFICATION (ONLY ACTIVE AFTER LINK SENT!)
+    # =========================================================================
     if stage == "awaiting_payment":
         # Check for TrxID in text
         trx_info = extract_trx_from_text(msg_text)
@@ -844,7 +857,6 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                     set_pending_telegram_msg(email_info, new_msg_id)
                 return
             else:
-                # User sent a non-payment picture in Step 3 -> Remind them of what we need (TrxID / payment screenshot)
                 reply = f"ধন্যবাদ {sender_name}! 😊 ক্যানভা টিমে যুক্ত হয়ে পেমেন্ট সম্পন্ন করে থাকলে অনুগ্রহ করে আপনার ট্রানজেকশন আইডি (TrxID) বা পেমেন্ট স্ক্রিনশটটি পাঠিয়ে দিন, আমরা এখনই কনফার্ম করে দিচ্ছি। ✨"
                 quick_btns = [
                     {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
@@ -853,7 +865,6 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
                 return
 
-        # User sent a sticker, gif, or emoji in Step 3 -> Remind them of what we need
         if is_reaction or not msg_text:
             reply = f"ধন্যবাদ {sender_name}! 😊 ক্যানভা টিমে যুক্ত হয়ে পেমেন্ট সম্পন্ন করে থাকলে অনুগ্রহ করে আপনার ট্রানজেকশন আইডি (TrxID) বা পেমেন্ট স্ক্রিনশটটি পাঠিয়ে দিন, আমরা এখনই কনফার্ম করে দিচ্ছি। ✨"
             quick_btns = [
@@ -863,51 +874,56 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
             return
 
-    # -------------------------------------------------------------------------
-    # SERIAL STEP 1 GATED FLOW (Ensuring 1. Gmail + Package is fully resolved)
-    # -------------------------------------------------------------------------
-    current_email = state.get("email")
-    current_pkg = state.get("package_key")
-
-    # If BOTH Gmail and Package are present (and stage != awaiting_payment)
-    if current_pkg and current_email:
-        state["stage"] = "awaiting_confirm"
-        states[sender_id] = state
-        save_states(states)
-
-        reply = (
-            f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
-            f"📦 প্যাকেজ: **{state.get('package_name')}**\n"
-            f"📧 জিমেইল: **{current_email}**\n\n"
-            f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন বা 'ঠিক আছে' লিখে জানান:"
+        # Customer asking a question while in awaiting_payment
+        ai_reply = generate_ai_assistant_reply(
+            user_msg=msg_text,
+            sender_name=sender_name,
+            current_stage=stage,
+            current_pkg=state.get("package_name"),
+            saved_email=state.get("saved_email") or state.get("email")
         )
-        quick_btns = [
-            {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{current_email}"},
-            {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
-        ]
-        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
-        return
+        if ai_reply:
+            quick_btns = [
+                {"content_type": "text", "title": "🔗 New Link", "payload": "ACTION_NEW_LINK"},
+                {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+            ]
+            send_fb_message(sender_id, ai_reply, page_token, quick_replies=quick_btns)
+            return
 
-    # Package is present, but Gmail is MISSING -> Strictly ask for Gmail!
-    if current_pkg and not current_email:
-        state["stage"] = "awaiting_email"
-        states[sender_id] = state
-        save_states(states)
+    # =========================================================================
+    # INTENT & INPUT PARSING: Email, Package, or Change Requests
+    # =========================================================================
+    email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
+    newly_provided_email = email_match.group(0).lower() if email_match else None
 
-        reply = f"✅ আপনি নির্বাচন করেছেন: **{state.get('package_name')}**\n\nএখন আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, অনুগ্রহ করে সেই জিমেইলটি লিখে পাঠিয়ে দিন: 📧"
-        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
-        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
-        return
+    direct_pkg = parse_package_choice(msg_text)
 
-    # Gmail is present, but Package is MISSING -> Strictly ask for Package!
-    if current_email and not current_pkg:
+    is_package_change_intent = any(k in clean_text for k in [
+        "package change", "change package", "onno package", "onno pack",
+        "package badlabo", "প্যাকেজ চেঞ্জ", "অন্য প্যাকেজ", "প্যাকেজ পরিবর্তন",
+        "change plan", "different package", "another package", "plan change",
+        "onno plan", "অন্য প্ল্যান", "প্যাকেজ বদলাতে", "package change korbo",
+        "package change korte chai", "অন্য কোন প্যাকেজ", "অন্য প্যাকেজ দিন",
+        "প্যাকেজ বদলাবো", "onno package den"
+    ])
+
+    is_email_change_intent = any(k in clean_text for k in [
+        "email change", "change email", "onno email", "onno mail",
+        "gmail change", "change gmail", "ইমেইল চেঞ্জ", "জিমেইল চেঞ্জ",
+        "অন্য ইমেইল", "অন্য জিমেইল", "ইমেইল পরিবর্তন", "gmail change korte chai"
+    ])
+
+    # If user explicitly asks to change package without specifying which one:
+    if is_package_change_intent and not direct_pkg:
+        state["package_key"] = None
+        state["package_name"] = None
+        state["package_price"] = None
         state["stage"] = "awaiting_package"
         states[sender_id] = state
         save_states(states)
 
         reply = (
-            f"ধন্যবাদ {sender_name}! আপনার জিমেইল ({current_email}) পেয়েছি 😊\n\n"
-            f"এখন অনুগ্রহ করে আপনি কোন প্যাকেজটি নিতে চান তা নির্বাচন করুন:\n\n"
+            f"অবশ্যই {sender_name}! 😊 আপনি কোন প্যাকেজে পরিবর্তন করতে চান তা নির্বাচন করুন:\n\n"
             f"১. ১ মাস — ২৫ টাকা\n"
             f"২. ৩ মাস — ৫০ টাকা (সবচেয়ে জনপ্রিয় ✨)\n"
             f"৩. ৬ মাস — ৯৯ টাকা"
@@ -915,8 +931,267 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
         return
 
-    # Neither package nor Gmail is present yet
-    # If customer sent a sticker, GIF, or emoji:
+    # If user explicitly asks to change email:
+    if is_email_change_intent and not newly_provided_email:
+        state["email"] = None
+        state["saved_email"] = None
+        state["stage"] = "awaiting_email"
+        states[sender_id] = state
+        save_states(states)
+
+        reply = f"অবশ্যই {sender_name}! 😊 আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, নতুন জিমেইলটি লিখে পাঠিয়ে দিন: 📧"
+        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
+        send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+        return
+
+    # Apply detected email and package to state
+    pkg_was_changed = False
+    if direct_pkg:
+        if state.get("package_key") != direct_pkg["key"]:
+            pkg_was_changed = True
+        state["package_key"] = direct_pkg["key"]
+        state["package_name"] = direct_pkg["name"]
+        state["package_price"] = direct_pkg["price"]
+
+    email_was_provided_now = False
+    if newly_provided_email:
+        state["email"] = newly_provided_email
+        state["saved_email"] = newly_provided_email
+        email_was_provided_now = True
+
+    state["sender_name"] = sender_name
+    states[sender_id] = state
+    save_states(states)
+
+    current_pkg = state.get("package_key")
+    current_email = state.get("email")
+
+    # =========================================================================
+    # STEP 3 OF FUNNEL: AWAITING CONFIRMATION (Both Package and Email exist!)
+    # Strict sequence: Package -> Mail -> Confirmation -> Link -> Verification
+    # =========================================================================
+    if current_pkg and current_email:
+        state["stage"] = "awaiting_confirm"
+        states[sender_id] = state
+        save_states(states)
+
+        # Did customer explicitly confirm?
+        if is_explicit_confirmation(msg_text, payload=clean_text):
+            # STEP 4 OF FUNNEL: Deliver 10-Minute Expiring Link!
+            sub = add_subscriber(current_email, current_pkg, sender_name, fb_sender_id=sender_id)
+            cid = sub.get("customer_id") or get_customer_id_by_sender(sender_id, sender_name, current_email)
+
+            link_data = create_expiring_invite(current_email, minutes=10)
+            join_url = f"https://designhub-1any.onrender.com/join/{link_data['token']}"
+
+            state["stage"] = "awaiting_payment"
+            state["join_link"] = join_url
+            state["customer_id"] = cid
+            states[sender_id] = state
+            save_states(states)
+
+            reply = (
+                f"আপনার Canva Pro টিম জয়েন লিংক নিচে দেওয়া হলো:\n\n"
+                f"🔗 {join_url}\n\n"
+                f"⚠️ গুরুত্বপূর্ণ: এই লিংকটি আগামী ১০ মিনিটের জন্য সক্রিয় থাকবে। এখনই লিংকে ক্লিক করে আপনার টিমে যুক্ত হয়ে নিন।\n\n"
+                f"💳 পেমেন্ট তথ্য:\n"
+                f"• প্যাকেজ: {state.get('package_name')}\n"
+                f"• বিকাশ / নগদ (Personal): 01571425035, 01798361516\n\n"
+                f"টিমে জয়েন করার পর পেমেন্ট সম্পন্ন করে ট্রানজেকশন আইডি (TrxID) বা স্ক্রিনশট পাঠিয়ে দিন। ধন্যবাদ! 🎨"
+            )
+            quick_btns = [
+                {"content_type": "text", "title": "🔗 New Link", "payload": "ACTION_NEW_LINK"},
+                {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
+                {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+            ]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+
+            alert = (
+                f"⚡ *NEW CANVA PRO ACCESS DELIVERED! (Messenger)*\n"
+                f"────────────────────────\n"
+                f"👤 Customer: {sender_name} (ID: `#{cid}`)\n"
+                f"📧 Email: `{current_email}`\n"
+                f"📦 Package: {state.get('package_name')}\n"
+                f"⏳ Status: 🟡 PENDING PAYMENT\n"
+                f"🔗 10-Min Link: `{join_url}`\n"
+                f"────────────────────────"
+            )
+            keyboard = {
+                "inline_keyboard": [
+                    [
+                        {"text": "✅ Mark Paid", "callback_data": f"sub_paid:{current_email}"},
+                        {"text": "🚨 Kick User", "callback_data": f"sub_kick:{current_email}"}
+                    ],
+                    [
+                        {"text": "⏳ Pay Later", "callback_data": f"pay_later_menu:{current_email}"}
+                    ]
+                ]
+            }
+            new_msg_id = send_telegram_alert(alert, reply_markup=keyboard)
+            if new_msg_id:
+                set_pending_telegram_msg(current_email, new_msg_id)
+            return
+
+        # If user just updated their package choice right now:
+        if pkg_was_changed:
+            reply = (
+                f"✅ প্যাকেজ পরিবর্তন করে **{state.get('package_name')}** করা হয়েছে।\n\n"
+                f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
+                f"📦 প্যাকেজ: **{state.get('package_name')}**\n"
+                f"📧 জিমেইল: **{current_email}**\n\n"
+                f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন বা 'ঠিক আছে' লিখে জানান:"
+            )
+            quick_btns = [
+                {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{current_email}"},
+                {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
+            ]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+            return
+
+        # If user just provided their email right now:
+        if email_was_provided_now:
+            reply = (
+                f"ধন্যবাদ {sender_name}! 😊\n\n"
+                f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
+                f"📦 প্যাকেজ: **{state.get('package_name')}**\n"
+                f"📧 জিমেইল: **{current_email}**\n\n"
+                f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন বা 'ঠিক আছে' লিখে জানান:"
+            )
+            quick_btns = [
+                {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{current_email}"},
+                {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
+            ]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+            return
+
+        # If customer asked ANY question or sent text without confirming:
+        # Use AI assistant to directly answer their specific question instead of repeating confirmation blindly!
+        ai_reply = generate_ai_assistant_reply(
+            user_msg=msg_text,
+            sender_name=sender_name,
+            current_stage="awaiting_confirm",
+            current_pkg=state.get("package_name"),
+            saved_email=current_email
+        )
+        if ai_reply:
+            if any(k in clean_text for k in ["admin", "এডমিন", "person", "manush", "kotha bolte chai", "human", "agent"]):
+                alert = (
+                    f"🙋‍♂️ *HUMAN ASSISTANCE REQUESTED! (Messenger)*\n"
+                    f"────────────────────────\n"
+                    f"👤 Customer: {sender_name}\n"
+                    f"💬 Message: '{msg_text}'\n"
+                    f"────────────────────────\n"
+                    f"🔗 [Open Page Inbox](https://business.facebook.com/latest/inbox)"
+                )
+                send_telegram_alert(alert)
+
+            full_reply = (
+                f"{ai_reply}\n\n"
+                f"👉 আপনার ক্যানভা প্রো জয়েন লিংক পেতে তথ্যটি নিশ্চিত করুন:\n"
+                f"• প্যাকেজ: **{state.get('package_name')}**\n"
+                f"• জিমেইল: **{current_email}**\n"
+                f"ঠিক থাকলে নিচের '✅ Confirm & Get Link' চাপুন বা 'ঠিক আছে' লিখে পাঠান 😊"
+            )
+            quick_btns = [
+                {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{current_email}"},
+                {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
+            ]
+            send_fb_message(sender_id, full_reply, page_token, quick_replies=quick_btns)
+            return
+        else:
+            reply = (
+                f"অনুগ্রহ করে আপনার তথ্যটি নিশ্চিত করুন:\n\n"
+                f"📦 প্যাকেজ: **{state.get('package_name')}**\n"
+                f"📧 জিমেইল: **{current_email}**\n\n"
+                f"সবকিছু সঠিক থাকলে নিচের '✅ Confirm & Get Link' বাটনে চাপ দিন বা 'ঠিক আছে' লিখে জানান:"
+            )
+            quick_btns = [
+                {"content_type": "text", "title": "✅ Confirm & Get Link", "payload": f"CONFIRM_YES:{current_email}"},
+                {"content_type": "text", "title": "🔄 Change / Restart", "payload": "ACTION_RESTART"}
+            ]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+            return
+
+    # =========================================================================
+    # STEP 2 OF FUNNEL: AWAITING EMAIL (Package chosen, but Gmail missing!)
+    # =========================================================================
+    if current_pkg and not current_email:
+        state["stage"] = "awaiting_email"
+        states[sender_id] = state
+        save_states(states)
+
+        # Did customer just choose or change package in this turn?
+        if direct_pkg:
+            reply = (
+                f"✅ আপনি নির্বাচন করেছেন: **{state.get('package_name')}**\n\n"
+                f"এখন আপনার যে জিমেইলে (Gmail) Canva Pro অ্যাক্সেস নিতে চান, অনুগ্রহ করে সেই জিমেইলটি লিখে পাঠিয়ে দিন: 📧"
+            )
+            quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+            return
+
+        # Customer asked a question or sent text while in awaiting_email:
+        ai_reply = generate_ai_assistant_reply(
+            user_msg=msg_text,
+            sender_name=sender_name,
+            current_stage="awaiting_email",
+            current_pkg=state.get("package_name"),
+            saved_email=None
+        )
+        if ai_reply:
+            full_reply = (
+                f"{ai_reply}\n\n"
+                f"(আপনার নির্বাচিত প্যাকেজ: **{state.get('package_name')}**। অ্যাক্সেস চালু করতে অনুগ্রহ করে আপনার জিমেইলটি লিখে জানিয়ে দিন 📧)"
+            )
+            quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
+            send_fb_message(sender_id, full_reply, page_token, quick_replies=quick_btns)
+            return
+        else:
+            reply = f"✅ আপনার নির্বাচিত প্যাকেজ: **{state.get('package_name')}**\n\nCanva Pro অ্যাক্সেস নিতে অনুগ্রহ করে আপনার জিমেইল (Gmail) অ্যাড্রেসটি লিখে পাঠান: 📧"
+            quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
+            send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
+            return
+
+    # =========================================================================
+    # STEP 1 OF FUNNEL: AWAITING PACKAGE (Gmail provided first, package missing)
+    # =========================================================================
+    if current_email and not current_pkg:
+        state["stage"] = "awaiting_package"
+        states[sender_id] = state
+        save_states(states)
+
+        ai_reply = generate_ai_assistant_reply(
+            user_msg=msg_text,
+            sender_name=sender_name,
+            current_stage="awaiting_package",
+            current_pkg=None,
+            saved_email=current_email
+        )
+        if ai_reply:
+            full_reply = (
+                f"{ai_reply}\n\n"
+                f"📦 আপনি কোন প্যাকেজটি নিতে চান?\n"
+                f"১. ১ মাস — ২৫ টাকা\n"
+                f"২. ৩ মাস — ৫০ টাকা (সবচেয়ে জনপ্রিয় ✨)\n"
+                f"৩. ৬ মাস — ৯৯ টাকা\n\n"
+                f"অনুগ্রহ করে পছন্দের প্যাকেজটি বাছাই করুন:"
+            )
+            send_fb_message(sender_id, full_reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
+            return
+        else:
+            reply = (
+                f"ধন্যবাদ {sender_name}! আপনার জিমেইল ({current_email}) পেয়েছি 😊\n\n"
+                f"এখন অনুগ্রহ করে আপনি কোন প্যাকেজটি নিতে চান তা নির্বাচন করুন:\n\n"
+                f"১. ১ মাস — ২৫ টাকা\n"
+                f"২. ৩ মাস — ৫০ টাকা (সবচেয়ে জনপ্রিয় ✨)\n"
+                f"৩. ৬ মাস — ৯৯ টাকা"
+            )
+            send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
+            return
+
+    # =========================================================================
+    # STEP 0 OF FUNNEL: INITIAL GREETING / GENERAL QUESTIONS (No Package, No Gmail)
+    # =========================================================================
     if is_reaction or not clean_text:
         reply = (
             f"আসসালামু আলাইকুম {sender_name}! 🎨 Design Hub-এ আপনাকে স্বাগতম।\n\n"
@@ -928,20 +1203,14 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
         return
 
-    # =========================================================================
-    # PRIMARY CONVERSATIONAL VOICE: KILO AI GATEWAY SALES ASSISTANT
-    # Talks dynamically like a real, helpful human assistant for all questions!
-    # =========================================================================
     ai_reply = generate_ai_assistant_reply(
         user_msg=msg_text,
         sender_name=sender_name,
-        current_stage=stage,
-        current_pkg=state.get("package_name"),
-        saved_email=state.get("saved_email") or state.get("email")
+        current_stage="awaiting_package",
+        current_pkg=None,
+        saved_email=None
     )
-
     if ai_reply:
-        # Check if customer asked for human/admin in the text -> notify Telegram!
         if any(k in clean_text for k in ["admin", "এডমিন", "person", "manush", "kotha bolte chai", "human", "agent"]):
             alert = (
                 f"🙋‍♂️ *HUMAN ASSISTANCE REQUESTED! (Messenger)*\n"
@@ -953,71 +1222,16 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             )
             send_telegram_alert(alert)
 
-        # Check if customer cancelled or postponed in the text -> notify Telegram!
-        if is_cancel_or_postpone(clean_text):
-            state["stage"] = "awaiting_package"
-            states[sender_id] = state
-            save_states(states)
-            alert = (
-                f"ℹ️ *CUSTOMER POSTPONED / CANCELLED (Messenger)*\n"
-                f"────────────────────────\n"
-                f"👤 Customer: {sender_name}\n"
-                f"💬 Message: '{msg_text}'\n"
-                f"────────────────────────\n"
-                f"Customer said: postpone / cancel."
-            )
-            send_telegram_alert(alert)
-
-        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}] if stage == "awaiting_email" else get_package_buttons(state.get("lang", "bn"))
-        send_fb_message(sender_id, ai_reply, page_token, quick_replies=quick_btns)
+        send_fb_message(sender_id, ai_reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
         return
 
-    # =========================================================================
-    # SAFETY FALLBACK: Used ONLY if Manifest AI Gateway is unreachable
-    # =========================================================================
+    # Safety Fallback
     unsup_reply = check_unsupported_duration(clean_text)
     if unsup_reply:
-        quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}] if stage == "awaiting_email" else get_package_buttons(state.get("lang", "bn"))
-        send_fb_message(sender_id, unsup_reply, page_token, quick_replies=quick_btns)
+        send_fb_message(sender_id, unsup_reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
         return
 
-    if is_cancel_or_postpone(clean_text):
-        state["stage"] = "awaiting_package"
-        states[sender_id] = state
-        save_states(states)
-        reply = "ঠিক আছে ভাইয়া, কোনো সমস্যা নেই! 😊 আপনার সুবিধাজনক সময়ে নক দিয়েন, আমরা সবসময় আছি ✨"
-        send_fb_message(sender_id, reply, page_token, quick_replies=[{"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}])
-        return
-
-    if any(k in clean_text for k in ["admin", "এডমিন", "person", "manush", "kotha bolte chai", "human", "agent"]):
-        reply = "অবশ্যই! একটু অপেক্ষা করুন, আমাদের একজন এডমিন এখনই আপনার সাথে যুক্ত হচ্ছেন। 🙋‍♂️\n\nজরুরি প্রয়োজনে কল করতে পারেন: 01571425035 📞"
-        send_fb_message(sender_id, reply, page_token, quick_replies=[{"content_type": "text", "title": "🔄 Main Menu", "payload": "ACTION_RESTART"}])
-        return
-
-    if any(k in clean_text for k in ["feature", "features", "ফিচার", "সুবিধা", "কি কি সুবিধা", "কি পাবো", "ki ki pabo", "ki pabo", "what will i get", "benefit", "benefits", "কি সুবিধা"]):
-        feat_reply = (
-            "✨ Canva Pro-তে যে যে সুবিধাগুলো পাবেন:\n\n"
-            "• ১০০M+ প্রিমিয়াম ফটো, ভিডিও, অডিও ও গ্রাফিক্স\n"
-            "• ১-ক্লিকে AI ব্যাকগ্রাউন্ড রিমুভার ও ম্যাজিক টুলস\n"
-            "• ৩,০০০+ প্রিমিয়াম ফন্ট ও ফুল ব্র্যান্ড কিট অ্যাক্সেস\n"
-            "• ১০০% প্রাইভেট ও নিরাপদ (আপনার ডিজাইন কেউ দেখতে পাবে না)\n"
-            "• ১TB ক্লাউড স্টোরেজ\n"
-            "• ইনস্ট্যান্ট অ্যাক্টিভেশন (আগে অ্যাক্সেস চেক, তারপর পেমেন্ট)"
-        )
-        send_fb_message(sender_id, feat_reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
-        return
-
-    if is_bargain_or_discount(clean_text):
-        reply = "ভাইয়া, ৩ মাসের প্যাকেজটি মাত্র ৫০ টাকায় দিচ্ছি, এটা এমনিতেই একদম কম রেট! 😅 এর চেয়ে কম রাখা সম্ভব হচ্ছে না ✨"
-        send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
-        return
-
-    if stage == "awaiting_email":
-        reply = "আপনার ক্যানভা প্রো অ্যাক্সেস চালু করতে আপনার একটি জিমেইল (Gmail) অ্যাড্রেস লিখে জানিয়ে দিন 😊✨"
-        send_fb_message(sender_id, reply, page_token, quick_replies=[{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}])
-        return
-
-    reply = "জি ভাইয়া, ক্যানভা প্রো নিয়ে আপনার প্রশ্ন বা পছন্দের প্যাকেজটি জানাতে পারেন, আমরা এখনই সাহায্য করছি 😊✨"
+    reply = "জি ভাইয়া, ক্যানভা প্রো নিয়ে আপনার যেকোনো প্রশ্ন বা পছন্দের প্যাকেজটি জানাতে পারেন, আমরা এখনই সাহায্য করছি 😊✨"
     send_fb_message(sender_id, reply, page_token, quick_replies=get_package_buttons(state.get("lang", "bn")))
     return
 
