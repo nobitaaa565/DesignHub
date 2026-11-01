@@ -515,8 +515,9 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
         try:
             payload = {
                 "model": m,
-                "max_tokens": 1200,
-                "temperature": 0.7,
+                "max_tokens": 2500,
+                "temperature": 0.6,
+                "reasoning": {"effort": "low"},
                 "messages": [
                     {"role": "system", "content": system_instruction},
                     {"role": "user", "content": prompt}
@@ -557,6 +558,7 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
                             .replace("ডিজাইন হাবের", "Design Hub-এর")
                             .replace("ডিজাইন হাবে", "Design Hub-এ")
                             .replace("ডিজাইন হাব", "Design Hub")
+                            .replace("Design Hub-ে", "Design Hub-এ")
                         )
                         logger.info(f"✨ Kilo AI Gateway answered for {first_name} (routed model: {m})")
                         return ans
