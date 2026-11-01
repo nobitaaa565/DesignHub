@@ -24,7 +24,7 @@ import threading
 import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from canva_worker import invite_canva_member, kick_canva_member, is_canva_authenticated
-from facebook_funnel import handle_incoming_customer_message, send_payment_confirmed_to_customer, send_expiry_reminder_to_customer, send_subscription_ended_to_customer, notify_owner_user_joined_canva, load_replied_ids, save_replied_ids
+from facebook_funnel import handle_incoming_customer_message, send_payment_confirmed_to_customer, send_expiry_reminder_to_customer, send_subscription_ended_to_customer, notify_owner_user_joined_canva, load_replied_ids, save_replied_ids, send_telegram_alert
 from payment_verifier import analyze_payment_screenshot, extract_trx_from_text
 from subscription_manager import (
     get_all_teams_meta,
@@ -57,7 +57,12 @@ from subscription_manager import (
     delete_team,
     get_all_references,
     add_reference,
-    update_reference
+    update_reference,
+    get_pending_unpaid_for_autokick,
+    get_due_pay_later_reminders,
+    set_pay_later,
+    cancel_pay_later,
+    mark_pay_later_reminded
 )
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
@@ -323,7 +328,7 @@ def post_fb_comment_reply(comment_id: str, reply_text: str) -> bool:
         return False
 
 
-def check_and_reply_comments() -> dict:
+def check_and_reply_comments(bot=None) -> dict:
     """Scans all posts on the page and auto-replies to new comments."""
     replied_ids = load_replied_ids()
     url = f"https://graph.facebook.com/v20.0/{FB_PAGE_ID}/feed"
@@ -1621,6 +1626,70 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=snooze_kb,
             parse_mode="Markdown"
         )
+        return
+
+    if data.startswith("snooze_pay:"):
+        parts = data.split(":")
+        email = parts[1]
+        hours = int(parts[2]) if len(parts) > 2 else 24
+
+        res = set_pay_later(email, hours)
+        sub = get_subscriber(email)
+        name = sub.get("name") if sub else "Customer"
+        cid = sub.get("customer_id") if sub else 800
+        scheduled_time = res.get("until_str", f"+{hours}h")
+
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        after_kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("✅ Mark Paid Now", callback_data=f"sub_paid:{email}"),
+                InlineKeyboardButton("🚨 Kick User Now", callback_data=f"sub_kick:{email}")
+            ],
+            [
+                InlineKeyboardButton("🔗 Open Canva Team to Remove Seat", url="https://www.canva.com/settings/team-members")
+            ]
+        ])
+        await query.edit_message_text(
+            f"⏳ *PAY LATER SCHEDULED!*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {name} (ID: `#{cid}`)\n"
+            f"📧 Email: `{email}`\n"
+            f"⏸️ 30-Min Auto-Kick: *PAUSED*\n"
+            f"⏰ Scheduled Reminder: `{scheduled_time}` (+{hours}h)\n"
+            f"────────────────────────\n"
+            f"At the scheduled time, the bot will remind you to check their payment.",
+            reply_markup=after_kb,
+            parse_mode="Markdown"
+        )
+        return
+
+    if data.startswith("snooze_cancel:"):
+        email = data.split(":", 1)[1]
+        cancel_pay_later(email)
+        sub = get_subscriber(email)
+        name = sub.get("name") if sub else "Customer"
+        cid = sub.get("customer_id") if sub else 800
+
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        default_kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("✅ Mark Paid", callback_data=f"sub_paid:{email}"),
+                InlineKeyboardButton("🚨 Kick User", callback_data=f"sub_kick:{email}")
+            ],
+            [
+                InlineKeyboardButton("⏳ Pay Later", callback_data=f"pay_later_menu:{email}")
+            ]
+        ])
+        await query.edit_message_text(
+            f"ℹ️ *PAY LATER CANCELLED*\n"
+            f"────────────────────────\n"
+            f"👤 Customer: {name} (ID: `#{cid}`)\n"
+            f"📧 Email: `{email}`\n"
+            f"⏱️ 30-Minute Auto-Kick is *ACTIVE* if payment is not received.",
+            reply_markup=default_kb,
+            parse_mode="Markdown"
+        )
+        return
         
 
     if data.startswith("sub_ext:"):
