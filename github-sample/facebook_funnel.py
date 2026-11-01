@@ -241,6 +241,9 @@ def is_bargain_or_discount(text: str) -> bool:
         "discount", "discnt", "koman", "komano", "kom koren", "dam kom",
         "rate kom", "tk kom", "taka kom", "kichu kom", "kom hobe", "komaia",
         "komano jay", "kom rakha",
+        # Bengali script
+        "কম রাখা", "রাখা যায়", "রাখা যাবে", "রাখেন", "রাখবেন", "কমান", "কমানো",
+        "কম হবে", "ডিসকাউন্ট", "দাম কম", "কিছু কম", "কত রাখবেন", "কমিয়ে", "কমাইয়া",
         # English
         "discount", "lower price", "reduce price", "cheaper", "negotiable", 
         "can you do 50", "can you give for", "any discount", "best price",
@@ -248,6 +251,29 @@ def is_bargain_or_discount(text: str) -> bool:
         "tawad", "diskwento", "bawas", "pwede bawasan", "pwede discount", "pwede bang 50", "pwede discount po"
     ]
     return any(w in clean for w in bargain_words)
+
+
+def validate_customer_email(email: str):
+    """Validates extracted email against common typos (e.g. gamil.com) and fake domains (e.g. vuamail.com, hh.com)."""
+    if not email or "@" not in email:
+        return False, "অনুগ্রহ করে একটি সঠিক ও সচল পার্সোনাল জিমেইল (@gmail.com) অ্যাড্রেস লিখে পাঠান 😊📧"
+    local_part, domain = email.lower().strip().split("@", 1)
+    typo_domains = {
+        "gamil.com", "gmial.com", "gmal.com", "gmai.com", "gmail.con",
+        "gmail.co", "gmaill.com", "gamil.co", "yaho.com", "outlok.com"
+    }
+    if domain in typo_domains:
+        return False, f"ভাইয়া, আপনার জিমেইল বানানে সম্ভবত একটু ভুল হয়েছে ({email}) 😅। অনুগ্রহ করে সঠিক @gmail.com অ্যাড্রেসটি লিখে পাঠান: 📧"
+
+    fake_domains = {
+        "vuamail.com", "fakemail.com", "test.com", "example.com", "hh.com",
+        "aa.com", "abc.com", "xyz.com", "fake.com", "none.com", "nomail.com"
+    }
+    domain_root = domain.split(".")[0]
+    if domain in fake_domains or local_part in ("vua", "fakemail", "testuser") or (len(domain_root) <= 2 and domain not in ("me.com", "qq.com", "gmx.de")):
+        return False, "অনুগ্রহ করে কোনো ভুল বা ডামি মেইল না দিয়ে আপনার সচল পার্সোনাল জিমেইল (@gmail.com) অ্যাড্রেসটি লিখে পাঠান 😊📧"
+
+    return True, ""
 
 
 def is_vulgar_or_bad_words(text: str) -> bool:
@@ -304,8 +330,9 @@ def is_cancel_or_postpone(text: str) -> bool:
     clean = text.lower().strip()
 
     cancel_phrases = [
-        "nope", "cancel", "cancelled", "cancelling",
-        "nibo na", "nebo na", "lagbe na", "chai na", "dorkar nai", "dorkar nei",
+        "nope", "cancel", "cancelled", "cancelling", "cancal", "cansel", "cencel", "kencel",
+        "nibo na", "nebo na", "nimu na", "nimu ba", "dibo na", "dibona", "dimu na",
+        "lagbe na", "chai na", "dorkar nai", "dorkar nei",
         "না থাক", "লাগবে না", "নেব না", "নিব না", "চাই না", "দরকার নেই", "দরকার নাই",
         "বাতিল", "ক্যান্সেল", "pore kotha bolbo", "pore bolbo", "pore dekhbo",
         "pore nibo", "pore nebo", "pore jogajog", "pore ashbo",
@@ -346,7 +373,7 @@ def is_explicit_confirmation(text: str, payload: str = "") -> bool:
     # Reject if negative intent or cancellation or change is present
     negatives = [
         "na", "no", "not", "না", "নাহ", "নেব না", "নিব না", "nibo na", "nebo na",
-        "cancel", "ভুল", "bhul", "change", "wait", "pore", "দাঁড়ান", "থামেন", "stop"
+        "cancel", "cancal", "ভুল", "bhul", "change", "paltabo", "badlabo", "wait", "pore", "দাঁড়ান", "থামেন", "stop"
     ]
     for neg in negatives:
         pat = rf"(?<![a-zA-Z0-9\u0980-\u09FF]){re.escape(neg)}(?![a-zA-Z0-9\u0980-\u09FF])"
@@ -354,7 +381,7 @@ def is_explicit_confirmation(text: str, payload: str = "") -> bool:
             return False
 
     confirm_phrases = [
-        "y", "yes", "ok", "okay", "ha", "haa", "হাঁ", "হ্যাঁ", "হ্যা",
+        "y", "yes", "ok", "okay", "ha", "haa", "hay", "হাঁ", "হ্যাঁ", "হ্যা",
         "confirm", "thik ache", "ঠিক আছে", "tik ache", "all ok", "everything ok",
         "shob thik ache", "সব ঠিক আছে", "link pathan", "link den", "লিংক দিন",
         "লিংক পাঠান", "accha den", "acha den", "proceed", "done"
@@ -370,18 +397,18 @@ def is_explicit_confirmation(text: str, payload: str = "") -> bool:
 def check_unsupported_duration(text: str) -> str:
     """Detects requests for durations we don't offer (e.g. 4 months, 1 year) and responds politely."""
     clean = text.lower().strip()
-    match = re.search(r"\b(4|5|7|8|9|10|11|12|২|৪|৫|৭|৮|৯|১০|১১|১২)\s*(mash|masher|month|months|মাসের|মাস)\b", clean)
+    match = re.search(r"(?<![0-9\u09E6-\u09EF])(4|5|7|8|9|10|11|12|২|৪|৫|৭|৮|৯|১০|১১|১২)\s*(mash|masher|mas|month|months|মাসের|মাস)(?![a-zA-Z\u0980-\u09FF])", clean)
     if match:
         return "ভাইয়া, আমাদের ৪ বা ৫ মাসের প্যাকেজ নেই 😅 আমাদের ফিক্সড প্যাকেজগুলো হলো: ১ মাস (২৫৳), ৩ মাস (৫০৳) এবং ৬ মাস (৯৯৳)। আপনি কোনটি নিতে চান? ✨"
-    if any(k in clean for k in ["1 year", "1year", "১ বছর", "এক বছর", "১২ মাস", "12 month", "one year"]):
-        return "ভাইয়া, আমাদের ১ বছরের কোনো প্যাকেজ নেই, তবে আপনি ৬ মাসের প্যাকেজটি (৯৯৳) নিয়ে পরবর্তীতে খুব সহজেই মেয়াদ রিনিউ করে নিতে পারবেন! ✨"
+    if any(k in clean for k in ["1 year", "1year", "১ বছর", "এক বছর", "১২ মাস", "12 month", "one year", "1 bochor", "ek bochor"]):
+        return "ভাইয়া, আমাদের ১ বছরের কোনো প্যাকেজ নেই 😊 তবে আপনি ৬ মাসের প্যাকেজটি (৯৯৳) নিয়ে পরবর্তীতে খুব সহজেই একই জিমেইলে মেয়াদ রিনিউ করে নিতে পারবেন! ✨"
     return ""
 
 
 def parse_package_choice(text: str):
     """Ultra-fast rule & regex package parser for button payloads and common colloquial text across English, Tagalog, and Bengali."""
     clean = text.lower().strip()
-    if not clean or is_bargain_or_discount(clean):
+    if not clean or is_bargain_or_discount(clean) or check_unsupported_duration(clean):
         return None
 
     # Check button payloads & exact text
@@ -401,11 +428,11 @@ def parse_package_choice(text: str):
         return PACKAGES["3"]
 
     # Common Banglish/Bengali/English regex patterns
-    if re.search(r"\b(1|১)\s*(no|num|number|st|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(25|২৫)\s*(tk|taka|টাকা|৳)\b", clean):
+    if re.search(r"(?<![0-9\u09E6-\u09EF])(1|১)\s*(no|num|number|st|ta|টা|টায়|নম্বর|নং)", clean) or re.search(r"(?<![0-9\u09E6-\u09EF])(25|২৫)\s*(tk|taka|takar|টাকা|টাকার|৳)", clean):
         return PACKAGES["1"]
-    if re.search(r"\b(2|২)\s*(no|num|number|nd|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(50|৫০)\s*(tk|taka|টাকা|৳)\b", clean):
+    if re.search(r"(?<![0-9\u09E6-\u09EF])(2|২)\s*(no|num|number|nd|ta|টা|টায়|নম্বর|নং)", clean) or re.search(r"(?<![0-9\u09E6-\u09EF])(50|৫০)\s*(tk|taka|takar|টাকা|টাকার|৳)", clean):
         return PACKAGES["2"]
-    if re.search(r"\b(3|৩)\s*(no|num|number|rd|ta|টা|টায়|নম্বর|নং)\b", clean) or re.search(r"\b(99|৯৯)\s*(tk|taka|টাকা|৳)\b", clean):
+    if re.search(r"(?<![0-9\u09E6-\u09EF])(3|৩)\s*(no|num|number|rd|ta|টা|টায়|নম্বর|নং)", clean) or re.search(r"(?<![0-9\u09E6-\u09EF])(99|৯৯)\s*(tk|taka|takar|টাকা|টাকার|৳)", clean):
         return PACKAGES["3"]
 
     return None
@@ -450,9 +477,23 @@ def generate_ai_assistant_reply(user_msg: str, sender_name: str = "there", curre
             "- Packages: 1 Month (25 TK), 3 Months (50 TK), 6 Months (99 TK). Always format packages and features in bullet points.\n"
         )
 
+    stage_hint = ""
+    if current_stage == "awaiting_confirm":
+        stage_hint = "Note: We already have their Package and Gmail, and a confirmation card is automatically attached below your answer. Just directly answer their question in 1-2 short sentences without repeating the confirmation card or asking for Gmail again.\n"
+    elif current_stage == "awaiting_email":
+        stage_hint = f"Note: They already selected {current_pkg}, and a Gmail prompt is attached below your answer. Just directly answer their question in 1-2 short sentences without listing all packages again.\n"
+    elif current_stage == "awaiting_payment":
+        stage_hint = "Note: Their 10-minute join link has already been generated and we are awaiting their bKash/Nagad payment (01571425035, 01798361516) TrxID or screenshot. Answer their question warmly in 1-2 short sentences.\n"
+
     prompt = (
-        f"Context: Customer: {first_name}, Stage: {current_stage}, Package: {current_pkg or 'None'}, Provided Gmail: {saved_email or 'Not provided yet'}\n"
-        f"Customer says: \"{user_msg}\"\n"
+        f"Context: Customer: {first_name} | Stage: {current_stage} | Package: {current_pkg or 'None'} | Provided Gmail: {saved_email or 'Not provided yet'}\n"
+        f"{stage_hint}"
+        f"Customer says: \"{user_msg}\"\n\n"
+        f"STRICT RESPONSE RULES:\n"
+        f"1. SCRIPT RULE: If the customer writes in Bangla OR Banglish (Bengali words using English letters, e.g. 'koto', 'nibo', 'ase', 'keno', 'kivabe'), you MUST reply in 100% pure Bangla script (বাংলা হরফে). NEVER write in Banglish! Only reply in English if the customer writes in actual English.\n"
+        f"2. DIRECT & CONCISE: Answer what the customer asked in 1-2 short, warm sentences. Never hallucinate offers or claim you sent a link in text.\n"
+        f"3. PRODUCT SCOPE: Always write 'Design Hub' in English. We ONLY offer official Canva Pro access on personal Gmail (@gmail.com): 1 Month = 25 TK, 3 Months = 50 TK, 6 Months = 99 TK. No other software, no 4-month or 1-year plans (they can take 6 months and renew anytime).\n"
+        f"4. FORMAT: Format any package/feature list in vertical bullet points (•). Output ONLY the final reply text.\n\n"
         f"Assistant response:"
     )
 
@@ -539,7 +580,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
     stage = state.get("stage", "greeting")
 
     clean_text = msg_text.strip().lower()
-    is_reaction = clean_text in ("👍", "(y)", "like", "লাইক", "[sticker]", "[gif]")
+    is_reaction = clean_text in ("👍", "(y)", "like", "লাইক", "[sticker]", "[gif]", ".", "..", "...")
 
     # =========================================================================
     # GUARD 1: VULGAR OR BAD WORDS FILTER
@@ -613,7 +654,7 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
     # =========================================================================
     # GUARD 4: EXTEND DURATION (Renewal)
     # =========================================================================
-    if clean_text in ("extend", "মেয়াদ বাড়ান", "বাড়াতে চাই", "action_extend", "রিনিউ"):
+    if any(k in clean_text for k in ("extend", "মেয়াদ বাড়ান", "বাড়াতে চাই", "action_extend", "রিনিউ")):
         states[sender_id] = {
             "stage": "awaiting_package",
             "sender_name": sender_name,
@@ -636,14 +677,16 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
         return
 
     # =========================================================================
-    # GUARD 5: EXPLICIT REQUEST FOR FRESH LINK (When expired)
+    # GUARD 5: EXPLICIT REQUEST FOR FRESH LINK (When expired or not working)
     # =========================================================================
     is_explicit_new_link = (
         "action_new_link" in clean_text
         or any(k in clean_text for k in [
             "new link", "newlink", "notun link", "নতুন লিংক", "link expired", 
             "link is expired", "link has expired", "expired link", "মেয়াদ শেষ", 
-            "লিংক কাজ করছে না", "kaj kore na", "link pathan", 
+            "লিংক কাজ করছে না", "লিংক কাজ করতেছে না", "কাজ করছে না", "কাজ করতেছে না",
+            "kaj kore na", "kaj kortese na", "kaj korche na", "link not working",
+            "link is not working", "not working", "link pathan", 
             "send link", "give link", "link please", "expire", "expired", "আরেকটি লিংক"
         ])
     )
@@ -690,7 +733,8 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             return
 
     # =========================================================================
-    # STEP 5 OF FUNNEL: PAYMENT VERIFICATION (ONLY ACTIVE AFTER LINK SENT!)
+    # STEP 5A OF FUNNEL: PAYMENT PROOF CHECK (TrxID & Screenshot when awaiting_payment)
+    # Checked BEFORE package/email parsing so "50 tk paid TrxID..." isn't parsed as package!
     # =========================================================================
     if stage == "awaiting_payment":
         # Check for TrxID in text
@@ -865,16 +909,56 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
                 send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
                 return
 
+    # =========================================================================
+    # INTENT & INPUT PARSING: Email, Package, or Change Requests
+    # =========================================================================
+    email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
+    raw_extracted_email = email_match.group(0).lower().rstrip(".") if email_match else None
+    newly_provided_email = None
+    if raw_extracted_email:
+        is_valid_email, err_msg = validate_customer_email(raw_extracted_email)
+        if not is_valid_email:
+            quick_btns = [{"content_type": "text", "title": "🔄 Change Package", "payload": "ACTION_RESTART"}]
+            send_fb_message(sender_id, err_msg, page_token, quick_replies=quick_btns)
+            return
+        newly_provided_email = raw_extracted_email
+
+    direct_pkg = parse_package_choice(msg_text)
+
+    is_package_change_intent = any(k in clean_text for k in [
+        "package change", "change package", "onno package", "onno pack",
+        "package badlabo", "package paltabo", "প্যাকেজ চেঞ্জ", "অন্য প্যাকেজ", "প্যাকেজ পরিবর্তন",
+        "change plan", "different package", "another package", "plan change",
+        "onno plan", "অন্য প্ল্যান", "প্যাকেজ বদলাতে", "package change korbo",
+        "package change korte chai", "অন্য কোন প্যাকেজ", "অন্য প্যাকেজ দিন",
+        "প্যাকেজ বদলাবো", "onno package den", "ami paltabo", "paltate chai", "পাল্টাবো"
+    ])
+
+    is_email_change_intent = any(k in clean_text for k in [
+        "email change", "change email", "mail change", "change mail",
+        "onno email", "onno mail", "arekta mail", "arekta gmail",
+        "gmail change", "change gmail", "ইমেইল চেঞ্জ", "জিমেইল চেঞ্জ", "মেইল চেঞ্জ",
+        "অন্য ইমেইল", "অন্য জিমেইল", "অন্য মেইল", "ইমেইল পরিবর্তন", "মেইল পরিবর্তন",
+        "gmail change korte chai", "mail change korte chai", "mail change korte cai",
+        "onno mail e nite cai", "onno mail e nite chai", "onno mail e nibo"
+    ])
+
+    # =========================================================================
+    # STEP 5B OF FUNNEL: QUESTIONS DURING AWAITING_PAYMENT
+    # If customer is in awaiting_payment and did NOT request a package/email change,
+    # answer their question and NEVER downgrade stage back to awaiting_confirm!
+    # =========================================================================
+    if stage == "awaiting_payment" and not is_package_change_intent and not is_email_change_intent and not direct_pkg and not newly_provided_email:
         if is_reaction or not msg_text:
             reply = f"ধন্যবাদ {sender_name}! 😊 ক্যানভা টিমে যুক্ত হয়ে পেমেন্ট সম্পন্ন করে থাকলে অনুগ্রহ করে আপনার ট্রানজেকশন আইডি (TrxID) বা পেমেন্ট স্ক্রিনশটটি পাঠিয়ে দিন, আমরা এখনই কনফার্ম করে দিচ্ছি। ✨"
             quick_btns = [
+                {"content_type": "text", "title": "🔗 New Link", "payload": "ACTION_NEW_LINK"},
                 {"content_type": "text", "title": "⌛ মেয়াদ বাড়ান (Extend)", "payload": "ACTION_EXTEND"},
                 {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
             ]
             send_fb_message(sender_id, reply, page_token, quick_replies=quick_btns)
             return
 
-        # Customer asking a question while in awaiting_payment
         ai_reply = generate_ai_assistant_reply(
             user_msg=msg_text,
             sender_name=sender_name,
@@ -882,36 +966,19 @@ def handle_incoming_customer_message(sender_id: str, sender_name: str, msg_text:
             current_pkg=state.get("package_name"),
             saved_email=state.get("saved_email") or state.get("email")
         )
+        quick_btns = [
+            {"content_type": "text", "title": "🔗 New Link", "payload": "ACTION_NEW_LINK"},
+            {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
+        ]
         if ai_reply:
-            quick_btns = [
-                {"content_type": "text", "title": "🔗 New Link", "payload": "ACTION_NEW_LINK"},
-                {"content_type": "text", "title": "🔄 Restart", "payload": "ACTION_RESTART"}
-            ]
             send_fb_message(sender_id, ai_reply, page_token, quick_replies=quick_btns)
-            return
-
-    # =========================================================================
-    # INTENT & INPUT PARSING: Email, Package, or Change Requests
-    # =========================================================================
-    email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", msg_text)
-    newly_provided_email = email_match.group(0).lower() if email_match else None
-
-    direct_pkg = parse_package_choice(msg_text)
-
-    is_package_change_intent = any(k in clean_text for k in [
-        "package change", "change package", "onno package", "onno pack",
-        "package badlabo", "প্যাকেজ চেঞ্জ", "অন্য প্যাকেজ", "প্যাকেজ পরিবর্তন",
-        "change plan", "different package", "another package", "plan change",
-        "onno plan", "অন্য প্ল্যান", "প্যাকেজ বদলাতে", "package change korbo",
-        "package change korte chai", "অন্য কোন প্যাকেজ", "অন্য প্যাকেজ দিন",
-        "প্যাকেজ বদলাবো", "onno package den"
-    ])
-
-    is_email_change_intent = any(k in clean_text for k in [
-        "email change", "change email", "onno email", "onno mail",
-        "gmail change", "change gmail", "ইমেইল চেঞ্জ", "জিমেইল চেঞ্জ",
-        "অন্য ইমেইল", "অন্য জিমেইল", "ইমেইল পরিবর্তন", "gmail change korte chai"
-    ])
+        else:
+            fallback = (
+                f"ভাইয়া, আপনার জয়েন লিংক পাঠানো হয়েছে 😊। টিমে যুক্ত হয়ে পেমেন্ট (বিকাশ/নগদ Personal: 01571425035, 01798361516) সম্পন্ন করে TrxID বা স্ক্রিনশট পাঠিয়ে দিন। "
+                f"লিংকের মেয়াদ শেষ হয়ে গেলে নিচের '🔗 New Link' বাটনে চাপ দিন! ✨"
+            )
+            send_fb_message(sender_id, fallback, page_token, quick_replies=quick_btns)
+        return
 
     # If user explicitly asks to change package without specifying which one:
     if is_package_change_intent and not direct_pkg:
